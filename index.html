@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Tube - WebView UI</title>
+    <style>
+        /* বেসিক রিসেট ও ডিজাইন */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Roboto, Arial, sans-serif; }
+        body { background-color: #ffffff; color: #0f0f0f; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        header { display: flex; justify-content: space-between; padding: 10px 15px; align-items: center; background: #fff; z-index: 10; border-bottom: 1px solid #e5e5e5; }
+        .logo-area { font-size: 20px; font-weight: bold; color: #ff0000; display: flex; align-items: center; }
+        .logo-area span { color: #000; margin-left: 5px; font-family: 'Arial Narrow', sans-serif; letter-spacing: -0.5px; }
+        .header-actions { display: flex; gap: 15px; align-items: center; }
+        .icon-btn { background: none; border: none; font-size: 22px; cursor: pointer; position: relative; padding: 5px; border-radius: 50%; }
+        
+        .category-nav { display: flex; overflow-x: auto; padding: 10px 15px; gap: 10px; border-bottom: 1px solid #e5e5e5; }
+        .category-nav::-webkit-scrollbar { display: none; }
+        .chip { background: #f2f2f2; padding: 6px 14px; border-radius: 8px; font-size: 14px; white-space: nowrap; border: none; cursor: pointer; }
+        .chip.active { background: #0f0f0f; color: #fff; }
+
+        main { flex: 1; overflow-y: auto; background: #f9f9f9; padding-bottom: 60px; }
+        .video-card { background: #fff; margin-bottom: 15px; cursor: pointer; }
+        .thumbnail-container { position: relative; width: 100%; height: 210px; background: #ddd; }
+        .thumbnail-container img { width: 100%; height: 100%; object-fit: cover; }
+        .duration-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.8); color: #fff; font-size: 12px; padding: 3px 6px; border-radius: 4px; }
+        
+        .video-info-area { display: flex; padding: 12px; gap: 12px; }
+        .channel-avatar { width: 40px; height: 40px; border-radius: 50%; background: #ccc; }
+        .video-text-details { display: flex; flex-direction: column; justify-content: center; width: 100%; }
+        .video-title { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+        .video-meta { font-size: 13px; color: #606060; }
+
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; justify-content: space-around; padding: 8px 0; border-top: 1px solid #e5e5e5; }
+        .nav-tab { display: flex; flex-direction: column; align-items: center; font-size: 11px; background: none; border: none; cursor: pointer; width: 20%; }
+        .nav-icon { font-size: 22px; margin-bottom: 3px; }
+
+        /* প্লেয়ার ওভারলে */
+        #player-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 999; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s ease-in-out; }
+        #player-overlay.active { transform: translateY(0); }
+        .player-video-area { width: 100%; background: #000; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; position: relative; }
+        .player-video-area video { width: 100%; height: 100%; object-fit: contain; }
+        .close-player-btn { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; border: none; font-size: 24px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; z-index: 2; }
+        
+        .player-content { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+        .player-title-box { padding: 15px; border-bottom: 1px solid #e5e5e5; }
+        .p-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .p-meta { font-size: 13px; color: #606060; }
+        .channel-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid #e5e5e5; }
+        .c-info-left { display: flex; align-items: center; gap: 10px; }
+        .c-name { font-weight: bold; font-size: 15px; }
+        .c-subs { font-size: 12px; color: #606060; }
+        .subscribe-btn { background: #0f0f0f; color: #fff; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .subscribe-btn.subscribed { background: #f2f2f2; color: #0f0f0f; }
+
+        .action-row { display: flex; gap: 10px; padding: 15px; overflow-x: auto; border-bottom: 1px solid #e5e5e5; }
+        .action-row::-webkit-scrollbar { display: none; }
+        .action-btn { display: flex; align-items: center; gap: 6px; border: none; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+        .btn-download { background: #e5e5e5; }
+        .btn-ai-summary { background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; }
+        .btn-ai-grok { background: #000; color: #fff; }
+        .btn-translate { background: #fce8e6; color: #d93025; border: 1px solid #d93025; }
+
+        .ai-result-box { margin: 15px; padding: 15px; background: #f9f9f9; border-left: 4px solid #1a73e8; border-radius: 5px; display: none; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+    <!-- হেডার -->
+    <header>
+        <div class="logo-area">▶ <span>YouTube</span></div>
+        <div class="header-actions">
+            <button class="icon-btn" onclick="startSearch()">🔍</button>
+            <button class="icon-btn" onclick="startVoiceSearch()">🎤</button>
+        </div>
+    </header>
+
+    <nav class="category-nav">
+        <button class="chip active">সব</button>
+        <button class="chip">মিউজিক</button>
+        <button class="chip">খবর</button>
+    </nav>
+
+    <!-- মেইন ভিডিও ফিড -->
+    <main id="video-feed"></main>
+
+    <!-- বটম নেভিগেশন -->
+    <nav class="bottom-nav">
+        <button class="nav-tab"><span class="nav-icon">🏠</span><span>হোম</span></button>
+        <button class="nav-tab"><span class="nav-icon">📺</span><span>সাবস্ক্রিপশন</span></button>
+        <button class="nav-tab"><span class="nav-icon">👤</span><span>আপনি</span></button>
+    </nav>
+
+    <!-- ভিডিও প্লেয়ার ওভারলে -->
+    <div id="player-overlay">
+        <div class="player-video-area">
+            <button class="close-player-btn" onclick="closePlayer()">↓</button>
+            <video id="main-video-player" controls></video>
+        </div>
+        <div class="player-content">
+            <div class="player-title-box">
+                <h1 id="player-title" class="p-title">লোড হচ্ছে...</h1>
+                <div id="player-meta" class="p-meta">-- ভিউ</div>
+            </div>
+            <div class="channel-row">
+                <div class="c-info-left">
+                    <img id="player-channel-img" class="channel-avatar" src="" alt="লোগো">
+                    <div>
+                        <div id="player-channel-name" class="c-name">চ্যানেল</div>
+                        <div id="player-channel-subs" class="c-subs">লোড হচ্ছে...</div>
+                    </div>
+                </div>
+                <button id="subscribe-btn" class="subscribe-btn" onclick="toggleSubscribe()">সাবস্ক্রাইব</button>
+            </div>
+            
+            <!-- স্মার্ট বাটন (যেগুলো সরাসরি অ্যান্ড্রয়েডকে নির্দেশ দেবে) -->
+            <div class="action-row">
+                <button class="action-btn" onclick="askAndroidToLike()">👍 লাইক</button>
+                <button class="action-btn btn-download" onclick="askAndroidToDownload()">⬇️ ডাউনলোড</button>
+                <button class="action-btn btn-ai-summary" onclick="askAndroidForSummary()">📝 AI Summary</button>
+                <button class="action-btn btn-ai-grok" onclick="askAndroidForFactCheck()">🕵️‍♂️ গোয়েন্দা</button>
+                <button class="action-btn btn-translate" onclick="askAndroidToTranslate()">🌐 ট্রান্সলেট</button>
+            </div>
+            <div id="ai-message-box" class="ai-result-box"></div>
+        </div>
+    </div>
+
+    <!-- জাভাস্ক্রিপ্ট (শুধু UI এবং Android Bridge) -->
+    <script>
+        // ==========================================
+        // Android Bridge Communication (অ্যান্ড্রয়েডের সাথে কথা বলা)
+        // ==========================================
+
+        function askAndroidToDownload() {
+            showAIMessage("অ্যান্ড্রয়েডকে ডাউনলোডের সিগন্যাল পাঠানো হয়েছে...");
+            if(window.Android) window.Android.startDownload();
+        }
+
+        function askAndroidForSummary() {
+            showAIMessage("জেমিনি সামারি তৈরি করছে... (Android কাজ করছে)");
+            if(window.Android) window.Android.getAISummary();
+        }
+
+        function askAndroidForFactCheck() {
+            showAIMessage("গ্রোক ভিডিও যাচাই করছে... (Android কাজ করছে)");
+            if(window.Android) window.Android.runFactCheck();
+        }
+
+        function askAndroidToTranslate() {
+            showAIMessage("লাইভ ট্রান্সলেট শুরু হচ্ছে... (Android কাজ করছে)");
+            if(window.Android) window.Android.startLiveTranslate();
+        }
+
+        function startSearch() {
+            if(window.Android) window.Android.openSearch();
+        }
+
+        function startVoiceSearch() {
+            if(window.Android) window.Android.openVoiceSearch();
+        }
+
+        // ==========================================
+        // Android থেকে ডাটা রিসিভ করা (অ্যান্ড্রয়েড যখন UI কে ডাটা দেবে)
+        // ==========================================
+        
+        // রেজাল্ট বক্সে দেখানোর জন্য
+        function showAIMessage(text) {
+            const box = document.getElementById('ai-message-box');
+            box.style.display = 'block';
+            box.innerHTML = `<strong>✨ AI:</strong> ${text}`;
+            // দৃষ্টিহীনদের জন্য টক-ব্যাক
+            if ('speechSynthesis' in window) {
+                const msg = new SpeechSynthesisUtterance(text);
+                msg.lang = 'bn-IN';
+                window.speechSynthesis.speak(msg);
+            }
+        }
+
+        // অ্যান্ড্রয়েড এই ফাংশনটি কল করে হোমপেজে ভিডিওগুলো বসিয়ে দেবে
+        function renderVideosFromAndroid(videoListJson) {
+            const videos = JSON.parse(videoListJson);
+            const feedContainer = document.getElementById('video-feed');
+            feedContainer.innerHTML = '';
+            
+            videos.forEach(video => {
+                const article = document.createElement('article');
+                article.className = 'video-card';
+                article.innerHTML = `
+                    <div class="thumbnail-container"><img src="${video.thumbnail}"></div>
+                    <div class="video-info-area">
+                        <img class="channel-avatar" src="${video.uploaderAvatar}">
+                        <div class="video-text-details">
+                            <h3 class="video-title">${video.title}</h3>
+                            <div class="video-meta">${video.uploaderName}</div>
+                        </div>
+                    </div>
+                `;
+                // ক্লিক করলে প্লেয়ার ওপেন হবে এবং অ্যান্ড্রয়েডকে জানাবে
+                article.addEventListener('click', () => {
+                    openPlayerUI(video);
+                    if(window.Android) window.Android.playVideo(video.url);
+                });
+                feedContainer.appendChild(article);
+            });
+        }
+
+        // প্লেয়ার UI ওপেন করা
+        function openPlayerUI(video) {
+            document.getElementById('player-title').innerText = video.title;
+            document.getElementById('player-channel-name').innerText = video.uploaderName;
+            document.getElementById('player-channel-img').src = video.uploaderAvatar;
+            document.getElementById('player-overlay').classList.add('active');
+        }
+
+        function closePlayer() {
+            document.getElementById('player-overlay').classList.remove('active');
+            document.getElementById('main-video-player').pause();
+            if(window.Android) window.Android.stopVideo();
+        }
+
+        /* সাবস্ক্রিপশন লজিক (HTML এর লোকাল স্টোরেজেই রাখা হলো) */
+        let isSubscribed = false;
+        function toggleSubscribe() {
+            const btn = document.getElementById('subscribe-btn');
+            isSubscribed = !isSubscribed;
+            btn.innerText = isSubscribed ? "সাবস্ক্রাইব করা হয়েছে" : "সাবস্ক্রাইব";
+            btn.classList.toggle('subscribed', isSubscribed);
+        }
+
+        // টেস্টিংয়ের জন্য যখন পেজ লোড হবে
+        window.onload = () => {
+            if(window.Android) {
+                window.Android.getTrendingVideos(); // অ্যান্ড্রয়েডকে ভিডিও আনতে বলা হলো
+            } else {
+                document.getElementById('video-feed').innerHTML = '<p style="text-align:center; padding:20px;">অ্যান্ড্রয়েড অ্যাপ কানেক্টেড নেই।</p>';
+            }
+        };
+    </script>
+</body>
+</html>
