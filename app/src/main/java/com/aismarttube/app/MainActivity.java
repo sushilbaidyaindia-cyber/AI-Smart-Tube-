@@ -5,6 +5,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebChromeClient;
+import android.webkit.JavascriptInterface;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
@@ -31,11 +33,27 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setDisplayZoomControls(false);
         webSettings.setSupportZoom(false);
 
+        // HTML থেকে জাভা কল করার জন্য
+        webView.addJavascriptInterface(new WebAppInterface(), "Android");
+
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
 
-        // assets ফোল্ডার থেকে HTML লোড করা হচ্ছে
         webView.loadUrl("file:///android_asset/index.html");
+    }
+
+    // এই ক্লাসের মাধ্যমে HTML থেকে জাভা মেথড কল করা যাবে
+    public class WebAppInterface {
+
+        @JavascriptInterface
+        public String getVideoInfoFromNewPipe(String videoUrl) {
+            return NewPipeHelper.getVideoInfo(videoUrl);
+        }
+
+        @JavascriptInterface
+        public void showToast(String message) {
+            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
