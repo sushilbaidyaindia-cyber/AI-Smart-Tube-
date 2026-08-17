@@ -3,187 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Smart Tube - Home & Player</title>
+    <title>AI Smart Tube</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: Roboto, Arial, sans-serif; }
-        body { background-color: #ffffff; color: #0f0f0f; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-
-        header { display: flex; justify-content: space-between; padding: 10px 15px; align-items: center; background: #fff; z-index: 10; border-bottom: 1px solid #e5e5e5; }
-        .logo-area { font-size: 20px; font-weight: bold; color: #ff0000; display: flex; align-items: center; }
-        .logo-area span { color: #000; margin-left: 5px; }
-        .header-actions { display: flex; gap: 15px; align-items: center; }
-        .icon-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #0f0f0f; position: relative; padding: 5px; border-radius: 50%; }
-        .icon-btn:focus { outline: 2px solid #1a73e8; background: #f2f2f2; }
-        .badge { position: absolute; top: 0; right: 0; background: red; color: white; border-radius: 50%; padding: 2px 5px; font-size: 10px; font-weight: bold; display: none; }
-
-        .category-nav { display: flex; overflow-x: auto; padding: 10px 15px; gap: 10px; background: #fff; border-bottom: 1px solid #e5e5e5; z-index: 9; }
-        .category-nav::-webkit-scrollbar { display: none; }
-        .chip { background: #f2f2f2; padding: 6px 14px; border-radius: 8px; font-size: 14px; white-space: nowrap; border: none; cursor: pointer; color: #0f0f0f; }
-        .chip.active { background: #0f0f0f; color: #fff; }
-
-        main { flex: 1; overflow-y: auto; background: #f9f9f9; padding-bottom: 60px; }
-        .video-card { background: #fff; margin-bottom: 15px; cursor: pointer; }
-        .thumbnail-container { position: relative; width: 100%; height: 210px; background: #ddd; }
-        .thumbnail-container img { width: 100%; height: 100%; object-fit: cover; }
-        .duration-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.8); color: #fff; font-size: 12px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
-
-        .video-info-area { display: flex; padding: 12px; gap: 12px; }
-        .channel-avatar { width: 40px; height: 40px; border-radius: 50%; background: #ccc; flex-shrink: 0; object-fit: cover; }
-        .video-text-details { display: flex; flex-direction: column; justify-content: center; width: 100%; }
-        .video-title { font-size: 16px; font-weight: 500; line-height: 1.4; color: #0f0f0f; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .video-meta { font-size: 13px; color: #606060; }
-
-        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: #fff; display: flex; justify-content: space-around; padding: 8px 0; border-top: 1px solid #e5e5e5; z-index: 10; }
-        .nav-tab { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: #0f0f0f; background: none; border: none; cursor: pointer; padding: 5px; width: 20%; }
-        .nav-icon { font-size: 22px; margin-bottom: 3px; }
-
-        #player-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 999; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s ease-in-out; }
-        #player-overlay.active { transform: translateY(0); }
-
-        .player-video-area { width: 100%; background: #000; position: relative; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; }
-        .player-video-area video { width: 100%; height: 100%; object-fit: contain; }
-        .close-player-btn { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; border: none; font-size: 24px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; z-index: 2; }
-
-        .player-content { flex: 1; overflow-y: auto; padding-bottom: 20px; }
-        .player-title-box { padding: 15px; border-bottom: 1px solid #e5e5e5; }
-        .p-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-        .p-meta { font-size: 13px; color: #606060; }
-
-        .channel-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid #e5e5e5; }
-        .c-info-left { display: flex; align-items: center; gap: 10px; }
-        .c-name { font-weight: bold; font-size: 15px; }
-        .c-subs { font-size: 12px; color: #606060; }
-        .subscribe-btn { background: #0f0f0f; color: #fff; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; }
-        .subscribe-btn.subscribed { background: #f2f2f2; color: #0f0f0f; }
-
-        .action-row { display: flex; gap: 10px; padding: 15px; overflow-x: auto; border-bottom: 1px solid #e5e5e5; }
-        .action-row::-webkit-scrollbar { display: none; }
-        .action-btn { display: flex; align-items: center; gap: 6px; background: #f2f2f2; border: none; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; }
-        .btn-download { background: #e5e5e5; }
-        .btn-ai-summary { background: #e8f0fe; color: #1a73e8; border: 1px solid #1a73e8; }
-        .btn-ai-grok { background: #000; color: #fff; }
-        .btn-translate { background: #fce8e6; color: #d93025; border: 1px solid #d93025; }
-
-        .ai-result-box { margin: 15px; padding: 15px; background: #f9f9f9; border-left: 4px solid #1a73e8; border-radius: 5px; display: none; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+        body { background: #f9f9f9; color: #0f0f0f; padding: 16px; }
+        h1 { font-size: 22px; margin-bottom: 16px; color: #ff0000; }
+        .card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px; }
+        button { background: #0f0f0f; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; width: 100%; margin-bottom: 10px; }
+        button:active { background: #333; }
+        #result { white-space: pre-wrap; line-height: 1.5; font-size: 15px; }
+        .status { color: #666; font-size: 14px; margin-bottom: 12px; }
     </style>
 </head>
 <body>
 
-    <header id="main-header" aria-label="ইউটিউব হেডার">
-        <div class="logo-area" aria-label="ইউটিউব হোম">
-            <span aria-hidden="true">▶</span> <span>YouTube</span>
-        </div>
-        <div class="header-actions">
-            <button class="icon-btn" aria-label="বিজ্ঞপ্তিগুলি"><span aria-hidden="true">🔔</span></button>
-            <button class="icon-btn" aria-label="ভিডিও সার্চ করুন" onclick="startSearch()"><span aria-hidden="true">🔍</span></button>
-            <button class="icon-btn" aria-label="ভয়েস সার্চ করুন" onclick="startVoiceSearch()"><span aria-hidden="true">🎤</span></button>
-        </div>
-    </header>
+    <h1>AI Smart Tube + NewPipe</h1>
 
-    <nav id="main-category" class="category-nav" aria-label="ক্যাটাগরি ফিল্টার">
-        <button class="chip active">সব</button>
-        <button class="chip">মিউজিক</button>
-        <button class="chip">পডকাস্ট</button>
-    </nav>
+    <div class="card">
+        <p class="status">নিচে ইউটিউব ভিডিও লিংক দাও। NewPipe দিয়ে তথ্য আনার চেষ্টা করব।</p>
+        
+        <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." value="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+        
+        <button onclick="getInfo()">NewPipe দিয়ে তথ্য আনো</button>
+        <button onclick="testConnection()">টেস্ট করো</button>
+    </div>
 
-    <main id="video-feed" aria-label="প্রস্তাবিত ভিডিও তালিকা">
-        <p style="text-align:center; padding:40px;">ভিডিও লোড হচ্ছে...</p>
-    </main>
-
-    <nav id="main-bottom-nav" class="bottom-nav" aria-label="প্রধান নেভিগেশন বার">
-        <button class="nav-tab"><span class="nav-icon">🏠</span><span>হোম</span></button>
-        <button class="nav-tab"><span class="nav-icon">⚡</span><span>শর্টস</span></button>
-        <button class="nav-tab"><span class="nav-icon">📺</span><span>সাবস্ক্রিপশন</span></button>
-        <button class="nav-tab"><span class="nav-icon">👤</span><span>আপনি</span></button>
-    </nav>
-
-    <div id="player-overlay" aria-hidden="true">
-        <div class="player-video-area">
-            <button class="close-player-btn" onclick="closePlayer()" aria-label="প্লেয়ার বন্ধ করুন">↓</button>
-            <video id="main-video-player" controls></video>
-        </div>
-        <div class="player-content">
-            <div class="player-title-box">
-                <h1 id="player-title" class="p-title">লোড হচ্ছে...</h1>
-                <div id="player-meta" class="p-meta">-- ভিউ</div>
-            </div>
-            <div class="channel-row">
-                <div class="c-info-left">
-                    <img id="player-channel-img" class="channel-avatar" src="" alt="">
-                    <div>
-                        <div id="player-channel-name" class="c-name">চ্যানেল</div>
-                        <div id="player-channel-subs" class="c-subs">লোড হচ্ছে...</div>
-                    </div>
-                </div>
-                <button id="subscribe-btn" class="subscribe-btn" onclick="toggleSubscribe()">সাবস্ক্রাইব</button>
-            </div>
-            <div class="action-row">
-                <button class="action-btn">👍 লাইক</button>
-                <button class="action-btn btn-download" onclick="triggerDownload()">⬇️ ডাউনলোড</button>
-                <button class="action-btn btn-ai-summary" onclick="generateAISummary()">📝 AI Summary</button>
-                <button class="action-btn btn-ai-grok" onclick="runFactCheck()">🕵️‍♂️ গোয়েন্দা</button>
-                <button class="action-btn btn-translate" onclick="translateContent()">🌐 ট্রান্সলেট</button>
-            </div>
-            <div id="ai-message-box" class="ai-result-box" aria-live="polite"></div>
-        </div>
+    <div class="card">
+        <h3>ফলাফল:</h3>
+        <div id="result">এখনো কিছু আসেনি...</div>
     </div>
 
     <script>
-        // API Key পরে GitHub Secrets থেকে আনা হবে
-        const GEMINI_API_KEY = "";
-        const GROQ_API_KEY = "";
+        function getInfo() {
+            const url = document.getElementById('videoUrl').value.trim();
+            const resultDiv = document.getElementById('result');
 
-        function startSearch() {
-            let query = prompt("কী খুঁজতে চান?");
-            if (query) alert("আপনি খুঁজছেন: " + query);
-        }
+            if (!url) {
+                resultDiv.innerText = "দয়া করে একটা ইউটিউব লিংক দাও।";
+                return;
+            }
 
-        function startVoiceSearch() {
-            alert("ভয়েস সার্চ শীঘ্রই আসছে");
-        }
+            resultDiv.innerText = "NewPipe থেকে তথ্য আনা হচ্ছে... অপেক্ষা করো...";
 
-        function toggleSubscribe() {
-            const btn = document.getElementById('subscribe-btn');
-            if (btn.innerText === "সাবস্ক্রাইব") {
-                btn.innerText = "সাবস্ক্রাইব করা হয়েছে";
-                btn.classList.add('subscribed');
-            } else {
-                btn.innerText = "সাবস্ক্রাইব";
-                btn.classList.remove('subscribed');
+            try {
+                // জাভা কোডকে কল করা হচ্ছে
+                const info = Android.getVideoInfoFromNewPipe(url);
+                resultDiv.innerText = info;
+            } catch (e) {
+                resultDiv.innerText = "ত্রুটি হয়েছে: " + e.message;
             }
         }
 
-        function closePlayer() {
-            document.getElementById('player-overlay').classList.remove('active');
-            document.getElementById('main-video-player').pause();
+        function testConnection() {
+            try {
+                Android.showToast("জাভা কানেকশন ঠিক আছে!");
+                document.getElementById('result').innerText = "Android কানেকশন সফল হয়েছে।";
+            } catch (e) {
+                document.getElementById('result').innerText = "Android কানেকশন পাওয়া যায়নি।\n" + e.message;
+            }
         }
-
-        function triggerDownload() {
-            showAIMessage("ডাউনলোড ফিচার শীঘ্রই যোগ করা হবে");
-        }
-
-        function showAIMessage(text) {
-            const box = document.getElementById('ai-message-box');
-            box.style.display = 'block';
-            box.innerHTML = `<strong>✨ AI:</strong> ${text}`;
-        }
-
-        function generateAISummary() {
-            showAIMessage("AI Summary ফিচার শীঘ্রই যোগ করা হবে (API Key সেট করার পর)");
-        }
-
-        function runFactCheck() {
-            showAIMessage("গোয়েন্দা ফিচার শীঘ্রই যোগ করা হবে");
-        }
-
-        function translateContent() {
-            showAIMessage("ট্রান্সলেট ফিচার শীঘ্রই যোগ করা হবে");
-        }
-
-        // পরে এখানে আসল ভিডিও লোডিং কোড বসানো হবে
-        window.onload = function() {
-            document.getElementById('video-feed').innerHTML = '<p style="text-align:center; padding:40px;">ভিডিও লোড করার জন্য API সেটআপ চলছে...</p>';
-        };
     </script>
 </body>
 </html>
