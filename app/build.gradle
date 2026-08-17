@@ -31,4 +31,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // NewPipe Extractor
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.24.0'
 }
