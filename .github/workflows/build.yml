@@ -1,7 +1,7 @@
 name: Build APK
 
 on:
-  workflow_dispatch:   # ম্যানুয়ালি চালানোর জন্য
+  workflow_dispatch:
   push:
     branches: [ main ]
 
@@ -22,16 +22,20 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Create Gradle Wrapper
+        run: |
+          gradle wrapper --gradle-version 8.2 || true
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew || true
 
       - name: Build Debug APK
         run: |
           if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug
+            ./gradlew assembleDebug --stacktrace
           else
-            echo "gradlew not found. Creating basic structure..."
-            # যদি gradlew না থাকে তাহলে অন্যভাবে চেষ্টা করব
+            echo "Still no gradlew found"
+            ls -la
           fi
 
       - name: Upload APK
