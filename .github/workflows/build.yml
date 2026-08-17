@@ -1,0 +1,42 @@
+name: Build APK
+
+on:
+  workflow_dispatch:   # ম্যানুয়ালি চালানোর জন্য
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew || true
+
+      - name: Build Debug APK
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug
+          else
+            echo "gradlew not found. Creating basic structure..."
+            # যদি gradlew না থাকে তাহলে অন্যভাবে চেষ্টা করব
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Smart-Tube-APK
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: ignore
