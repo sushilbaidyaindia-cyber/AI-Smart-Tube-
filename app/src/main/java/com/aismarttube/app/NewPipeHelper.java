@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +23,8 @@ public class NewPipeHelper {
     }
 
     static class RealDownloader extends Downloader {
+        private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
         @Override
         public Response execute(Request request) throws IOException, ReCaptchaException {
             HttpURLConnection connection = null;
@@ -31,10 +32,16 @@ public class NewPipeHelper {
                 URL url = new URL(request.url());
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod(request.httpMethod());
-                connection.setConnectTimeout(15000);
-                connection.setReadTimeout(15000);
+                connection.setConnectTimeout(20000);
+                connection.setReadTimeout(20000);
+                connection.setInstanceFollowRedirects(true);
 
-                // হেডার সেট করা
+                // গুরুত্বপূর্ণ হেডার
+                connection.setRequestProperty("User-Agent", USER_AGENT);
+                connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9,bn;q=0.8");
+                connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+
+                // রিকোয়েস্ট থেকে আসা হেডারগুলো যোগ করা
                 Map<String, List<String>> headers = request.headers();
                 if (headers != null) {
                     for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
