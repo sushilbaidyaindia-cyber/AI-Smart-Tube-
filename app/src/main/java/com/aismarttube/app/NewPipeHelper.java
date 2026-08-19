@@ -15,6 +15,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.GZIPInputStream;
 
 public class NewPipeHelper {
 
@@ -23,7 +24,9 @@ public class NewPipeHelper {
     }
 
     static class RealDownloader extends Downloader {
-        private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+        private static final String USER_AGENT =
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
         @Override
         public Response execute(Request request) throws IOException, ReCaptchaException {
@@ -32,16 +35,26 @@ public class NewPipeHelper {
                 URL url = new URL(request.url());
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod(request.httpMethod());
-                connection.setConnectTimeout(20000);
-                connection.setReadTimeout(20000);
+                connection.setConnectTimeout(25000);
+                connection.setReadTimeout(25000);
                 connection.setInstanceFollowRedirects(true);
 
-                // গুরুত্বপূর্ণ হেডার
+                // আধুনিক ব্রাউজারের মতো হেডার
                 connection.setRequestProperty("User-Agent", USER_AGENT);
                 connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9,bn;q=0.8");
-                connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
+                connection.setRequestProperty("Accept-Encoding", "gzip, deflate, br");
+                connection.setRequestProperty("Sec-Ch-Ua", "\"Chromium\";v=\"128\", \"Not;A=Brand\";v=\"24\", \"Google Chrome\";v=\"128\"");
+                connection.setRequestProperty("Sec-Ch-Ua-Mobile", "?0");
+                connection.setRequestProperty("Sec-Ch-Ua-Platform", "\"Windows\"");
+                connection.setRequestProperty("Sec-Fetch-Dest", "document");
+                connection.setRequestProperty("Sec-Fetch-Mode", "navigate");
+                connection.setRequestProperty("Sec-Fetch-Site", "none");
+                connection.setRequestProperty("Sec-Fetch-User", "?1");
+                connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
+                connection.setRequestProperty("Cache-Control", "max-age=0");
 
-                // রিকোয়েস্ট থেকে আসা হেডারগুলো যোগ করা
+                // রিকোয়েস্ট থেকে আসা অতিরিক্ত হেডার যোগ করা
                 Map<String, List<String>> headers = request.headers();
                 if (headers != null) {
                     for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
@@ -56,13 +69,20 @@ public class NewPipeHelper {
                 int responseCode = connection.getResponseCode();
                 String responseMessage = connection.getResponseMessage();
 
-                BufferedReader reader;
+                java.io.InputStream inputStream;
                 if (responseCode >= 400) {
-                    reader = new BufferedReader(new InputStreamReader(connection.getErrorStream()));
+                    inputStream = connection.getErrorStream();
                 } else {
-                    reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    inputStream = connection.getInputStream();
                 }
 
+                // GZIP সাপোর্ট
+                String contentEncoding = connection.getContentEncoding();
+                if (contentEncoding != null && contentEncoding.equalsIgnoreCase("gzip")) {
+                    inputStream = new GZIPInputStream(inputStream);
+                }
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
                 StringBuilder responseBody = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -72,7 +92,13 @@ public class NewPipeHelper {
 
                 Map<String, List<String>> responseHeaders = connection.getHeaderFields();
 
-                return new Response(responseCode, responseMessage, responseHeaders, responseBody.toString(), request.url());
+                return new Response(
+                        responseCode,
+                        responseMessage,
+                        responseHeaders,
+                        responseBody.toString(),
+                        request.url()
+                );
 
             } finally {
                 if (connection != null) {
@@ -91,7 +117,7 @@ public class NewPipeHelper {
             info.append("ভিউ: ").append(streamInfo.getViewCount()).append("\n");
             return info.toString();
         } catch (Exception e) {
-            return "ত্রুটি হয়েছে: " + e.getMessage();
+            return "ত্রুটি হয়েছে: " + e.getMessage();
         }
     }
 }
