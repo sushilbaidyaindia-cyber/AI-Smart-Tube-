@@ -39,11 +39,11 @@ public class NewPipeHelper {
                 connection.setReadTimeout(25000);
                 connection.setInstanceFollowRedirects(true);
 
-                // আধুনিক ব্রাউজারের মতো হেডার
+                // আধুনিক ব্রাউজারের মতো হেডার (br বাদ দেওয়া হয়েছে)
                 connection.setRequestProperty("User-Agent", USER_AGENT);
                 connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9,bn;q=0.8");
                 connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-                connection.setRequestProperty("Accept-Encoding", "gzip, deflate, br");
+                connection.setRequestProperty("Accept-Encoding", "gzip, deflate");   // br বাদ দেওয়া হয়েছে
                 connection.setRequestProperty("Sec-Ch-Ua", "\"Chromium\";v=\"128\", \"Not;A=Brand\";v=\"24\", \"Google Chrome\";v=\"128\"");
                 connection.setRequestProperty("Sec-Ch-Ua-Mobile", "?0");
                 connection.setRequestProperty("Sec-Ch-Ua-Platform", "\"Windows\"");
