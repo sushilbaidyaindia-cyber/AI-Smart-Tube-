@@ -1,68 +1,779 @@
 <!DOCTYPE html>
 <html lang="bn">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Smart Tube</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Roboto, Arial, sans-serif; }
-        body { background: #f9f9f9; color: #0f0f0f; padding: 16px; }
-        h1 { font-size: 22px; margin-bottom: 16px; color: #ff0000; }
-        .card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px; }
-        button { background: #0f0f0f; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; width: 100%; margin-bottom: 10px; }
-        button:active { background: #333; }
-        #result { white-space: pre-wrap; line-height: 1.5; font-size: 15px; }
-        .status { color: #666; font-size: 14px; margin-bottom: 12px; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>MyTube</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #212121;
+      --surface2: #2a2a2a;
+      --text: #f1f1f1;
+      --muted: #aaaaaa;
+      --accent: #3ea6ff;
+      --danger: #ff4e45;
+      --radius: 12px;
+      --tab-h: 56px;
+      --top-h: 56px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      min-height: 100%;
+    }
+    body { padding-bottom: calc(var(--tab-h) + 12px); }
+
+    /* ===== Top bar ===== */
+    .topbar {
+      position: sticky; top: 0; z-index: 40;
+      height: var(--top-h);
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 10px;
+      background: rgba(15,15,15,0.96);
+      border-bottom: 1px solid #222;
+    }
+    .brand {
+      font-weight: 800; font-size: 18px; letter-spacing: 0.2px;
+      white-space: nowrap; padding: 0 4px;
+    }
+    .brand span { color: var(--accent); }
+    .search-wrap {
+      flex: 1; display: flex; align-items: center; gap: 6px;
+      background: var(--surface); border-radius: 24px;
+      padding: 0 4px 0 14px; min-height: 40px;
+      border: 1px solid #333;
+    }
+    .search-wrap input {
+      flex: 1; border: 0; outline: 0; background: transparent;
+      color: var(--text); font-size: 15px; min-width: 0;
+      padding: 10px 0;
+    }
+    .search-wrap input::placeholder { color: var(--muted); }
+    .icon-btn {
+      width: 42px; height: 42px; border: 0; border-radius: 50%;
+      background: transparent; color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; cursor: pointer; flex-shrink: 0;
+    }
+    .icon-btn:active { background: var(--surface2); }
+    .icon-btn.solid {
+      background: var(--surface); border: 1px solid #333;
+    }
+
+    /* ===== Screen sections ===== */
+    .screen { display: none; padding: 10px 12px 20px; max-width: 720px; margin: 0 auto; }
+    .screen.active { display: block; }
+    .screen-title {
+      font-size: 18px; font-weight: 800; margin: 6px 0 14px;
+    }
+
+    /* ===== Home feed cards ===== */
+    .chip-row {
+      display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px;
+      scrollbar-width: none;
+    }
+    .chip-row::-webkit-scrollbar { display: none; }
+    .chip {
+      flex: 0 0 auto; border: 0; border-radius: 8px;
+      padding: 8px 14px; font-size: 13px; font-weight: 600;
+      background: var(--surface); color: var(--text); cursor: pointer;
+    }
+    .chip.active { background: #f1f1f1; color: #0f0f0f; }
+
+    .video-card {
+      margin-bottom: 18px; cursor: pointer;
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .thumb {
+      width: 100%; aspect-ratio: 16 / 9;
+      background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 14px; position: relative;
+      border-radius: 12px;
+    }
+    .thumb .dur {
+      position: absolute; right: 8px; bottom: 8px;
+      background: rgba(0,0,0,0.85); color: #fff;
+      font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+    }
+    .meta {
+      display: flex; gap: 12px; padding: 10px 2px 0;
+    }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: #3a3a3a; flex-shrink: 0;
+    }
+    .meta-text { flex: 1; min-width: 0; }
+    .meta-text h3 {
+      margin: 0 0 4px; font-size: 15px; font-weight: 650;
+      line-height: 1.35; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .meta-text p {
+      margin: 0; font-size: 13px; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* ===== Player screen ===== */
+    .player-box {
+      width: 100%; aspect-ratio: 16 / 9;
+      background: #000; border-radius: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); position: relative;
+      margin: 0 -12px; width: calc(100% + 24px);
+    }
+    .player-box .big-play {
+      width: 64px; height: 64px; border-radius: 50%;
+      border: 0; background: rgba(255,255,255,0.15);
+      color: #fff; font-size: 28px; cursor: pointer;
+    }
+    .seek-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 10px; font-size: 12px; color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .seek-row input[type=range] { flex: 1; accent-color: var(--accent); }
+    .vid-title {
+      font-size: 17px; font-weight: 750; margin: 12px 0 6px; line-height: 1.35;
+    }
+    .vid-sub { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+
+    .action-row {
+      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px;
+      scrollbar-width: none;
+    }
+    .action-row::-webkit-scrollbar { display: none; }
+    .action {
+      flex: 0 0 auto; min-width: 72px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 12px; border: 0; border-radius: 12px;
+      background: var(--surface); color: var(--text);
+      font-size: 11px; font-weight: 650; cursor: pointer;
+    }
+    .action .ic { font-size: 20px; }
+    .action:active { background: var(--surface2); }
+
+    .channel-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 0; border-top: 1px solid #222; border-bottom: 1px solid #222;
+      margin: 8px 0 14px;
+    }
+    .channel-row .info { flex: 1; min-width: 0; }
+    .channel-row .info strong { display: block; font-size: 15px; }
+    .channel-row .info span { font-size: 12px; color: var(--muted); }
+    .btn-sub {
+      border: 0; border-radius: 20px; padding: 10px 16px;
+      background: #f1f1f1; color: #0f0f0f;
+      font-weight: 800; font-size: 13px; cursor: pointer;
+    }
+    .btn-sub.on { background: var(--surface2); color: var(--text); }
+
+    .comment-preview {
+      background: var(--surface); border-radius: 12px;
+      padding: 12px 14px; font-size: 13px; color: var(--muted);
+    }
+
+    /* ===== Search screen ===== */
+    .search-full {
+      display: flex; gap: 8px; margin-bottom: 14px;
+    }
+    .search-full input {
+      flex: 1; border: 1px solid #333; border-radius: 24px;
+      background: var(--surface); color: var(--text);
+      padding: 12px 16px; font-size: 16px; outline: 0;
+    }
+    .result-item {
+      display: flex; gap: 12px; padding: 10px 0;
+      border-bottom: 1px solid #1c1c1c; cursor: pointer;
+    }
+    .result-item .rt {
+      width: 42%; aspect-ratio: 16/9; border-radius: 8px;
+      background: var(--surface2); flex-shrink: 0;
+    }
+    .result-item .ri { flex: 1; min-width: 0; }
+    .result-item h4 {
+      margin: 0 0 4px; font-size: 14px; font-weight: 650;
+      display: -webkit-box; -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .result-item p { margin: 0; font-size: 12px; color: var(--muted); }
+
+    /* ===== Library ===== */
+    .lib-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .lib-tile {
+      background: var(--surface); border: 0; border-radius: 12px;
+      padding: 18px 12px; text-align: left; color: var(--text);
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      min-height: 72px;
+    }
+    .lib-tile small { display: block; color: var(--muted); font-weight: 500; margin-top: 4px; }
+
+    .list-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 4px; border-bottom: 1px solid #1c1c1c;
+      cursor: pointer;
+    }
+    .list-row .ic {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--surface); display: flex; align-items: center;
+      justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+
+    /* ===== Bottom tabs ===== */
+    .tabs {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      height: var(--tab-h);
+      display: flex; background: #0f0f0f;
+      border-top: 1px solid #222;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .tab {
+      flex: 1; border: 0; background: transparent; color: var(--muted);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 2px;
+      font-size: 10px; font-weight: 650; cursor: pointer;
+      padding: 6px 2px;
+    }
+    .tab .ic { font-size: 20px; line-height: 1; }
+    .tab.active { color: var(--text); }
+
+    /* player mode: hide tabs optional later */
+    .hint {
+      font-size: 12px; color: var(--muted); text-align: center;
+      margin: 20px 8px; line-height: 1.45;
+    }
+
+    /* ===== Settings ===== */
+    .set-group {
+      margin: 0 0 18px; padding: 4px 0 8px;
+      border: 1px solid #2a2a2a; border-radius: 14px;
+      background: #161616; overflow: hidden;
+    }
+    .set-group h3 {
+      margin: 0; padding: 12px 14px 8px;
+      font-size: 13px; font-weight: 800; color: var(--accent);
+      letter-spacing: 0.3px; text-transform: uppercase;
+    }
+    .set-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px; border-top: 1px solid #242424;
+      min-height: 56px;
+    }
+    .set-row .label { flex: 1; min-width: 0; }
+    .set-row .label strong { display: block; font-size: 15px; font-weight: 650; }
+    .set-row .label small { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+    .set-row select, .set-row input[type=number] {
+      border: 1px solid #444; border-radius: 10px;
+      background: var(--surface); color: var(--text);
+      padding: 10px 12px; font-size: 14px; font-weight: 700;
+      min-width: 96px; text-align: center;
+    }
+    .toggle {
+      width: 52px; height: 32px; border-radius: 20px; border: 0;
+      background: #444; position: relative; cursor: pointer; flex-shrink: 0;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle::after {
+      content: ""; position: absolute; top: 4px; left: 4px;
+      width: 24px; height: 24px; border-radius: 50%; background: #fff;
+      transition: transform .15s;
+    }
+    .toggle.on::after { transform: translateX(20px); }
+    .set-btn {
+      width: 100%; border: 0; border-radius: 0; text-align: left;
+      background: transparent; color: var(--text);
+      padding: 14px; font-size: 15px; font-weight: 650; cursor: pointer;
+      border-top: 1px solid #242424; min-height: 52px;
+    }
+    .set-btn:active { background: var(--surface); }
+    .set-btn.danger { color: var(--danger); }
+    .set-top {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .set-top h2 { flex: 1; margin: 0; font-size: 18px; font-weight: 800; }
+  </style>
 </head>
 <body>
 
-    <h1>AI Smart Tube + NewPipe</h1>
+  <!-- ========== TOP BAR (hidden on player optional) ========== -->
+  <header class="topbar" id="topbar" role="banner">
+    <div class="brand" aria-label="অ্যাপ নাম">My<span>Tube</span></div>
+    <div class="search-wrap" role="search">
+      <input type="search" id="qTop" placeholder="সার্চ করুন…" aria-label="সার্চ বক্স"
+             readonly onclick="go('search'); document.getElementById('qFull').focus();" />
+      <button type="button" class="icon-btn" aria-label="ভয়েস সার্চ" onclick="alert('ভয়েস সার্চ — পরে যোগ হবে')">🎤</button>
+    </div>
+    <button type="button" class="icon-btn solid" aria-label="সেটিংস খুলুন" onclick="go('settings')">⚙️</button>
+  </header>
 
-    <div class="card">
-        <p class="status">নিচে ইউটিউব ভিডিও লিংক দাও। NewPipe দিয়ে তথ্য আনার চেষ্টা করব।</p>
-        
-        <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." value="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
-        
-        <button onclick="getInfo()">NewPipe দিয়ে তথ্য আনো</button>
-        <button onclick="testConnection()">টেস্ট করো</button>
+  <!-- ========== HOME ========== -->
+  <main id="home" class="screen active" role="main" aria-label="হোম ফিড">
+    <div class="chip-row" role="tablist" aria-label="ক্যাটাগরি">
+      <button type="button" class="chip active" aria-label="সব">সব</button>
+      <button type="button" class="chip" aria-label="সঙ্গীত">সঙ্গীত</button>
+      <button type="button" class="chip" aria-label="লাইভ">লাইভ</button>
+      <button type="button" class="chip" aria-label="গেমস">গেমস</button>
+      <button type="button" class="chip" aria-label="সংবাদ">সংবাদ</button>
     </div>
 
-    <div class="card">
-        <h3>ফলাফল:</h3>
-        <div id="result">এখনো কিছু আসেনি...</div>
+    <!-- sample cards (placeholders) -->
+    <article class="video-card" role="button" tabindex="0" aria-label="ভিডিও: নমুনা গান, চ্যানেল ডেমো"
+             onclick="openPlayer('নমুনা গান — লাইভ পারফরম্যান্স','ডেমো চ্যানেল')">
+      <div class="thumb">থাম্বনেইল <span class="dur">12:34</span></div>
+      <div class="meta">
+        <div class="avatar" aria-hidden="true"></div>
+        <div class="meta-text">
+          <h3>নমুনা গান — লাইভ পারফরম্যান্স</h3>
+          <p>ডেমো চ্যানেল · ১.২ লাখ ভিউ · ২ দিন আগে</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="video-card" role="button" tabindex="0" aria-label="ভিডিও: শেখার টিউটোরিয়াল"
+             onclick="openPlayer('শেখার টিউটোরিয়াল — পর্ব ১','শিক্ষা চ্যানেল')">
+      <div class="thumb">থাম্বনেইল <span class="dur">8:05</span></div>
+      <div class="meta">
+        <div class="avatar" aria-hidden="true"></div>
+        <div class="meta-text">
+          <h3>শেখার টিউটোরিয়াল — পর্ব ১</h3>
+          <p>শিক্ষা চ্যানেল · ৪৫ হাজার ভিউ · ১ সপ্তাহ আগে</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="video-card" role="button" tabindex="0" aria-label="ভিডিও: বাংলা গল্প"
+             onclick="openPlayer('বাংলা গল্প শোনো','গল্পঘর')">
+      <div class="thumb">থাম্বনেইল <span class="dur">22:10</span></div>
+      <div class="meta">
+        <div class="avatar" aria-hidden="true"></div>
+        <div class="meta-text">
+          <h3>বাংলা গল্প শোনো</h3>
+          <p>গল্পঘর · ৯০ হাজার ভিউ · ৩ দিন আগে</p>
+        </div>
+      </div>
+    </article>
+
+    <p class="hint">এগুলো নমুনা কার্ড। পরে NewPipe/Piped থেকে আসল তালিকা বসবে।</p>
+  </main>
+
+  <!-- ========== SEARCH ========== -->
+  <section id="search" class="screen" aria-label="সার্চ">
+    <div class="search-full">
+      <input type="search" id="qFull" placeholder="সার্চ…" aria-label="সার্চ লিখুন" />
+      <button type="button" class="icon-btn solid" aria-label="ভয়েস সার্চ" onclick="alert('ভয়েস সার্চ — পরে')">🎤</button>
+      <button type="button" class="icon-btn solid" aria-label="সার্চ শুরু" onclick="doSearch()">🔍</button>
+    </div>
+    <div id="searchResults" aria-live="polite">
+      <p class="hint">সার্চ করে দেখুন (এখন নমুনা ফল)।</p>
+    </div>
+  </section>
+
+  <!-- ========== SUBS ========== -->
+  <section id="subs" class="screen" aria-label="সাবস্ক্রিপশন">
+    <h2 class="screen-title">সাবস্ক্রিপশন</h2>
+    <div class="list-row" role="button" tabindex="0" aria-label="ডেমো চ্যানেল">
+      <div class="ic" aria-hidden="true">📺</div>
+      <div>
+        <strong>ডেমো চ্যানেল</strong><br />
+        <span style="color:var(--muted);font-size:12px">লোকাল সাবস্ক্রাইব · নমুনা</span>
+      </div>
+    </div>
+    <div class="list-row" role="button" tabindex="0" aria-label="শিক্ষা চ্যানেল">
+      <div class="ic" aria-hidden="true">📚</div>
+      <div>
+        <strong>শিক্ষা চ্যানেল</strong><br />
+        <span style="color:var(--muted);font-size:12px">লোকাল সাবস্ক্রাইব · নমুনা</span>
+      </div>
+    </div>
+    <p class="hint">আসল সাবস্ক্রাইব তালিকা পরে লোকাল ডেটাবেসে সেভ হবে (ইউটিউব অ্যাকাউন্ট সিঙ্ক নয়)।</p>
+  </section>
+
+  <!-- ========== LIBRARY ========== -->
+  <section id="library" class="screen" aria-label="লাইব্রেরি">
+    <h2 class="screen-title">লাইব্রেরি</h2>
+    <div class="lib-grid">
+      <button type="button" class="lib-tile" aria-label="ইতিহাস">🕒 ইতিহাস<small>দেখা ভিডিও</small></button>
+      <button type="button" class="lib-tile" aria-label="ডাউনলোড">⬇️ ডাউনলোড<small>ফোনে সেভ</small></button>
+      <button type="button" class="lib-tile" aria-label="পছন্দ">❤️ পছন্দ<small>লাইক করা</small></button>
+      <button type="button" class="lib-tile" aria-label="পরে দেখব">🔖 পরে দেখব<small>সেভ লিস্ট</small></button>
+    </div>
+    <h2 class="screen-title" style="margin-top:22px">সাম্প্রতিক ডাউনলোড</h2>
+    <p class="hint">এখন খালি — ডাউনলোড করলে এখানে দেখাবে।</p>
+  </section>
+
+  <!-- ========== PLAYER ========== -->
+  <section id="player" class="screen" aria-label="ভিডিও প্লেয়ার">
+    <div class="player-box" role="region" aria-label="ভিডিও এলাকা">
+      <button type="button" class="big-play" aria-label="প্লে বা পজ" onclick="this.textContent = this.textContent === '▶' ? '⏸' : '▶'">▶</button>
+    </div>
+    <div class="seek-row">
+      <span id="tCur" aria-label="বর্তমান সময়">0:00</span>
+      <input type="range" min="0" max="100" value="0" aria-label="ভিডিও অগ্রগতি" />
+      <span id="tDur" aria-label="মোট সময়">12:34</span>
     </div>
 
-    <script>
-        function getInfo() {
-            const url = document.getElementById('videoUrl').value.trim();
-            const resultDiv = document.getElementById('result');
+    <div class="action-row" role="toolbar" aria-label="প্লেয়ার নিয়ন্ত্রণ" style="margin-top:8px">
+      <button type="button" class="action" aria-label="নেক্সট পরবর্তী ভিডিও" onclick="alert('নেক্সট — পরে')"><span class="ic">⏭</span>নেক্সট</button>
+      <button type="button" class="action" aria-label="ফাস্ট ফরওয়ার্ড এগিয়ে যান" onclick="alert('এগিয়ে — সেটিংসের সেকেন্ড')"><span class="ic">⏩</span>এগিয়ে</button>
+      <button type="button" class="action" aria-label="রিওয়াইন্ড পিছিয়ে যান" onclick="alert('পিছিয়ে — সেটিংসের সেকেন্ড')"><span class="ic">⏪</span>পিছিয়ে</button>
+      <button type="button" class="action" aria-label="পূর্ববর্তী আগের ভিডিও" onclick="alert('পূর্ববর্তী — পরে')"><span class="ic">⏮</span>পূর্ববর্তী</button>
+    </div>
 
-            if (!url) {
-                resultDiv.innerText = "দয়া করে একটা ইউটিউব লিংক দাও।";
-                return;
-            }
+    <h1 class="vid-title" id="pTitle">ভিডিওর শিরোনাম</h1>
+    <p class="vid-sub" id="pSub">চ্যানেল · ভিউ · তারিখ</p>
 
-            resultDiv.innerText = "NewPipe থেকে তথ্য আনা হচ্ছে... অপেক্ষা করো...";
+    <div class="action-row" role="toolbar" aria-label="ভিডিও অ্যাকশন">
+      <button type="button" class="action" aria-label="লাইক"><span class="ic">👍</span>লাইক</button>
+      <button type="button" class="action" aria-label="ডিসলাইক"><span class="ic">👎</span>ডিসলাইক</button>
+      <button type="button" class="action" aria-label="শেয়ার"><span class="ic">↗️</span>শেয়ার</button>
+      <button type="button" class="action" aria-label="ডাউনলোড ভিডিও" onclick="alert('ভিডিও ডাউনলোড — পরে NewPipe')"><span class="ic">⬇️</span>ভিডিও</button>
+      <button type="button" class="action" aria-label="ডাউনলোড অডিও" onclick="alert('অডিও ডাউনলোড — পরে')"><span class="ic">🎵</span>অডিও</button>
+      <button type="button" class="action" aria-label="সংরক্ষণ"><span class="ic">📑</span>সেভ</button>
+    </div>
 
-            try {
-                // জাভা কোডকে কল করা হচ্ছে
-                const info = Android.getVideoInfoFromNewPipe(url);
-                resultDiv.innerText = info;
-            } catch (e) {
-                resultDiv.innerText = "ত্রুটি হয়েছে: " + e.message;
-            }
-        }
+    <div class="channel-row">
+      <div class="avatar" aria-hidden="true"></div>
+      <div class="info">
+        <strong id="pChannel">চ্যানেলের নাম</strong>
+        <span>সাবস্ক্রাইবার · নমুনা</span>
+      </div>
+      <button type="button" class="btn-sub" aria-label="সাবস্ক্রাইব" onclick="this.classList.toggle('on'); this.textContent = this.classList.contains('on') ? 'সাবস্ক্রাইবড' : 'সাবস্ক্রাইব';">সাবস্ক্রাইব</button>
+    </div>
 
-        function testConnection() {
-            try {
-                Android.showToast("জাভা কানেকশন ঠিক আছে!");
-                document.getElementById('result').innerText = "Android কানেকশন সফল হয়েছে।";
-            } catch (e) {
-                document.getElementById('result').innerText = "Android কানেকশন পাওয়া যায়নি।\n" + e.message;
-            }
-        }
-    </script>
+    <div class="comment-preview" role="button" tabindex="0" aria-label="মন্তব্য দেখুন">
+      মন্তব্য · নমুনা — পরে লিস্ট বসবে
+    </div>
+
+    <button type="button" class="action" style="width:100%;margin-top:16px;flex-direction:row;justify-content:center;gap:8px;padding:14px"
+            aria-label="পিছনে হোম" onclick="go('home')">← ফিরে যান</button>
+  </section>
+
+
+  <!-- ========== SETTINGS ========== -->
+  <section id="settings" class="screen" aria-label="সেটিংস">
+    <div class="set-top">
+      <button type="button" class="icon-btn solid" aria-label="পিছনে" onclick="go('home')">←</button>
+      <h2>সেটিংস</h2>
+    </div>
+
+    <div class="set-group" role="group" aria-label="প্লেব্যাক">
+      <h3>প্লেব্যাক</h3>
+      <div class="set-row">
+        <div class="label">
+          <strong>এগিয়ে / পিছিয়ে</strong>
+          <small>ডবল ট্যাপ বা বাটনে কত সেকেন্ড লাফ</small>
+        </div>
+        <select id="setSkip" aria-label="স্কিপ সেকেন্ড" onchange="saveSet()">
+          <option value="5">৫ সেকেন্ড</option>
+          <option value="10" selected>১০ সেকেন্ড</option>
+          <option value="15">১৫ সেকেন্ড</option>
+          <option value="30">৩০ সেকেন্ড</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>ডিফল্ট ভিডিও কোয়ালিটি</strong>
+          <small>অটো হলে নেট অনুযায়ী বেছে নেবে</small>
+        </div>
+        <select id="setQuality" aria-label="ভিডিও কোয়ালিটি" onchange="saveSet()">
+          <option value="auto" selected>অটো</option>
+          <option value="360">৩৬০p</option>
+          <option value="480">৪৮০p</option>
+          <option value="720">৭২০p</option>
+          <option value="1080">১০৮০p</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>শুধু অডিও মোড</strong>
+          <small>ভিডিও ছাড়া শুধু সাউন্ড — ডাটা বাঁচে</small>
+        </div>
+        <button type="button" class="toggle" id="setAudioOnly" role="switch" aria-checked="false"
+                aria-label="শুধু অডিও মোড" onclick="tog(this)"></button>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>ব্যাকগ্রাউন্ড প্লে</strong>
+          <small>স্ক্রিন বন্ধ থাকলেও চলবে (পরে অ্যাপে)</small>
+        </div>
+        <button type="button" class="toggle on" id="setBgPlay" role="switch" aria-checked="true"
+                aria-label="ব্যাকগ্রাউন্ড প্লে" onclick="tog(this)"></button>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>স্পিড</strong>
+          <small>প্লেব্যাক গতি</small>
+        </div>
+        <select id="setSpeed" aria-label="প্লেব্যাক স্পিড" onchange="saveSet()">
+          <option value="0.75">০.৭৫×</option>
+          <option value="1" selected>১×</option>
+          <option value="1.25">১.২৫×</option>
+          <option value="1.5">১.৫×</option>
+          <option value="2">২×</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="set-group" role="group" aria-label="ডাটা ও ডাউনলোড">
+      <h3>ডাটা ও ডাউনলোড</h3>
+      <div class="set-row">
+        <div class="label">
+          <strong>ডাটা সেভার</strong>
+          <small>কম কোয়ালিটি + কম প্রিলোড</small>
+        </div>
+        <button type="button" class="toggle" id="setDataSaver" role="switch" aria-checked="false"
+                aria-label="ডাটা সেভার" onclick="tog(this)"></button>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>শুধু Wi-Fi-এ ডাউনলোড</strong>
+          <small>মোবাইল ডাটায় ডাউনলোড বন্ধ</small>
+        </div>
+        <button type="button" class="toggle on" id="setWifiOnly" role="switch" aria-checked="true"
+                aria-label="শুধু ওয়াইফাই এ ডাউনলোড" onclick="tog(this)"></button>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>ডাউনলোড ফোল্ডার</strong>
+          <small>ডিফল্ট: Movies/MyTube</small>
+        </div>
+        <select id="setFolder" aria-label="ডাউনলোড ফোল্ডার" onchange="saveSet()">
+          <option value="movies" selected>Movies</option>
+          <option value="music">Music</option>
+          <option value="download">Download</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>অডিও ফরম্যাট</strong>
+          <small>ডাউনলোডের সময়</small>
+        </div>
+        <select id="setAudioFmt" aria-label="অডিও ফরম্যাট" onchange="saveSet()">
+          <option value="m4a" selected>M4A</option>
+          <option value="mp3">MP3</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="set-group" role="group" aria-label="অ্যাক্সেসিবিলিটি">
+      <h3>অ্যাক্সেসিবিলিটি (TalkBack)</h3>
+      <div class="set-row">
+        <div class="label">
+          <strong>বড় টেক্সট</strong>
+          <small>শিরোনাম ও বাটন একটু বড়</small>
+        </div>
+        <button type="button" class="toggle" id="setBigText" role="switch" aria-checked="false"
+                aria-label="বড় টেক্সট" onclick="tog(this); document.body.style.fontSize = this.classList.contains('on') ? '18px' : ''"></button>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>কম অ্যানিমেশন</strong>
+          <small>স্ক্রিন ট্রানজিশন কমায়</small>
+        </div>
+        <button type="button" class="toggle" id="setReduceMotion" role="switch" aria-checked="false"
+                aria-label="কম অ্যানিমেশন" onclick="tog(this)"></button>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>প্লে/পজে ভয়েস নিশ্চিতকরণ</strong>
+          <small>প্লে হলে সংক্ষেপে ঘোষণা (পরে)</small>
+        </div>
+        <button type="button" class="toggle on" id="setAnnounce" role="switch" aria-checked="true"
+                aria-label="প্লে পজ ঘোষণা" onclick="tog(this)"></button>
+      </div>
+    </div>
+
+    <div class="set-group" role="group" aria-label="ইতিহাস ও গোপনীয়তা">
+      <h3>ইতিহাস ও গোপনীয়তা</h3>
+      <div class="set-row">
+        <div class="label">
+          <strong>দেখার ইতিহাস রাখো</strong>
+          <small>বন্ধ করলে নতুন হিস্ট্রি সেভ হবে না</small>
+        </div>
+        <button type="button" class="toggle on" id="setKeepHistory" role="switch" aria-checked="true"
+                aria-label="দেখার ইতিহাস রাখো" onclick="tog(this)"></button>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>সার্চ ইতিহাস রাখো</strong>
+        </div>
+        <button type="button" class="toggle on" id="setKeepSearch" role="switch" aria-checked="true"
+                aria-label="সার্চ ইতিহাস রাখো" onclick="tog(this)"></button>
+      </div>
+      <button type="button" class="set-btn danger" aria-label="দেখার ইতিহাস মুছুন"
+              onclick="if(confirm('দেখার ইতিহাস মুছে ফেলবেন?')) alert('ইতিহাস মুছে গেছে (নমুনা)')">🗑 দেখার ইতিহাস মুছুন</button>
+      <button type="button" class="set-btn danger" aria-label="সার্চ ইতিহাস মুছুন"
+              onclick="if(confirm('সার্চ ইতিহাস মুছে ফেলবেন?')) alert('সার্চ ইতিহাস মুছে গেছে (নমুনা)')">🗑 সার্চ ইতিহাস মুছুন</button>
+      <button type="button" class="set-btn danger" aria-label="সব ডাউনলোড তালিকা মুছুন"
+              onclick="if(confirm('ডাউনলোড তালিকা মুছবেন? ফাইল ফোন থেকে আলাদা মুছতে হতে পারে।')) alert('তালিকা মুছে গেছে (নমুনা)')">🗑 ডাউনলোড তালিকা মুছুন</button>
+    </div>
+
+    <div class="set-group" role="group" aria-label="সার্ভার ও আপডেট">
+      <h3>সোর্স ও আপডেট</h3>
+      <div class="set-row">
+        <div class="label">
+          <strong>প্রাইমারি সোর্স</strong>
+          <small>ভিডিও আনার প্রথম রাস্তা</small>
+        </div>
+        <select id="setSource" aria-label="প্রাইমারি সোর্স" onchange="saveSet()">
+          <option value="extractor" selected>লোকাল Extractor</option>
+          <option value="piped">Piped</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>ফলব্যাক সোর্স</strong>
+          <small>প্রথমটা ব্যর্থ হলে</small>
+        </div>
+        <select id="setFallback" aria-label="ফলব্যাক সোর্স" onchange="saveSet()">
+          <option value="piped" selected>Piped</option>
+          <option value="extractor">লোকাল Extractor</option>
+          <option value="none">নেই</option>
+        </select>
+      </div>
+      <button type="button" class="set-btn" aria-label="ইনস্ট্যান্স তালিকা রিফ্রেশ"
+              onclick="alert('ইনস্ট্যান্স লিস্ট আপডেট — পরে')">🔄 ইনস্ট্যান্স লিস্ট রিফ্রেশ</button>
+    </div>
+
+    <div class="set-group" role="group" aria-label="অন্যান্য">
+      <h3>অন্যান্য</h3>
+      <div class="set-row">
+        <div class="label">
+          <strong>অ্যাপ ভাষা</strong>
+        </div>
+        <select id="setLang" aria-label="অ্যাপ ভাষা" onchange="saveSet()">
+          <option value="bn" selected>বাংলা</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div class="label">
+          <strong>থিম</strong>
+        </div>
+        <select id="setTheme" aria-label="থিম" onchange="saveSet()">
+          <option value="dark" selected>গাঢ়</option>
+          <option value="light">হালকা</option>
+        </select>
+      </div>
+      <button type="button" class="set-btn" aria-label="অ্যাপ সম্পর্কে"
+              onclick="alert('MyTube UI স্কেচ\nনিজের ব্যবহার · NewPipe-স্টাইল ব্যাকএন্ড পরে')">ℹ️ অ্যাপ সম্পর্কে</button>
+    </div>
+
+    <p class="hint">সেটিংস এখন UI নমুনা। পরে localStorage / অ্যাপে আসল সেভ হবে।</p>
+  </section>
+
+  <!-- ========== BOTTOM TABS ========== -->
+  <nav class="tabs" role="tablist" aria-label="মূল নেভিগেশন">
+    <button type="button" class="tab active" role="tab" aria-selected="true" aria-label="হোম" id="tab-home" onclick="go('home')">
+      <span class="ic" aria-hidden="true">🏠</span>হোম
+    </button>
+    <button type="button" class="tab" role="tab" aria-selected="false" aria-label="সার্চ" id="tab-search" onclick="go('search')">
+      <span class="ic" aria-hidden="true">🔍</span>সার্চ
+    </button>
+    <button type="button" class="tab" role="tab" aria-selected="false" aria-label="সাবস্ক্রিপশন" id="tab-subs" onclick="go('subs')">
+      <span class="ic" aria-hidden="true">▶️</span>সাবস
+    </button>
+    <button type="button" class="tab" role="tab" aria-selected="false" aria-label="লাইব্রেরি" id="tab-library" onclick="go('library')">
+      <span class="ic" aria-hidden="true">📚</span>লাইব্রেরি
+    </button>
+  </nav>
+
+  <script>
+    const screens = ['home', 'search', 'subs', 'library', 'player', 'settings'];
+    function go(name) {
+      screens.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', id === name);
+      });
+      ['home', 'search', 'subs', 'library'].forEach(id => {
+        const t = document.getElementById('tab-' + id);
+        if (!t) return;
+        t.classList.toggle('active', name === id);
+        t.setAttribute('aria-selected', name === id ? 'true' : 'false');
+      });
+      const bar = document.getElementById('topbar');
+      if (bar) bar.style.display = (name === 'player' || name === 'settings') ? 'none' : 'flex';
+      const tabs = document.querySelector('.tabs');
+      if (tabs) tabs.style.display = (name === 'player' || name === 'settings') ? 'none' : 'flex';
+      window.scrollTo(0, 0);
+    }
+    function openPlayer(title, channel) {
+      document.getElementById('pTitle').textContent = title;
+      document.getElementById('pChannel').textContent = channel;
+      document.getElementById('pSub').textContent = channel + ' · নমুনা ভিউ · আজ';
+      go('player');
+    }
+    function doSearch() {
+      const q = (document.getElementById('qFull').value || '').trim() || 'নমুনা';
+      const box = document.getElementById('searchResults');
+      box.innerHTML = '';
+      for (let i = 1; i <= 4; i++) {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.setAttribute('role', 'button');
+        div.tabIndex = 0;
+        div.setAttribute('aria-label', 'সার্চ ফল ' + i + ': ' + q);
+        div.onclick = () => openPlayer(q + ' — ফল ' + i, 'সার্চ চ্যানেল');
+        div.innerHTML = '<div class="rt" aria-hidden="true"></div><div class="ri"><h4>' +
+          q + ' — ফল ' + i + '</h4><p>সার্চ চ্যানেল · নমুনা</p></div>';
+        box.appendChild(div);
+      }
+    }
+    function tog(btn) {
+      btn.classList.toggle('on');
+      btn.setAttribute('aria-checked', btn.classList.contains('on') ? 'true' : 'false');
+      saveSet();
+    }
+    function saveSet() {
+      try {
+        const o = {
+          skip: document.getElementById('setSkip').value,
+          quality: document.getElementById('setQuality').value,
+          speed: document.getElementById('setSpeed').value,
+          audioOnly: document.getElementById('setAudioOnly').classList.contains('on'),
+          bgPlay: document.getElementById('setBgPlay').classList.contains('on'),
+          dataSaver: document.getElementById('setDataSaver').classList.contains('on'),
+          wifiOnly: document.getElementById('setWifiOnly').classList.contains('on'),
+          folder: document.getElementById('setFolder').value,
+          audioFmt: document.getElementById('setAudioFmt').value,
+          source: document.getElementById('setSource').value,
+          fallback: document.getElementById('setFallback').value,
+          lang: document.getElementById('setLang').value,
+          theme: document.getElementById('setTheme').value
+        };
+        localStorage.setItem('mytube_settings', JSON.stringify(o));
+      } catch (e) {}
+    }
+    function loadSet() {
+      try {
+        const o = JSON.parse(localStorage.getItem('mytube_settings') || '{}');
+        if (o.skip) document.getElementById('setSkip').value = o.skip;
+        if (o.quality) document.getElementById('setQuality').value = o.quality;
+        if (o.speed) document.getElementById('setSpeed').value = o.speed;
+        if (o.folder) document.getElementById('setFolder').value = o.folder;
+        if (o.audioFmt) document.getElementById('setAudioFmt').value = o.audioFmt;
+        if (o.source) document.getElementById('setSource').value = o.source;
+        if (o.fallback) document.getElementById('setFallback').value = o.fallback;
+        if (o.lang) document.getElementById('setLang').value = o.lang;
+        if (o.theme) document.getElementById('setTheme').value = o.theme;
+        const map = {
+          setAudioOnly: o.audioOnly, setBgPlay: o.bgPlay, setDataSaver: o.dataSaver, setWifiOnly: o.wifiOnly
+        };
+        Object.keys(map).forEach(id => {
+          if (map[id] === undefined) return;
+          const b = document.getElementById(id);
+          if (!b) return;
+          b.classList.toggle('on', !!map[id]);
+          b.setAttribute('aria-checked', map[id] ? 'true' : 'false');
+        });
+      } catch (e) {}
+    }
+    window.addEventListener('DOMContentLoaded', loadSet);
+  </script>
 </body>
 </html>
