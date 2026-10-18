@@ -14,6 +14,7 @@ import org.schabi.newpipe.extractor.search.SearchInfo;
 import org.schabi.newpipe.extractor.stream.AudioStream;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
+import org.schabi.newpipe.extractor.stream.SubtitlesStream;
 import org.schabi.newpipe.extractor.stream.VideoStream;
 
 import java.io.ByteArrayOutputStream;
@@ -48,7 +49,7 @@ public class NewPipeHelper {
     }
 
     static class RealDownloader extends Downloader {
-        private static final String USER_AGENT =
+        static final String USER_AGENT =
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
         @Override
@@ -139,9 +140,17 @@ public class NewPipeHelper {
         if ("newpipe".equals(p) || "piped".equals(p) || "invidious".equals(p)) primary = p;
     }
 
+    private static volatile boolean fallbackOn = true;
+
+    /** false = only the primary source is used (no automatic fallback). */
+    public static void setFallback(boolean on) {
+        fallbackOn = on;
+    }
+
     private static List<String> order() {
         List<String> l = new ArrayList<>();
         l.add(primary);
+        if (!fallbackOn) return l;
         for (String s : new String[]{"newpipe", "piped", "invidious"}) {
             if (!l.contains(s)) l.add(s);
         }
@@ -322,6 +331,64 @@ public class NewPipeHelper {
         root.put("playUrl", playUrl);
         root.put("audioOnly", audioOnly);
         return root;
+    }
+
+    // -------------------------------------------------------------- transcript
+
+    /** Subtitle text of a video (so Grok / other AIs can "read" what is said). Bangla > English > Hindi > any. */
+    public static String getTranscript(String videoUrl) {
+        try {
+            if (videoUrl == null || videoUrl.trim().isEmpty()) return err("লিংক নেই");
+            ensureInit();
+            StreamInfo info = StreamInfo.getInfo(videoUrl.trim());
+            List<SubtitlesStream> subs = info.getSubtitles();
+            if (subs == null || subs.isEmpty()) return err("এই ভিডিওতে সাবটাইটেল নেই");
+            SubtitlesStream pick = null;
+            for (String want : new String[]{"bn", "en", "hi"}) {
+                for (SubtitlesStream s : subs) {
+                    String tag = s.getLanguageTag();
+                    if (tag != null && tag.toLowerCase().startsWith(want)) { pick = s; break; }
+                }
+                if (pick != null) break;
+            }
+            if (pick == null) pick = subs.get(0);
+            String raw = fetchText(pick.getContent());
+            String text = TextClean.fromSubtitle(raw, 14000);
+            if (text.isEmpty()) return err("সাবটাইটেল পড়া যায়নি");
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("text", text);
+            o.put("lang", pick.getLanguageTag());
+            return o.toString();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return err("সাবটাইটেল আনা যায়নি: " + e.getMessage());
+        }
+    }
+
+    private static String fetchText(String u) throws IOException {
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(u).openConnection();
+            c.setConnectTimeout(15000);
+            c.setReadTimeout(20000);
+            c.setInstanceFollowRedirects(true);
+            c.setRequestProperty("User-Agent", RealDownloader.USER_AGENT);
+            c.setRequestProperty("Accept-Encoding", "gzip");
+            int code = c.getResponseCode();
+            if (code >= 400) throw new IOException("HTTP " + code);
+            InputStream in = c.getInputStream();
+            String enc = c.getContentEncoding();
+            if (enc != null && enc.equalsIgnoreCase("gzip")) in = new GZIPInputStream(in);
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int r;
+            while ((r = in.read(buf)) != -1) bos.write(buf, 0, r);
+            in.close();
+            return bos.toString("UTF-8");
+        } finally {
+            if (c != null) c.disconnect();
+        }
     }
 
     public static String getVideoInfo(String videoUrl) {

@@ -12,17 +12,26 @@ import java.net.URL;
 
 /**
  * Calls AI providers from the phone (no browser CORS problems).
- *  - provider "gemini": Google Gemini generateContent API
+ *  - provider "gemini": Google Gemini generateContent API (can also watch a public YouTube video)
  *  - anything else    : OpenAI-compatible /chat/completions (Grok/xAI, OpenRouter, Groq, DeepSeek ...)
- * API keys come from the app settings each call; they are never written to logs.
+ * API keys come from the app settings on every call; they are never logged.
  */
 public class AiClient {
 
     private static final String GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
 
-    /** Returns {ok:true,text:"..."} or {ok:false,error:"..."} */
+    /** IOException that remembers the HTTP status, so callers can retry with different parameters. */
+    static class HttpError extends IOException {
+        final int code;
+        HttpError(int code, String msg) { super(msg); this.code = code; }
+    }
+
+    /**
+     * Returns {ok:true,text:"..."} or {ok:false,error:"..."}.
+     * videoUrl: when not empty and provider is gemini, Gemini watches that public YouTube video itself.
+     */
     public static String call(String provider, String baseUrl, String model, String key,
-                              String system, String user) {
+                              String system, String user, String videoUrl) {
         try {
             if (key == null || key.trim().isEmpty()) {
                 return err("API key দেওয়া হয়নি — সেটিংসে AI অংশে দিন");
@@ -32,7 +41,7 @@ public class AiClient {
             }
             String text;
             if ("gemini".equals(provider)) {
-                text = gemini(model.trim(), key.trim(), system, user);
+                text = gemini(model.trim(), key.trim(), system, user, videoUrl);
             } else {
                 text = openAiCompatible(baseUrl, model.trim(), key.trim(), system, user);
             }
@@ -48,15 +57,23 @@ public class AiClient {
         }
     }
 
-    private static String gemini(String model, String key, String system, String user) throws Exception {
+    private static String gemini(String model, String key, String system, String user,
+                                 String videoUrl) throws Exception {
         JSONObject body = new JSONObject();
         if (system != null && !system.isEmpty()) {
             body.put("systemInstruction", new JSONObject().put("parts",
                     new JSONArray().put(new JSONObject().put("text", system))));
         }
+        JSONArray parts = new JSONArray();
+        if (videoUrl != null && videoUrl.startsWith("https://")) {
+            // Gemini fetches and watches the public YouTube video itself (picture + sound)
+            parts.put(new JSONObject().put("file_data",
+                    new JSONObject().put("file_uri", videoUrl)));
+        }
+        parts.put(new JSONObject().put("text", user));
         body.put("contents", new JSONArray().put(new JSONObject()
                 .put("role", "user")
-                .put("parts", new JSONArray().put(new JSONObject().put("text", user)))));
+                .put("parts", parts)));
 
         String resp = post(GEMINI_BASE + model + ":generateContent", body.toString(),
                 "x-goog-api-key", key);
@@ -71,11 +88,11 @@ public class AiClient {
         }
         JSONObject content = cands.getJSONObject(0).optJSONObject("content");
         if (content == null) throw new IOException("Gemini উত্তরে লেখা নেই");
-        JSONArray parts = content.optJSONArray("parts");
+        JSONArray outParts = content.optJSONArray("parts");
         StringBuilder sb = new StringBuilder();
-        if (parts != null) {
-            for (int i = 0; i < parts.length(); i++) {
-                sb.append(parts.getJSONObject(i).optString("text", ""));
+        if (outParts != null) {
+            for (int i = 0; i < outParts.length(); i++) {
+                sb.append(outParts.getJSONObject(i).optString("text", ""));
             }
         }
         return sb.toString();
@@ -95,9 +112,23 @@ public class AiClient {
             msgs.put(new JSONObject().put("role", "system").put("content", system));
         }
         msgs.put(new JSONObject().put("role", "user").put("content", user));
-        JSONObject body = new JSONObject().put("model", model).put("messages", msgs);
 
-        String resp = post(url, body.toString(), "Authorization", "Bearer " + key);
+        // Grok reasons a lot by default (slow). Ask for low effort; if the server rejects the
+        // parameter, silently retry without it.
+        boolean xai = base.contains("api.x.ai");
+        String resp;
+        try {
+            JSONObject body = new JSONObject().put("model", model).put("messages", msgs);
+            if (xai) body.put("reasoning_effort", "low");
+            resp = post(url, body.toString(), "Authorization", "Bearer " + key);
+        } catch (HttpError e) {
+            if (xai && (e.code == 400 || e.code == 422)) {
+                JSONObject body = new JSONObject().put("model", model).put("messages", msgs);
+                resp = post(url, body.toString(), "Authorization", "Bearer " + key);
+            } else {
+                throw e;
+            }
+        }
         JSONObject root = new JSONObject(resp);
         JSONArray choices = root.optJSONArray("choices");
         if (choices == null || choices.length() == 0) throw new IOException("AI কোনো উত্তর দেয়নি");
@@ -111,7 +142,7 @@ public class AiClient {
             c = (HttpURLConnection) new URL(url).openConnection();
             c.setRequestMethod("POST");
             c.setConnectTimeout(20000);
-            c.setReadTimeout(90000);
+            c.setReadTimeout(150000); // video understanding can take a while
             c.setDoOutput(true);
             c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             c.setRequestProperty("Accept", "application/json");
@@ -126,7 +157,7 @@ public class AiClient {
             int code = c.getResponseCode();
             InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
             String body = in == null ? "" : readAll(in);
-            if (code >= 400) throw new IOException(describeError(code, body));
+            if (code >= 400) throw new HttpError(code, describeError(code, body));
             return body;
         } finally {
             if (c != null) c.disconnect();
