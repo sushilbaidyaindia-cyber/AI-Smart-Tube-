@@ -1,779 +1,926 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="bn" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>MyTube</title>
-  <style>
-    :root {
-      --bg: #0f0f0f;
-      --surface: #212121;
-      --surface2: #2a2a2a;
-      --text: #f1f1f1;
-      --muted: #aaaaaa;
-      --accent: #3ea6ff;
-      --danger: #ff4e45;
-      --radius: 12px;
-      --tab-h: 56px;
-      --top-h: 56px;
-    }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body {
-      margin: 0; padding: 0;
-      background: var(--bg); color: var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      min-height: 100%;
-    }
-    body { padding-bottom: calc(var(--tab-h) + 12px); }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0f0f0f" />
+<title>MyTube</title>
+<style>
+  :root {
+    --bg:#0f0f0f; --bg2:#272727; --bg3:#3f3f3f; --text:#f1f1f1; --muted:#aaaaaa;
+    --red:#ff0033; --blue:#3ea6ff; --line:#2a2a2a;
+    --top-h:52px; --tab-h:54px;
+  }
+  html[data-theme="light"] {
+    --bg:#ffffff; --bg2:#f2f2f2; --bg3:#e3e3e3; --text:#0f0f0f; --muted:#606060; --line:#e5e5e5;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px)); }
+  button { font-family:inherit; color:inherit; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
 
-    /* ===== Top bar ===== */
-    .topbar {
-      position: sticky; top: 0; z-index: 40;
-      height: var(--top-h);
-      display: flex; align-items: center; gap: 8px;
-      padding: 0 10px;
-      background: rgba(15,15,15,0.96);
-      border-bottom: 1px solid #222;
-    }
-    .brand {
-      font-weight: 800; font-size: 18px; letter-spacing: 0.2px;
-      white-space: nowrap; padding: 0 4px;
-    }
-    .brand span { color: var(--accent); }
-    .search-wrap {
-      flex: 1; display: flex; align-items: center; gap: 6px;
-      background: var(--surface); border-radius: 24px;
-      padding: 0 4px 0 14px; min-height: 40px;
-      border: 1px solid #333;
-    }
-    .search-wrap input {
-      flex: 1; border: 0; outline: 0; background: transparent;
-      color: var(--text); font-size: 15px; min-width: 0;
-      padding: 10px 0;
-    }
-    .search-wrap input::placeholder { color: var(--muted); }
-    .icon-btn {
-      width: 42px; height: 42px; border: 0; border-radius: 50%;
-      background: transparent; color: var(--text);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; cursor: pointer; flex-shrink: 0;
-    }
-    .icon-btn:active { background: var(--surface2); }
-    .icon-btn.solid {
-      background: var(--surface); border: 1px solid #333;
-    }
+  /* ---------- top bar ---------- */
+  .topbar { position:sticky; top:0; z-index:40; height:var(--top-h); display:flex; align-items:center;
+    gap:4px; padding:0 4px 0 12px; background:var(--bg); }
+  .brand { display:flex; align-items:center; gap:6px; font-weight:800; font-size:20px; letter-spacing:-.5px; flex:1; }
+  .logo { width:28px; height:20px; border-radius:6px; background:var(--red); color:#fff; font-size:11px;
+    display:flex; align-items:center; justify-content:center; }
+  .ibtn { width:44px; height:44px; border:0; border-radius:50%; background:transparent; font-size:20px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none; }
+  .ibtn:active { background:var(--bg2); }
 
-    /* ===== Screen sections ===== */
-    .screen { display: none; padding: 10px 12px 20px; max-width: 720px; margin: 0 auto; }
-    .screen.active { display: block; }
-    .screen-title {
-      font-size: 18px; font-weight: 800; margin: 6px 0 14px;
-    }
+  /* ---------- screens ---------- */
+  .screen { display:none; max-width:760px; margin:0 auto; }
+  .screen.active { display:block; }
+  .pad { padding:12px; }
+  .hint { color:var(--muted); font-size:13px; text-align:center; margin:24px 16px; line-height:1.5; }
+  h2.title { font-size:18px; margin:6px 12px 12px; }
 
-    /* ===== Home feed cards ===== */
-    .chip-row {
-      display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px;
-      scrollbar-width: none;
-    }
-    .chip-row::-webkit-scrollbar { display: none; }
-    .chip {
-      flex: 0 0 auto; border: 0; border-radius: 8px;
-      padding: 8px 14px; font-size: 13px; font-weight: 600;
-      background: var(--surface); color: var(--text); cursor: pointer;
-    }
-    .chip.active { background: #f1f1f1; color: #0f0f0f; }
+  /* ---------- chips ---------- */
+  .chips { position:sticky; top:var(--top-h); z-index:30; display:flex; gap:8px; overflow-x:auto;
+    padding:8px 12px 12px; background:var(--bg); scrollbar-width:none; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { flex:none; border:0; border-radius:8px; height:32px; padding:0 12px; font-size:14px; font-weight:500;
+    background:var(--bg2); cursor:pointer; }
+  .chip.active { background:var(--text); color:var(--bg); }
 
-    .video-card {
-      margin-bottom: 18px; cursor: pointer;
-      border-radius: var(--radius); overflow: hidden;
-    }
-    .thumb {
-      width: 100%; aspect-ratio: 16 / 9;
-      background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--muted); font-size: 14px; position: relative;
-      border-radius: 12px;
-    }
-    .thumb .dur {
-      position: absolute; right: 8px; bottom: 8px;
-      background: rgba(0,0,0,0.85); color: #fff;
-      font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
-    }
-    .meta {
-      display: flex; gap: 12px; padding: 10px 2px 0;
-    }
-    .avatar {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: #3a3a3a; flex-shrink: 0;
-    }
-    .meta-text { flex: 1; min-width: 0; }
-    .meta-text h3 {
-      margin: 0 0 4px; font-size: 15px; font-weight: 650;
-      line-height: 1.35; display: -webkit-box;
-      -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .meta-text p {
-      margin: 0; font-size: 13px; color: var(--muted);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
+  /* ---------- video card (YouTube mobile style) ---------- */
+  .vcard { margin:0 0 22px; }
+  .vthumb { position:relative; aspect-ratio:16/9; background:var(--bg2) center/cover no-repeat; cursor:pointer; }
+  .vdur { position:absolute; right:8px; bottom:8px; background:rgba(0,0,0,.8); color:#fff; font-size:12px;
+    font-weight:600; padding:1px 5px; border-radius:4px; }
+  .vinfo { display:flex; gap:12px; padding:12px 4px 0 12px; align-items:flex-start; }
+  .vav { width:36px; height:36px; border-radius:50%; flex:none; display:flex; align-items:center;
+    justify-content:center; font-weight:700; color:#fff; font-size:15px; }
+  .vtext { flex:1; min-width:0; cursor:pointer; }
+  .vtitle { font-size:14px; font-weight:500; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2;
+    -webkit-box-orient:vertical; overflow:hidden; }
+  .vmeta { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.4; }
+  .vmore { flex:none; width:36px; height:36px; border:0; background:transparent; font-size:20px; cursor:pointer;
+    border-radius:50%; }
+  .vmore:active { background:var(--bg2); }
+  .skel .vthumb { background:var(--bg2); animation:pulse 1.2s infinite ease-in-out; }
+  .skel .sk { height:12px; border-radius:6px; background:var(--bg2); margin:8px 0; animation:pulse 1.2s infinite ease-in-out; }
+  @keyframes pulse { 50% { opacity:.45; } }
+  @media (prefers-reduced-motion: reduce) { .skel .vthumb,.skel .sk { animation:none; } }
 
-    /* ===== Player screen ===== */
-    .player-box {
-      width: 100%; aspect-ratio: 16 / 9;
-      background: #000; border-radius: 0;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--muted); position: relative;
-      margin: 0 -12px; width: calc(100% + 24px);
-    }
-    .player-box .big-play {
-      width: 64px; height: 64px; border-radius: 50%;
-      border: 0; background: rgba(255,255,255,0.15);
-      color: #fff; font-size: 28px; cursor: pointer;
-    }
-    .seek-row {
-      display: flex; align-items: center; gap: 8px;
-      margin-top: 10px; font-size: 12px; color: var(--muted);
-      font-variant-numeric: tabular-nums;
-    }
-    .seek-row input[type=range] { flex: 1; accent-color: var(--accent); }
-    .vid-title {
-      font-size: 17px; font-weight: 750; margin: 12px 0 6px; line-height: 1.35;
-    }
-    .vid-sub { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+  /* compact card (search results / up next) */
+  .ccard { display:flex; gap:10px; padding:6px 4px 6px 12px; align-items:flex-start; }
+  .ccard .cthumb { position:relative; width:42%; max-width:200px; aspect-ratio:16/9; border-radius:8px;
+    background:var(--bg2) center/cover no-repeat; flex:none; cursor:pointer; }
+  .ccard .vtext { padding-top:2px; }
 
-    .action-row {
-      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px;
-      scrollbar-width: none;
-    }
-    .action-row::-webkit-scrollbar { display: none; }
-    .action {
-      flex: 0 0 auto; min-width: 72px;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      padding: 10px 12px; border: 0; border-radius: 12px;
-      background: var(--surface); color: var(--text);
-      font-size: 11px; font-weight: 650; cursor: pointer;
-    }
-    .action .ic { font-size: 20px; }
-    .action:active { background: var(--surface2); }
+  /* ---------- search ---------- */
+  .sbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:4px; padding:4px 4px 4px 4px;
+    background:var(--bg); }
+  .sbar input { flex:1; min-width:0; height:40px; border:0; border-radius:20px; background:var(--bg2); color:var(--text);
+    font-size:16px; padding:0 16px; outline:0; }
+  .recent { display:flex; align-items:center; gap:14px; padding:12px 16px; cursor:pointer; }
+  .recent span.ic { color:var(--muted); }
 
-    .channel-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 0; border-top: 1px solid #222; border-bottom: 1px solid #222;
-      margin: 8px 0 14px;
-    }
-    .channel-row .info { flex: 1; min-width: 0; }
-    .channel-row .info strong { display: block; font-size: 15px; }
-    .channel-row .info span { font-size: 12px; color: var(--muted); }
-    .btn-sub {
-      border: 0; border-radius: 20px; padding: 10px 16px;
-      background: #f1f1f1; color: #0f0f0f;
-      font-weight: 800; font-size: 13px; cursor: pointer;
-    }
-    .btn-sub.on { background: var(--surface2); color: var(--text); }
+  /* ---------- tabs ---------- */
+  .tabs { position:fixed; left:0; right:0; bottom:0; z-index:50; height:calc(var(--tab-h) + env(safe-area-inset-bottom,0px));
+    padding-bottom:env(safe-area-inset-bottom,0px); display:flex; background:var(--bg); border-top:1px solid var(--line); }
+  .tab { flex:1; border:0; background:transparent; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:2px; font-size:10px; color:var(--muted); cursor:pointer; }
+  .tab .ic { font-size:21px; line-height:1; }
+  .tab.active { color:var(--text); font-weight:700; }
 
-    .comment-preview {
-      background: var(--surface); border-radius: 12px;
-      padding: 12px 14px; font-size: 13px; color: var(--muted);
-    }
+  /* ---------- list rows (you / subs) ---------- */
+  .row { display:flex; align-items:center; gap:16px; padding:14px 16px; cursor:pointer; border:0; background:transparent;
+    width:100%; text-align:left; font-size:15px; }
+  .row:active { background:var(--bg2); }
+  .row .ic { width:28px; text-align:center; font-size:20px; }
+  .row small { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
+  .avrow { display:flex; gap:16px; overflow-x:auto; padding:6px 12px 14px; scrollbar-width:none; }
+  .avrow::-webkit-scrollbar { display:none; }
+  .avitem { flex:none; width:64px; text-align:center; font-size:11px; border:0; background:transparent; cursor:pointer; }
+  .avitem .vav { width:52px; height:52px; margin:0 auto 6px; font-size:20px; }
+  .avitem span.nm { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 
-    /* ===== Search screen ===== */
-    .search-full {
-      display: flex; gap: 8px; margin-bottom: 14px;
-    }
-    .search-full input {
-      flex: 1; border: 1px solid #333; border-radius: 24px;
-      background: var(--surface); color: var(--text);
-      padding: 12px 16px; font-size: 16px; outline: 0;
-    }
-    .result-item {
-      display: flex; gap: 12px; padding: 10px 0;
-      border-bottom: 1px solid #1c1c1c; cursor: pointer;
-    }
-    .result-item .rt {
-      width: 42%; aspect-ratio: 16/9; border-radius: 8px;
-      background: var(--surface2); flex-shrink: 0;
-    }
-    .result-item .ri { flex: 1; min-width: 0; }
-    .result-item h4 {
-      margin: 0 0 4px; font-size: 14px; font-weight: 650;
-      display: -webkit-box; -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .result-item p { margin: 0; font-size: 12px; color: var(--muted); }
+  /* ---------- player ---------- */
+  .pvideo { position:sticky; top:0; z-index:35; background:#000; aspect-ratio:16/9; }
+  .pvideo video { width:100%; height:100%; background:#000; object-fit:contain; display:block; }
+  .spin { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none; }
+  .spin.on { display:flex; }
+  .spin i { width:38px; height:38px; border:4px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%;
+    animation:rot .9s linear infinite; }
+  @keyframes rot { to { transform:rotate(360deg); } }
+  .ptitle { font-size:18px; font-weight:600; line-height:1.35; margin:12px 12px 4px; }
+  .pmeta { font-size:12px; color:var(--muted); margin:0 12px 10px; }
+  .pills { display:flex; gap:8px; overflow-x:auto; padding:4px 12px 10px; scrollbar-width:none; }
+  .pills::-webkit-scrollbar { display:none; }
+  .pill { flex:none; display:flex; align-items:center; gap:6px; height:36px; padding:0 14px; border:0; border-radius:18px;
+    background:var(--bg2); font-size:13px; font-weight:500; white-space:nowrap; cursor:pointer; }
+  .pill:active { background:var(--bg3); }
+  .pill.on { background:var(--text); color:var(--bg); }
+  .chrow { display:flex; align-items:center; gap:12px; padding:10px 12px; }
+  .chrow .info { flex:1; min-width:0; }
+  .chrow .info strong { display:block; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chrow .info span { font-size:12px; color:var(--muted); }
+  .subbtn { border:0; border-radius:18px; height:36px; padding:0 16px; font-weight:600; font-size:14px;
+    background:var(--text); color:var(--bg); cursor:pointer; }
+  .subbtn.on { background:var(--bg2); color:var(--text); }
+  .descbox { margin:6px 12px; padding:12px; border-radius:12px; background:var(--bg2); font-size:13px; line-height:1.5;
+    cursor:pointer; white-space:pre-wrap; word-break:break-word; }
+  .descbox.clamp { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .srcbadge { font-size:11px; color:var(--muted); margin:2px 12px 6px; }
+  .transport { display:flex; justify-content:space-around; padding:2px 8px 6px; }
+  .transport .pill { padding:0 18px; }
 
-    /* ===== Library ===== */
-    .lib-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-    }
-    .lib-tile {
-      background: var(--surface); border: 0; border-radius: 12px;
-      padding: 18px 12px; text-align: left; color: var(--text);
-      font-size: 14px; font-weight: 700; cursor: pointer;
-      min-height: 72px;
-    }
-    .lib-tile small { display: block; color: var(--muted); font-weight: 500; margin-top: 4px; }
+  /* ---------- AI panel ---------- */
+  .aibox { margin:12px; padding:12px; border-radius:14px; background:var(--bg2); }
+  .aibox h3 { margin:0 0 10px; font-size:15px; }
+  .aibtns { display:flex; flex-wrap:wrap; gap:8px; }
+  .aibtns .pill { background:var(--bg3); }
+  .askrow { display:flex; gap:8px; margin-top:10px; }
+  .askrow input { flex:1; min-width:0; height:40px; border:1px solid var(--bg3); border-radius:20px; background:var(--bg);
+    color:var(--text); padding:0 14px; font-size:14px; outline:0; }
+  .aiout { margin-top:12px; font-size:14px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+  .aiout.busy { color:var(--muted); }
+  .aifoot { margin-top:8px; font-size:11px; color:var(--muted); line-height:1.45; }
 
-    .list-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 4px; border-bottom: 1px solid #1c1c1c;
-      cursor: pointer;
-    }
-    .list-row .ic {
-      width: 44px; height: 44px; border-radius: 10px;
-      background: var(--surface); display: flex; align-items: center;
-      justify-content: center; font-size: 20px; flex-shrink: 0;
-    }
+  /* ---------- sheet & snack ---------- */
+  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:80; display:none; }
+  .scrim.on { display:block; }
+  .sheet { position:fixed; left:0; right:0; bottom:0; z-index:90; background:var(--bg2); border-radius:16px 16px 0 0;
+    padding:8px 0 calc(12px + env(safe-area-inset-bottom,0px)); display:none; max-width:760px; margin:0 auto; }
+  .sheet.on { display:block; }
+  .snack { position:fixed; left:12px; right:12px; bottom:calc(var(--tab-h) + 12px); z-index:100; background:#323232; color:#fff;
+    border-radius:8px; padding:12px 16px; font-size:14px; display:none; max-width:560px; margin:0 auto; }
+  .snack.on { display:block; }
 
-    /* ===== Bottom tabs ===== */
-    .tabs {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-      height: var(--tab-h);
-      display: flex; background: #0f0f0f;
-      border-top: 1px solid #222;
-      padding-bottom: env(safe-area-inset-bottom, 0);
-    }
-    .tab {
-      flex: 1; border: 0; background: transparent; color: var(--muted);
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 2px;
-      font-size: 10px; font-weight: 650; cursor: pointer;
-      padding: 6px 2px;
-    }
-    .tab .ic { font-size: 20px; line-height: 1; }
-    .tab.active { color: var(--text); }
-
-    /* player mode: hide tabs optional later */
-    .hint {
-      font-size: 12px; color: var(--muted); text-align: center;
-      margin: 20px 8px; line-height: 1.45;
-    }
-
-    /* ===== Settings ===== */
-    .set-group {
-      margin: 0 0 18px; padding: 4px 0 8px;
-      border: 1px solid #2a2a2a; border-radius: 14px;
-      background: #161616; overflow: hidden;
-    }
-    .set-group h3 {
-      margin: 0; padding: 12px 14px 8px;
-      font-size: 13px; font-weight: 800; color: var(--accent);
-      letter-spacing: 0.3px; text-transform: uppercase;
-    }
-    .set-row {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; padding: 14px; border-top: 1px solid #242424;
-      min-height: 56px;
-    }
-    .set-row .label { flex: 1; min-width: 0; }
-    .set-row .label strong { display: block; font-size: 15px; font-weight: 650; }
-    .set-row .label small { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
-    .set-row select, .set-row input[type=number] {
-      border: 1px solid #444; border-radius: 10px;
-      background: var(--surface); color: var(--text);
-      padding: 10px 12px; font-size: 14px; font-weight: 700;
-      min-width: 96px; text-align: center;
-    }
-    .toggle {
-      width: 52px; height: 32px; border-radius: 20px; border: 0;
-      background: #444; position: relative; cursor: pointer; flex-shrink: 0;
-    }
-    .toggle.on { background: var(--accent); }
-    .toggle::after {
-      content: ""; position: absolute; top: 4px; left: 4px;
-      width: 24px; height: 24px; border-radius: 50%; background: #fff;
-      transition: transform .15s;
-    }
-    .toggle.on::after { transform: translateX(20px); }
-    .set-btn {
-      width: 100%; border: 0; border-radius: 0; text-align: left;
-      background: transparent; color: var(--text);
-      padding: 14px; font-size: 15px; font-weight: 650; cursor: pointer;
-      border-top: 1px solid #242424; min-height: 52px;
-    }
-    .set-btn:active { background: var(--surface); }
-    .set-btn.danger { color: var(--danger); }
-    .set-top {
-      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-    }
-    .set-top h2 { flex: 1; margin: 0; font-size: 18px; font-weight: 800; }
-  </style>
+  /* ---------- settings ---------- */
+  .set-top { display:flex; align-items:center; gap:4px; padding:4px; position:sticky; top:0; background:var(--bg); z-index:40; }
+  .set-top h2 { margin:0; font-size:18px; }
+  .group { margin:0 12px 16px; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .group h3 { margin:0; padding:12px 14px 6px; font-size:13px; color:var(--blue); }
+  .srow { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px;
+    border-top:1px solid var(--line); min-height:54px; }
+  .srow .lb { flex:1; min-width:0; }
+  .srow .lb strong { display:block; font-size:15px; font-weight:600; }
+  .srow .lb small { display:block; font-size:12px; color:var(--muted); margin-top:3px; line-height:1.4; }
+  .srow select, .srow input[type=text], .srow input[type=password], .srow input[type=url] {
+    border:1px solid var(--bg3); border-radius:10px; background:var(--bg2); color:var(--text); padding:10px 12px;
+    font-size:14px; max-width:52%; min-width:110px; }
+  .srow.col { flex-direction:column; align-items:stretch; }
+  .srow.col input { max-width:100%; width:100%; }
+  .switch { position:relative; width:52px; height:32px; flex:none; }
+  .switch input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; z-index:2; }
+  .switch .sl { position:absolute; inset:0; border-radius:16px; background:var(--bg3); transition:background .15s; }
+  .switch .sl::after { content:""; position:absolute; top:4px; left:4px; width:24px; height:24px; border-radius:50%; background:#fff;
+    transition:transform .15s; }
+  .switch input:checked + .sl { background:var(--blue); }
+  .switch input:checked + .sl::after { transform:translateX(20px); }
+  .sbtn { width:100%; border:0; border-top:1px solid var(--line); background:transparent; padding:14px; text-align:left; font-size:15px;
+    font-weight:600; cursor:pointer; }
+  .sbtn.danger { color:#ff6b5e; }
+</style>
 </head>
 <body>
 
-  <!-- ========== TOP BAR (hidden on player optional) ========== -->
-  <header class="topbar" id="topbar" role="banner">
-    <div class="brand" aria-label="অ্যাপ নাম">My<span>Tube</span></div>
-    <div class="search-wrap" role="search">
-      <input type="search" id="qTop" placeholder="সার্চ করুন…" aria-label="সার্চ বক্স"
-             readonly onclick="go('search'); document.getElementById('qFull').focus();" />
-      <button type="button" class="icon-btn" aria-label="ভয়েস সার্চ" onclick="alert('ভয়েস সার্চ — পরে যোগ হবে')">🎤</button>
+<!-- ============ TOP BAR (home / subs / you) ============ -->
+<header class="topbar" id="topbar">
+  <div class="brand" role="heading" aria-level="1" aria-label="MyTube"><span class="logo" aria-hidden="true">▶</span>MyTube</div>
+  <button type="button" class="ibtn" aria-label="সার্চ" onclick="go('search')">🔍</button>
+  <button type="button" class="ibtn" aria-label="সেটিংস" onclick="go('settings')">⚙️</button>
+</header>
+
+<!-- ============ HOME ============ -->
+<main id="home" class="screen active" aria-label="হোম">
+  <div class="chips" id="chips" role="group" aria-label="ক্যাটাগরি"></div>
+  <div id="feed" aria-live="polite"></div>
+</main>
+
+<!-- ============ SEARCH ============ -->
+<section id="search" class="screen" aria-label="সার্চ">
+  <div class="sbar">
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()">←</button>
+    <input type="search" id="qInput" placeholder="সার্চ করুন" aria-label="সার্চ লিখুন" enterkeyhint="search"
+           onkeydown="if(event.key==='Enter'){doSearch(this.value)}" />
+    <button type="button" class="ibtn" aria-label="সার্চ শুরু করুন" onclick="doSearch($('qInput').value)">🔍</button>
+    <button type="button" class="ibtn" aria-label="ভয়েস সার্চ" onclick="toast('ভয়েস সার্চ পরে যোগ হবে')">🎤</button>
+  </div>
+  <div id="recent"></div>
+  <div id="sresults" aria-live="polite"></div>
+</section>
+
+<!-- ============ SUBSCRIPTIONS ============ -->
+<section id="subs" class="screen" aria-label="সাবস্ক্রিপশন">
+  <h2 class="title">সাবস্ক্রিপশন</h2>
+  <div id="subsBox"></div>
+</section>
+
+<!-- ============ YOU / LIBRARY ============ -->
+<section id="you" class="screen" aria-label="আপনি">
+  <h2 class="title">আপনি</h2>
+  <button type="button" class="row" onclick="openList('history')"><span class="ic" aria-hidden="true">🕒</span><span>ইতিহাস<small id="cntHistory"></small></span></button>
+  <button type="button" class="row" onclick="openList('later')"><span class="ic" aria-hidden="true">🔖</span><span>পরে দেখব<small id="cntLater"></small></span></button>
+  <button type="button" class="row" onclick="openList('liked')"><span class="ic" aria-hidden="true">👍</span><span>পছন্দের ভিডিও<small id="cntLiked"></small></span></button>
+  <button type="button" class="row" onclick="toast('ডাউনলোড পরে যোগ হবে')"><span class="ic" aria-hidden="true">⬇️</span><span>ডাউনলোড<small>শীঘ্রই আসছে</small></span></button>
+  <button type="button" class="row" onclick="go('settings')"><span class="ic" aria-hidden="true">✨</span><span>AI ও সেটিংস<small>API key, সোর্স, প্লেব্যাক</small></span></button>
+</section>
+
+<!-- ============ GENERIC LIST ============ -->
+<section id="list" class="screen" aria-label="তালিকা">
+  <div class="sbar">
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()">←</button>
+    <h2 class="title" id="listTitle" style="margin:0 8px;flex:1">তালিকা</h2>
+    <button type="button" class="pill" id="listClear" onclick="clearList()" aria-label="তালিকা খালি করুন">খালি করুন</button>
+  </div>
+  <div id="listBody"></div>
+</section>
+
+<!-- ============ PLAYER ============ -->
+<section id="player" class="screen" aria-label="ভিডিও প্লেয়ার">
+  <div class="pvideo">
+    <video id="mainVideo" playsinline controls aria-label="ভিডিও"></video>
+    <div class="spin" id="spin" aria-hidden="true"><i></i></div>
+  </div>
+  <div class="transport" role="toolbar" aria-label="প্লেয়ার নিয়ন্ত্রণ">
+    <button type="button" class="pill" id="bPrev" aria-label="পূর্ববর্তী ভিডিও">⏮</button>
+    <button type="button" class="pill" id="bRew" aria-label="পিছিয়ে যান">⏪</button>
+    <button type="button" class="pill" id="bFwd" aria-label="এগিয়ে যান">⏩</button>
+    <button type="button" class="pill" id="bNext" aria-label="পরবর্তী ভিডিও">⏭</button>
+  </div>
+  <h1 class="ptitle" id="pTitle">ভিডিও</h1>
+  <p class="pmeta" id="pMeta"></p>
+  <div class="srcbadge" id="srcBadge" aria-live="polite"></div>
+
+  <div class="pills" role="toolbar" aria-label="ভিডিও অ্যাকশন">
+    <button type="button" class="pill" id="bLike" aria-pressed="false" onclick="toggleLike()"><span aria-hidden="true">👍</span>পছন্দ</button>
+    <button type="button" class="pill" aria-label="শেয়ার" onclick="shareVideo()"><span aria-hidden="true">↗️</span>শেয়ার</button>
+    <button type="button" class="pill" id="bLater" aria-pressed="false" onclick="toggleLater()"><span aria-hidden="true">🔖</span>সেভ</button>
+    <button type="button" class="pill" aria-label="ডাউনলোড" onclick="toast('ডাউনলোড পরে যোগ হবে')"><span aria-hidden="true">⬇️</span>ডাউনলোড</button>
+  </div>
+
+  <div class="chrow">
+    <div class="vav" id="pAv" aria-hidden="true"></div>
+    <div class="info"><strong id="pChannel">চ্যানেল</strong><span>ইউটিউব চ্যানেল</span></div>
+    <button type="button" class="subbtn" id="bSub" aria-pressed="false" onclick="toggleSub()">সাবস্ক্রাইব</button>
+  </div>
+
+  <div class="descbox clamp" id="pDesc" role="button" tabindex="0" aria-label="বিবরণ, বড় বা ছোট করতে চাপুন"
+       onclick="this.classList.toggle('clamp')">বিবরণ লোড হচ্ছে…</div>
+
+  <div class="aibox" id="aiBox">
+    <h3>✨ AI সহায়ক</h3>
+    <div class="aibtns" role="toolbar" aria-label="AI অপশন">
+      <button type="button" class="pill" onclick="runAI('sum')">📝 সারাংশ</button>
+      <button type="button" class="pill" onclick="runAI('fact')">🕵️ গোয়েন্দা</button>
+      <button type="button" class="pill" onclick="runAI('tr')">🌐 অনুবাদ</button>
     </div>
-    <button type="button" class="icon-btn solid" aria-label="সেটিংস খুলুন" onclick="go('settings')">⚙️</button>
-  </header>
-
-  <!-- ========== HOME ========== -->
-  <main id="home" class="screen active" role="main" aria-label="হোম ফিড">
-    <div class="chip-row" role="tablist" aria-label="ক্যাটাগরি">
-      <button type="button" class="chip active" aria-label="সব">সব</button>
-      <button type="button" class="chip" aria-label="সঙ্গীত">সঙ্গীত</button>
-      <button type="button" class="chip" aria-label="লাইভ">লাইভ</button>
-      <button type="button" class="chip" aria-label="গেমস">গেমস</button>
-      <button type="button" class="chip" aria-label="সংবাদ">সংবাদ</button>
+    <div class="askrow">
+      <input type="text" id="aiQ" placeholder="এই ভিডিও নিয়ে প্রশ্ন করুন" aria-label="AI-কে প্রশ্ন লিখুন"
+             onkeydown="if(event.key==='Enter'){runAI('ask')}" />
+      <button type="button" class="pill" aria-label="প্রশ্ন পাঠান" onclick="runAI('ask')">পাঠান</button>
     </div>
+    <div class="aiout" id="aiOut" role="status" aria-live="polite"></div>
+    <div class="aifoot">AI শুধু ভিডিওর শিরোনাম, চ্যানেল ও বিবরণ দেখে উত্তর দেয় — ভিডিওর ভেতরের কথা বা ছবি দেখে না। ভুলও হতে পারে।</div>
+  </div>
 
-    <!-- sample cards (placeholders) -->
-    <article class="video-card" role="button" tabindex="0" aria-label="ভিডিও: নমুনা গান, চ্যানেল ডেমো"
-             onclick="openPlayer('নমুনা গান — লাইভ পারফরম্যান্স','ডেমো চ্যানেল')">
-      <div class="thumb">থাম্বনেইল <span class="dur">12:34</span></div>
-      <div class="meta">
-        <div class="avatar" aria-hidden="true"></div>
-        <div class="meta-text">
-          <h3>নমুনা গান — লাইভ পারফরম্যান্স</h3>
-          <p>ডেমো চ্যানেল · ১.২ লাখ ভিউ · ২ দিন আগে</p>
-        </div>
-      </div>
-    </article>
+  <h2 class="title" style="margin-top:18px">পরবর্তী ভিডিও</h2>
+  <div id="upnext"></div>
+</section>
 
-    <article class="video-card" role="button" tabindex="0" aria-label="ভিডিও: শেখার টিউটোরিয়াল"
-             onclick="openPlayer('শেখার টিউটোরিয়াল — পর্ব ১','শিক্ষা চ্যানেল')">
-      <div class="thumb">থাম্বনেইল <span class="dur">8:05</span></div>
-      <div class="meta">
-        <div class="avatar" aria-hidden="true"></div>
-        <div class="meta-text">
-          <h3>শেখার টিউটোরিয়াল — পর্ব ১</h3>
-          <p>শিক্ষা চ্যানেল · ৪৫ হাজার ভিউ · ১ সপ্তাহ আগে</p>
-        </div>
-      </div>
-    </article>
+<!-- ============ SETTINGS ============ -->
+<section id="settings" class="screen" aria-label="সেটিংস">
+  <div class="set-top">
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()">←</button>
+    <h2>সেটিংস</h2>
+  </div>
 
-    <article class="video-card" role="button" tabindex="0" aria-label="ভিডিও: বাংলা গল্প"
-             onclick="openPlayer('বাংলা গল্প শোনো','গল্পঘর')">
-      <div class="thumb">থাম্বনেইল <span class="dur">22:10</span></div>
-      <div class="meta">
-        <div class="avatar" aria-hidden="true"></div>
-        <div class="meta-text">
-          <h3>বাংলা গল্প শোনো</h3>
-          <p>গল্পঘর · ৯০ হাজার ভিউ · ৩ দিন আগে</p>
-        </div>
-      </div>
-    </article>
-
-    <p class="hint">এগুলো নমুনা কার্ড। পরে NewPipe/Piped থেকে আসল তালিকা বসবে।</p>
-  </main>
-
-  <!-- ========== SEARCH ========== -->
-  <section id="search" class="screen" aria-label="সার্চ">
-    <div class="search-full">
-      <input type="search" id="qFull" placeholder="সার্চ…" aria-label="সার্চ লিখুন" />
-      <button type="button" class="icon-btn solid" aria-label="ভয়েস সার্চ" onclick="alert('ভয়েস সার্চ — পরে')">🎤</button>
-      <button type="button" class="icon-btn solid" aria-label="সার্চ শুরু" onclick="doSearch()">🔍</button>
+  <div class="group" role="group" aria-label="AI">
+    <h3>✨ AI (নিজের API key দিন)</h3>
+    <div class="srow col">
+      <div class="lb"><strong>Gemini API key</strong><small>Google AI Studio থেকে নেওয়া key। শুধু এই ফোনে সেভ থাকে।</small></div>
+      <input type="password" id="gemKey" class="sv" aria-label="Gemini API key" autocomplete="off" />
     </div>
-    <div id="searchResults" aria-live="polite">
-      <p class="hint">সার্চ করে দেখুন (এখন নমুনা ফল)।</p>
+    <div class="srow">
+      <div class="lb"><strong>Gemini মডেল</strong><small>ভুল হলে এখানে বদলান</small></div>
+      <input type="text" id="gemModel" class="sv" aria-label="Gemini মডেলের নাম" placeholder="gemini-2.5-flash" />
     </div>
-  </section>
-
-  <!-- ========== SUBS ========== -->
-  <section id="subs" class="screen" aria-label="সাবস্ক্রিপশন">
-    <h2 class="screen-title">সাবস্ক্রিপশন</h2>
-    <div class="list-row" role="button" tabindex="0" aria-label="ডেমো চ্যানেল">
-      <div class="ic" aria-hidden="true">📺</div>
-      <div>
-        <strong>ডেমো চ্যানেল</strong><br />
-        <span style="color:var(--muted);font-size:12px">লোকাল সাবস্ক্রাইব · নমুনা</span>
-      </div>
+    <div class="srow col">
+      <div class="lb"><strong>Grok (xAI) API key</strong></div>
+      <input type="password" id="grokKey" class="sv" aria-label="Grok API key" autocomplete="off" />
     </div>
-    <div class="list-row" role="button" tabindex="0" aria-label="শিক্ষা চ্যানেল">
-      <div class="ic" aria-hidden="true">📚</div>
-      <div>
-        <strong>শিক্ষা চ্যানেল</strong><br />
-        <span style="color:var(--muted);font-size:12px">লোকাল সাবস্ক্রাইব · নমুনা</span>
-      </div>
+    <div class="srow">
+      <div class="lb"><strong>Grok মডেল</strong></div>
+      <input type="text" id="grokModel" class="sv" aria-label="Grok মডেলের নাম" placeholder="grok-3" />
     </div>
-    <p class="hint">আসল সাবস্ক্রাইব তালিকা পরে লোকাল ডেটাবেসে সেভ হবে (ইউটিউব অ্যাকাউন্ট সিঙ্ক নয়)।</p>
-  </section>
-
-  <!-- ========== LIBRARY ========== -->
-  <section id="library" class="screen" aria-label="লাইব্রেরি">
-    <h2 class="screen-title">লাইব্রেরি</h2>
-    <div class="lib-grid">
-      <button type="button" class="lib-tile" aria-label="ইতিহাস">🕒 ইতিহাস<small>দেখা ভিডিও</small></button>
-      <button type="button" class="lib-tile" aria-label="ডাউনলোড">⬇️ ডাউনলোড<small>ফোনে সেভ</small></button>
-      <button type="button" class="lib-tile" aria-label="পছন্দ">❤️ পছন্দ<small>লাইক করা</small></button>
-      <button type="button" class="lib-tile" aria-label="পরে দেখব">🔖 পরে দেখব<small>সেভ লিস্ট</small></button>
+    <div class="srow col">
+      <div class="lb"><strong>কাস্টম AI (OpenAI-সামঞ্জস্যপূর্ণ)</strong><small>OpenRouter, Groq, DeepSeek ইত্যাদি। Base URL https:// দিয়ে শুরু হতে হবে, যেমন https://openrouter.ai/api/v1</small></div>
+      <input type="url" id="cusBase" class="sv" aria-label="কাস্টম Base URL" placeholder="https://…/v1" />
+      <input type="text" id="cusModel" class="sv" aria-label="কাস্টম মডেলের নাম" placeholder="মডেলের নাম" style="margin-top:8px" />
+      <input type="password" id="cusKey" class="sv" aria-label="কাস্টম API key" autocomplete="off" placeholder="API key" style="margin-top:8px" />
     </div>
-    <h2 class="screen-title" style="margin-top:22px">সাম্প্রতিক ডাউনলোড</h2>
-    <p class="hint">এখন খালি — ডাউনলোড করলে এখানে দেখাবে।</p>
-  </section>
-
-  <!-- ========== PLAYER ========== -->
-  <section id="player" class="screen" aria-label="ভিডিও প্লেয়ার">
-    <div class="player-box" role="region" aria-label="ভিডিও এলাকা">
-      <button type="button" class="big-play" aria-label="প্লে বা পজ" onclick="this.textContent = this.textContent === '▶' ? '⏸' : '▶'">▶</button>
+    <div class="srow">
+      <div class="lb"><strong>সারাংশ</strong><small>কোন AI দিয়ে</small></div>
+      <select id="provSum" class="sv" aria-label="সারাংশের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">কাস্টম</option></select>
     </div>
-    <div class="seek-row">
-      <span id="tCur" aria-label="বর্তমান সময়">0:00</span>
-      <input type="range" min="0" max="100" value="0" aria-label="ভিডিও অগ্রগতি" />
-      <span id="tDur" aria-label="মোট সময়">12:34</span>
+    <div class="srow">
+      <div class="lb"><strong>গোয়েন্দা (ক্লিকবেইট/যাচাই)</strong></div>
+      <select id="provFact" class="sv" aria-label="গোয়েন্দার AI"><option value="grok">Grok</option><option value="gemini">Gemini</option><option value="custom">কাস্টম</option></select>
     </div>
-
-    <div class="action-row" role="toolbar" aria-label="প্লেয়ার নিয়ন্ত্রণ" style="margin-top:8px">
-      <button type="button" class="action" aria-label="নেক্সট পরবর্তী ভিডিও" onclick="alert('নেক্সট — পরে')"><span class="ic">⏭</span>নেক্সট</button>
-      <button type="button" class="action" aria-label="ফাস্ট ফরওয়ার্ড এগিয়ে যান" onclick="alert('এগিয়ে — সেটিংসের সেকেন্ড')"><span class="ic">⏩</span>এগিয়ে</button>
-      <button type="button" class="action" aria-label="রিওয়াইন্ড পিছিয়ে যান" onclick="alert('পিছিয়ে — সেটিংসের সেকেন্ড')"><span class="ic">⏪</span>পিছিয়ে</button>
-      <button type="button" class="action" aria-label="পূর্ববর্তী আগের ভিডিও" onclick="alert('পূর্ববর্তী — পরে')"><span class="ic">⏮</span>পূর্ববর্তী</button>
+    <div class="srow">
+      <div class="lb"><strong>অনুবাদ</strong></div>
+      <select id="provTr" class="sv" aria-label="অনুবাদের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">কাস্টম</option></select>
     </div>
-
-    <h1 class="vid-title" id="pTitle">ভিডিওর শিরোনাম</h1>
-    <p class="vid-sub" id="pSub">চ্যানেল · ভিউ · তারিখ</p>
-
-    <div class="action-row" role="toolbar" aria-label="ভিডিও অ্যাকশন">
-      <button type="button" class="action" aria-label="লাইক"><span class="ic">👍</span>লাইক</button>
-      <button type="button" class="action" aria-label="ডিসলাইক"><span class="ic">👎</span>ডিসলাইক</button>
-      <button type="button" class="action" aria-label="শেয়ার"><span class="ic">↗️</span>শেয়ার</button>
-      <button type="button" class="action" aria-label="ডাউনলোড ভিডিও" onclick="alert('ভিডিও ডাউনলোড — পরে NewPipe')"><span class="ic">⬇️</span>ভিডিও</button>
-      <button type="button" class="action" aria-label="ডাউনলোড অডিও" onclick="alert('অডিও ডাউনলোড — পরে')"><span class="ic">🎵</span>অডিও</button>
-      <button type="button" class="action" aria-label="সংরক্ষণ"><span class="ic">📑</span>সেভ</button>
+    <div class="srow">
+      <div class="lb"><strong>প্রশ্ন-উত্তর</strong></div>
+      <select id="provAsk" class="sv" aria-label="প্রশ্ন-উত্তরের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">কাস্টম</option></select>
     </div>
-
-    <div class="channel-row">
-      <div class="avatar" aria-hidden="true"></div>
-      <div class="info">
-        <strong id="pChannel">চ্যানেলের নাম</strong>
-        <span>সাবস্ক্রাইবার · নমুনা</span>
-      </div>
-      <button type="button" class="btn-sub" aria-label="সাবস্ক্রাইব" onclick="this.classList.toggle('on'); this.textContent = this.classList.contains('on') ? 'সাবস্ক্রাইবড' : 'সাবস্ক্রাইব';">সাবস্ক্রাইব</button>
+    <div class="srow">
+      <div class="lb"><strong>অনুবাদের ভাষা</strong></div>
+      <select id="trLang" class="sv" aria-label="অনুবাদের ভাষা"><option value="বাংলা">বাংলা</option><option value="English">English</option><option value="हिन्दी">हिन्दी</option></select>
     </div>
-
-    <div class="comment-preview" role="button" tabindex="0" aria-label="মন্তব্য দেখুন">
-      মন্তব্য · নমুনা — পরে লিস্ট বসবে
+    <div class="srow">
+      <div class="lb"><strong>উত্তর জোরে পড়ুক</strong><small>TalkBack চালু থাকলে এটা বন্ধ রাখুন, নইলে দুবার পড়বে</small></div>
+      <label class="switch"><input type="checkbox" id="aiSpeak" class="sv" aria-label="AI উত্তর জোরে পড়ুক" /><span class="sl"></span></label>
     </div>
+  </div>
 
-    <button type="button" class="action" style="width:100%;margin-top:16px;flex-direction:row;justify-content:center;gap:8px;padding:14px"
-            aria-label="পিছনে হোম" onclick="go('home')">← ফিরে যান</button>
-  </section>
-
-
-  <!-- ========== SETTINGS ========== -->
-  <section id="settings" class="screen" aria-label="সেটিংস">
-    <div class="set-top">
-      <button type="button" class="icon-btn solid" aria-label="পিছনে" onclick="go('home')">←</button>
-      <h2>সেটিংস</h2>
+  <div class="group" role="group" aria-label="সোর্স">
+    <h3>ভিডিও সোর্স</h3>
+    <div class="srow">
+      <div class="lb"><strong>প্রথমে কোনটা চেষ্টা হবে</strong><small>ব্যর্থ হলে বাকিগুলো নিজে থেকে চেষ্টা হয়</small></div>
+      <select id="primary" class="sv" aria-label="প্রাইমারি সোর্স"><option value="newpipe">NewPipe</option><option value="piped">Piped</option><option value="invidious">Invidious</option></select>
     </div>
+  </div>
 
-    <div class="set-group" role="group" aria-label="প্লেব্যাক">
-      <h3>প্লেব্যাক</h3>
-      <div class="set-row">
-        <div class="label">
-          <strong>এগিয়ে / পিছিয়ে</strong>
-          <small>ডবল ট্যাপ বা বাটনে কত সেকেন্ড লাফ</small>
-        </div>
-        <select id="setSkip" aria-label="স্কিপ সেকেন্ড" onchange="saveSet()">
-          <option value="5">৫ সেকেন্ড</option>
-          <option value="10" selected>১০ সেকেন্ড</option>
-          <option value="15">১৫ সেকেন্ড</option>
-          <option value="30">৩০ সেকেন্ড</option>
-        </select>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>ডিফল্ট ভিডিও কোয়ালিটি</strong>
-          <small>অটো হলে নেট অনুযায়ী বেছে নেবে</small>
-        </div>
-        <select id="setQuality" aria-label="ভিডিও কোয়ালিটি" onchange="saveSet()">
-          <option value="auto" selected>অটো</option>
-          <option value="360">৩৬০p</option>
-          <option value="480">৪৮০p</option>
-          <option value="720">৭২০p</option>
-          <option value="1080">১০৮০p</option>
-        </select>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>শুধু অডিও মোড</strong>
-          <small>ভিডিও ছাড়া শুধু সাউন্ড — ডাটা বাঁচে</small>
-        </div>
-        <button type="button" class="toggle" id="setAudioOnly" role="switch" aria-checked="false"
-                aria-label="শুধু অডিও মোড" onclick="tog(this)"></button>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>ব্যাকগ্রাউন্ড প্লে</strong>
-          <small>স্ক্রিন বন্ধ থাকলেও চলবে (পরে অ্যাপে)</small>
-        </div>
-        <button type="button" class="toggle on" id="setBgPlay" role="switch" aria-checked="true"
-                aria-label="ব্যাকগ্রাউন্ড প্লে" onclick="tog(this)"></button>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>স্পিড</strong>
-          <small>প্লেব্যাক গতি</small>
-        </div>
-        <select id="setSpeed" aria-label="প্লেব্যাক স্পিড" onchange="saveSet()">
-          <option value="0.75">০.৭৫×</option>
-          <option value="1" selected>১×</option>
-          <option value="1.25">১.২৫×</option>
-          <option value="1.5">১.৫×</option>
-          <option value="2">২×</option>
-        </select>
-      </div>
+  <div class="group" role="group" aria-label="প্লেব্যাক">
+    <h3>প্লেব্যাক</h3>
+    <div class="srow">
+      <div class="lb"><strong>এগিয়ে / পিছিয়ে</strong><small>বাটনে কত সেকেন্ড লাফ</small></div>
+      <select id="skip" class="sv" aria-label="স্কিপ সেকেন্ড"><option value="5">৫ সেকেন্ড</option><option value="10">১০ সেকেন্ড</option><option value="15">১৫ সেকেন্ড</option><option value="30">৩০ সেকেন্ড</option></select>
     </div>
-
-    <div class="set-group" role="group" aria-label="ডাটা ও ডাউনলোড">
-      <h3>ডাটা ও ডাউনলোড</h3>
-      <div class="set-row">
-        <div class="label">
-          <strong>ডাটা সেভার</strong>
-          <small>কম কোয়ালিটি + কম প্রিলোড</small>
-        </div>
-        <button type="button" class="toggle" id="setDataSaver" role="switch" aria-checked="false"
-                aria-label="ডাটা সেভার" onclick="tog(this)"></button>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>শুধু Wi-Fi-এ ডাউনলোড</strong>
-          <small>মোবাইল ডাটায় ডাউনলোড বন্ধ</small>
-        </div>
-        <button type="button" class="toggle on" id="setWifiOnly" role="switch" aria-checked="true"
-                aria-label="শুধু ওয়াইফাই এ ডাউনলোড" onclick="tog(this)"></button>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>ডাউনলোড ফোল্ডার</strong>
-          <small>ডিফল্ট: Movies/MyTube</small>
-        </div>
-        <select id="setFolder" aria-label="ডাউনলোড ফোল্ডার" onchange="saveSet()">
-          <option value="movies" selected>Movies</option>
-          <option value="music">Music</option>
-          <option value="download">Download</option>
-        </select>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>অডিও ফরম্যাট</strong>
-          <small>ডাউনলোডের সময়</small>
-        </div>
-        <select id="setAudioFmt" aria-label="অডিও ফরম্যাট" onchange="saveSet()">
-          <option value="m4a" selected>M4A</option>
-          <option value="mp3">MP3</option>
-        </select>
-      </div>
+    <div class="srow">
+      <div class="lb"><strong>স্পিড</strong></div>
+      <select id="speed" class="sv" aria-label="প্লেব্যাক স্পিড"><option value="0.75">০.৭৫×</option><option value="1">১×</option><option value="1.25">১.২৫×</option><option value="1.5">১.৫×</option><option value="2">২×</option></select>
     </div>
-
-    <div class="set-group" role="group" aria-label="অ্যাক্সেসিবিলিটি">
-      <h3>অ্যাক্সেসিবিলিটি (TalkBack)</h3>
-      <div class="set-row">
-        <div class="label">
-          <strong>বড় টেক্সট</strong>
-          <small>শিরোনাম ও বাটন একটু বড়</small>
-        </div>
-        <button type="button" class="toggle" id="setBigText" role="switch" aria-checked="false"
-                aria-label="বড় টেক্সট" onclick="tog(this); document.body.style.fontSize = this.classList.contains('on') ? '18px' : ''"></button>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>কম অ্যানিমেশন</strong>
-          <small>স্ক্রিন ট্রানজিশন কমায়</small>
-        </div>
-        <button type="button" class="toggle" id="setReduceMotion" role="switch" aria-checked="false"
-                aria-label="কম অ্যানিমেশন" onclick="tog(this)"></button>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>প্লে/পজে ভয়েস নিশ্চিতকরণ</strong>
-          <small>প্লে হলে সংক্ষেপে ঘোষণা (পরে)</small>
-        </div>
-        <button type="button" class="toggle on" id="setAnnounce" role="switch" aria-checked="true"
-                aria-label="প্লে পজ ঘোষণা" onclick="tog(this)"></button>
-      </div>
+    <div class="srow">
+      <div class="lb"><strong>অটোপ্লে</strong><small>শেষ হলে পরের ভিডিও চলবে</small></div>
+      <label class="switch"><input type="checkbox" id="autoplay" class="sv" aria-label="অটোপ্লে" /><span class="sl"></span></label>
     </div>
+  </div>
 
-    <div class="set-group" role="group" aria-label="ইতিহাস ও গোপনীয়তা">
-      <h3>ইতিহাস ও গোপনীয়তা</h3>
-      <div class="set-row">
-        <div class="label">
-          <strong>দেখার ইতিহাস রাখো</strong>
-          <small>বন্ধ করলে নতুন হিস্ট্রি সেভ হবে না</small>
-        </div>
-        <button type="button" class="toggle on" id="setKeepHistory" role="switch" aria-checked="true"
-                aria-label="দেখার ইতিহাস রাখো" onclick="tog(this)"></button>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>সার্চ ইতিহাস রাখো</strong>
-        </div>
-        <button type="button" class="toggle on" id="setKeepSearch" role="switch" aria-checked="true"
-                aria-label="সার্চ ইতিহাস রাখো" onclick="tog(this)"></button>
-      </div>
-      <button type="button" class="set-btn danger" aria-label="দেখার ইতিহাস মুছুন"
-              onclick="if(confirm('দেখার ইতিহাস মুছে ফেলবেন?')) alert('ইতিহাস মুছে গেছে (নমুনা)')">🗑 দেখার ইতিহাস মুছুন</button>
-      <button type="button" class="set-btn danger" aria-label="সার্চ ইতিহাস মুছুন"
-              onclick="if(confirm('সার্চ ইতিহাস মুছে ফেলবেন?')) alert('সার্চ ইতিহাস মুছে গেছে (নমুনা)')">🗑 সার্চ ইতিহাস মুছুন</button>
-      <button type="button" class="set-btn danger" aria-label="সব ডাউনলোড তালিকা মুছুন"
-              onclick="if(confirm('ডাউনলোড তালিকা মুছবেন? ফাইল ফোন থেকে আলাদা মুছতে হতে পারে।')) alert('তালিকা মুছে গেছে (নমুনা)')">🗑 ডাউনলোড তালিকা মুছুন</button>
+  <div class="group" role="group" aria-label="অন্যান্য">
+    <h3>অন্যান্য</h3>
+    <div class="srow">
+      <div class="lb"><strong>থিম</strong></div>
+      <select id="theme" class="sv" aria-label="থিম"><option value="dark">গাঢ়</option><option value="light">হালকা</option></select>
     </div>
-
-    <div class="set-group" role="group" aria-label="সার্ভার ও আপডেট">
-      <h3>সোর্স ও আপডেট</h3>
-      <div class="set-row">
-        <div class="label">
-          <strong>প্রাইমারি সোর্স</strong>
-          <small>ভিডিও আনার প্রথম রাস্তা</small>
-        </div>
-        <select id="setSource" aria-label="প্রাইমারি সোর্স" onchange="saveSet()">
-          <option value="extractor" selected>লোকাল Extractor</option>
-          <option value="piped">Piped</option>
-        </select>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>ফলব্যাক সোর্স</strong>
-          <small>প্রথমটা ব্যর্থ হলে</small>
-        </div>
-        <select id="setFallback" aria-label="ফলব্যাক সোর্স" onchange="saveSet()">
-          <option value="piped" selected>Piped</option>
-          <option value="extractor">লোকাল Extractor</option>
-          <option value="none">নেই</option>
-        </select>
-      </div>
-      <button type="button" class="set-btn" aria-label="ইনস্ট্যান্স তালিকা রিফ্রেশ"
-              onclick="alert('ইনস্ট্যান্স লিস্ট আপডেট — পরে')">🔄 ইনস্ট্যান্স লিস্ট রিফ্রেশ</button>
+    <div class="srow">
+      <div class="lb"><strong>বড় লেখা</strong></div>
+      <label class="switch"><input type="checkbox" id="bigText" class="sv" aria-label="বড় লেখা" /><span class="sl"></span></label>
     </div>
-
-    <div class="set-group" role="group" aria-label="অন্যান্য">
-      <h3>অন্যান্য</h3>
-      <div class="set-row">
-        <div class="label">
-          <strong>অ্যাপ ভাষা</strong>
-        </div>
-        <select id="setLang" aria-label="অ্যাপ ভাষা" onchange="saveSet()">
-          <option value="bn" selected>বাংলা</option>
-          <option value="en">English</option>
-        </select>
-      </div>
-      <div class="set-row">
-        <div class="label">
-          <strong>থিম</strong>
-        </div>
-        <select id="setTheme" aria-label="থিম" onchange="saveSet()">
-          <option value="dark" selected>গাঢ়</option>
-          <option value="light">হালকা</option>
-        </select>
-      </div>
-      <button type="button" class="set-btn" aria-label="অ্যাপ সম্পর্কে"
-              onclick="alert('MyTube UI স্কেচ\nনিজের ব্যবহার · NewPipe-স্টাইল ব্যাকএন্ড পরে')">ℹ️ অ্যাপ সম্পর্কে</button>
+    <div class="srow">
+      <div class="lb"><strong>দেখার ইতিহাস রাখো</strong></div>
+      <label class="switch"><input type="checkbox" id="keepHistory" class="sv" aria-label="দেখার ইতিহাস রাখো" /><span class="sl"></span></label>
     </div>
+    <button type="button" class="sbtn danger" onclick="if(confirm('ইতিহাস মুছবেন?')){LS.set('history',[]);toast('ইতিহাস মুছে গেছে');refreshYou();}">🗑 দেখার ইতিহাস মুছুন</button>
+    <button type="button" class="sbtn danger" onclick="if(confirm('সার্চ ইতিহাস মুছবেন?')){LS.set('recent',[]);toast('সার্চ ইতিহাস মুছে গেছে');}">🗑 সার্চ ইতিহাস মুছুন</button>
+  </div>
+</section>
 
-    <p class="hint">সেটিংস এখন UI নমুনা। পরে localStorage / অ্যাপে আসল সেভ হবে।</p>
-  </section>
+<!-- ============ BOTTOM TABS ============ -->
+<nav class="tabs" id="tabs" aria-label="মূল নেভিগেশন">
+  <button type="button" class="tab active" id="tab-home" onclick="go('home')"><span class="ic" aria-hidden="true">🏠</span>হোম</button>
+  <button type="button" class="tab" id="tab-subs" onclick="go('subs')"><span class="ic" aria-hidden="true">▶️</span>সাবস্ক্রিপশন</button>
+  <button type="button" class="tab" id="tab-you" onclick="go('you')"><span class="ic" aria-hidden="true">👤</span>আপনি</button>
+</nav>
 
-  <!-- ========== BOTTOM TABS ========== -->
-  <nav class="tabs" role="tablist" aria-label="মূল নেভিগেশন">
-    <button type="button" class="tab active" role="tab" aria-selected="true" aria-label="হোম" id="tab-home" onclick="go('home')">
-      <span class="ic" aria-hidden="true">🏠</span>হোম
-    </button>
-    <button type="button" class="tab" role="tab" aria-selected="false" aria-label="সার্চ" id="tab-search" onclick="go('search')">
-      <span class="ic" aria-hidden="true">🔍</span>সার্চ
-    </button>
-    <button type="button" class="tab" role="tab" aria-selected="false" aria-label="সাবস্ক্রিপশন" id="tab-subs" onclick="go('subs')">
-      <span class="ic" aria-hidden="true">▶️</span>সাবস
-    </button>
-    <button type="button" class="tab" role="tab" aria-selected="false" aria-label="লাইব্রেরি" id="tab-library" onclick="go('library')">
-      <span class="ic" aria-hidden="true">📚</span>লাইব্রেরি
-    </button>
-  </nav>
+<!-- sheet + snack -->
+<div class="scrim" id="scrim" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet" role="dialog" aria-label="অপশন"></div>
+<div class="snack" id="snack" role="status" aria-live="polite"></div>
 
-  <script>
-    const screens = ['home', 'search', 'subs', 'library', 'player', 'settings'];
-    function go(name) {
-      screens.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('active', id === name);
-      });
-      ['home', 'search', 'subs', 'library'].forEach(id => {
-        const t = document.getElementById('tab-' + id);
-        if (!t) return;
-        t.classList.toggle('active', name === id);
-        t.setAttribute('aria-selected', name === id ? 'true' : 'false');
-      });
-      const bar = document.getElementById('topbar');
-      if (bar) bar.style.display = (name === 'player' || name === 'settings') ? 'none' : 'flex';
-      const tabs = document.querySelector('.tabs');
-      if (tabs) tabs.style.display = (name === 'player' || name === 'settings') ? 'none' : 'flex';
-      window.scrollTo(0, 0);
-    }
-    function openPlayer(title, channel) {
-      document.getElementById('pTitle').textContent = title;
-      document.getElementById('pChannel').textContent = channel;
-      document.getElementById('pSub').textContent = channel + ' · নমুনা ভিউ · আজ';
-      go('player');
-    }
-    function doSearch() {
-      const q = (document.getElementById('qFull').value || '').trim() || 'নমুনা';
-      const box = document.getElementById('searchResults');
-      box.innerHTML = '';
-      for (let i = 1; i <= 4; i++) {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.setAttribute('role', 'button');
-        div.tabIndex = 0;
-        div.setAttribute('aria-label', 'সার্চ ফল ' + i + ': ' + q);
-        div.onclick = () => openPlayer(q + ' — ফল ' + i, 'সার্চ চ্যানেল');
-        div.innerHTML = '<div class="rt" aria-hidden="true"></div><div class="ri"><h4>' +
-          q + ' — ফল ' + i + '</h4><p>সার্চ চ্যানেল · নমুনা</p></div>';
-        box.appendChild(div);
+<script>
+/* =====================================================================
+   helpers
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('mt_' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('mt_' + k, JSON.stringify(v)); } catch (e) {} }
+};
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+const BN = '০১২৩৪৫৬৭৮৯';
+function bn(s) { return String(s).replace(/\d/g, d => BN[d]); }
+function fmtDur(sec) {
+  sec = Math.max(0, Math.floor(Number(sec) || 0));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? (h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'))
+           : (m + ':' + String(s).padStart(2, '0'));
+}
+function fmtViews(n) {
+  n = Number(n) || 0;
+  if (n <= 0) return '';
+  let v, unit;
+  if (n >= 1e7) { v = n / 1e7; unit = ' কোটি'; }
+  else if (n >= 1e5) { v = n / 1e5; unit = ' লাখ'; }
+  else if (n >= 1e3) { v = n / 1e3; unit = ' হাজার'; }
+  else return bn(n) + ' ভিউ';
+  const s = v >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
+  return bn(s) + unit + ' ভিউ';
+}
+function colorFor(name) {
+  let h = 0; const s = String(name || '?');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return 'hsl(' + h + ',45%,38%)';
+}
+function initial(name) { return (String(name || '?').trim()[0] || '?').toUpperCase(); }
+function stripHtml(h) {
+  try {
+    const d = new DOMParser().parseFromString(String(h || '').replace(/<br\s*\/?>/gi, '\n'), 'text/html');
+    return (d.body.textContent || '').trim();
+  } catch (e) { return String(h || ''); }
+}
+function hasAndroid() { return !!(window.Android && typeof Android.searchAsync === 'function' || (window.Android && typeof Android.search === 'function')); }
+function toast(msg) {
+  if (window.Android && typeof Android.showToast === 'function') { Android.showToast(String(msg)); return; }
+  const s = $('snack'); s.textContent = msg; s.classList.add('on');
+  clearTimeout(toast._t); toast._t = setTimeout(() => s.classList.remove('on'), 2600);
+}
+
+/* =====================================================================
+   native bridge (async, falls back to sync)
+   ===================================================================== */
+const _pending = {}; let _seq = 0;
+window.__nativeResult = function (id, json) {
+  const cb = _pending[id]; delete _pending[id];
+  if (cb) cb(json);
+};
+function callNative(method, ...args) {
+  return new Promise(function (resolve, reject) {
+    try {
+      const a = Android[method + 'Async'];
+      if (typeof a === 'function') {
+        const id = 'r' + (++_seq);
+        const timer = setTimeout(function () { delete _pending[id]; reject(new Error('সময় শেষ, আবার চেষ্টা করুন')); }, 120000);
+        _pending[id] = function (json) { clearTimeout(timer); try { resolve(JSON.parse(json)); } catch (e) { reject(e); } };
+        a.call(Android, id, ...args);
+      } else {
+        setTimeout(function () { try { resolve(JSON.parse(Android[method](...args))); } catch (e) { reject(e); } }, 30);
       }
-    }
-    function tog(btn) {
-      btn.classList.toggle('on');
-      btn.setAttribute('aria-checked', btn.classList.contains('on') ? 'true' : 'false');
-      saveSet();
-    }
-    function saveSet() {
-      try {
-        const o = {
-          skip: document.getElementById('setSkip').value,
-          quality: document.getElementById('setQuality').value,
-          speed: document.getElementById('setSpeed').value,
-          audioOnly: document.getElementById('setAudioOnly').classList.contains('on'),
-          bgPlay: document.getElementById('setBgPlay').classList.contains('on'),
-          dataSaver: document.getElementById('setDataSaver').classList.contains('on'),
-          wifiOnly: document.getElementById('setWifiOnly').classList.contains('on'),
-          folder: document.getElementById('setFolder').value,
-          audioFmt: document.getElementById('setAudioFmt').value,
-          source: document.getElementById('setSource').value,
-          fallback: document.getElementById('setFallback').value,
-          lang: document.getElementById('setLang').value,
-          theme: document.getElementById('setTheme').value
-        };
-        localStorage.setItem('mytube_settings', JSON.stringify(o));
-      } catch (e) {}
-    }
-    function loadSet() {
-      try {
-        const o = JSON.parse(localStorage.getItem('mytube_settings') || '{}');
-        if (o.skip) document.getElementById('setSkip').value = o.skip;
-        if (o.quality) document.getElementById('setQuality').value = o.quality;
-        if (o.speed) document.getElementById('setSpeed').value = o.speed;
-        if (o.folder) document.getElementById('setFolder').value = o.folder;
-        if (o.audioFmt) document.getElementById('setAudioFmt').value = o.audioFmt;
-        if (o.source) document.getElementById('setSource').value = o.source;
-        if (o.fallback) document.getElementById('setFallback').value = o.fallback;
-        if (o.lang) document.getElementById('setLang').value = o.lang;
-        if (o.theme) document.getElementById('setTheme').value = o.theme;
-        const map = {
-          setAudioOnly: o.audioOnly, setBgPlay: o.bgPlay, setDataSaver: o.dataSaver, setWifiOnly: o.wifiOnly
-        };
-        Object.keys(map).forEach(id => {
-          if (map[id] === undefined) return;
-          const b = document.getElementById(id);
-          if (!b) return;
-          b.classList.toggle('on', !!map[id]);
-          b.setAttribute('aria-checked', map[id] ? 'true' : 'false');
-        });
-      } catch (e) {}
-    }
-    window.addEventListener('DOMContentLoaded', loadSet);
-  </script>
+    } catch (e) { reject(e); }
+  });
+}
+
+/* =====================================================================
+   settings (all inputs with class "sv")
+   ===================================================================== */
+const SET_DEFAULTS = { gemModel: 'gemini-2.5-flash', grokModel: 'grok-3', provSum: 'gemini', provFact: 'grok',
+  provTr: 'gemini', provAsk: 'gemini', trLang: 'বাংলা', aiSpeak: false, primary: 'newpipe', skip: '10', speed: '1',
+  autoplay: true, theme: 'dark', bigText: false, keepHistory: true };
+function getSet(id) {
+  const all = LS.get('settings', {});
+  return (id in all) ? all[id] : SET_DEFAULTS[id];
+}
+function applySettings() {
+  const t = getSet('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.body.style.fontSize = getSet('bigText') ? '18px' : '';
+  try { if (window.Android && Android.setPrimary) Android.setPrimary(getSet('primary') || 'newpipe'); } catch (e) {}
+}
+function saveSettings() {
+  const o = {};
+  document.querySelectorAll('.sv').forEach(e => { o[e.id] = (e.type === 'checkbox') ? e.checked : e.value; });
+  LS.set('settings', o);
+  applySettings();
+}
+function loadSettings() {
+  document.querySelectorAll('.sv').forEach(e => {
+    const v = getSet(e.id);
+    if (v !== undefined) { if (e.type === 'checkbox') e.checked = !!v; else e.value = v; }
+    e.addEventListener('change', saveSettings);
+    if (e.type !== 'checkbox' && e.tagName === 'INPUT') e.addEventListener('input', saveSettings);
+  });
+  applySettings();
+}
+
+/* =====================================================================
+   navigation
+   ===================================================================== */
+const TABS = ['home', 'subs', 'you'];
+const BAR_SCREENS = ['home', 'subs', 'you'];
+let stack = ['home'];
+function show(name) {
+  ['home', 'search', 'subs', 'you', 'list', 'player', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
+  TABS.forEach(t => {
+    const b = $('tab-' + t);
+    b.classList.toggle('active', t === name);
+    if (t === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  $('topbar').style.display = BAR_SCREENS.includes(name) ? 'flex' : 'none';
+  $('tabs').style.display = BAR_SCREENS.includes(name) ? 'flex' : 'none';
+  window.scrollTo(0, 0);
+  if (name === 'subs') renderSubs();
+  if (name === 'you') refreshYou();
+  if (name === 'search') renderRecent();
+}
+function go(name) {
+  if (TABS.includes(name)) stack = [name];
+  else if (stack[stack.length - 1] !== name) stack.push(name);
+  show(name);
+  if (name === 'search') setTimeout(() => $('qInput').focus(), 80);
+}
+function stopVideo() {
+  try { const v = $('mainVideo'); v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}
+  playToken++;
+}
+function back() {
+  if ($('sheet').classList.contains('on')) { closeSheet(); return true; }
+  if (stack.length <= 1) return false;
+  const leaving = stack.pop();
+  if (leaving === 'player') stopVideo();
+  show(stack[stack.length - 1]);
+  return true;
+}
+window.__appBack = function () { return back(); };
+
+/* =====================================================================
+   cards
+   ===================================================================== */
+let queue = [], qIndex = 0;
+function metaText(it) {
+  const parts = [];
+  if (it.uploader) parts.push(it.uploader);
+  const v = fmtViews(it.views); if (v) parts.push(v);
+  return parts.join(' · ');
+}
+function labelFor(it) {
+  return [it.title || 'ভিডিও', it.uploader || '', it.duration ? ('সময় ' + fmtDur(it.duration)) : '', fmtViews(it.views)]
+    .filter(Boolean).join(', ');
+}
+function setThumb(div, url) {
+  if (url) div.style.backgroundImage = 'url("' + String(url).replace(/"/g, '%22') + '")';
+}
+function makeCard(it, idx, list) {
+  const art = el('article', 'vcard');
+  const open = () => openVideo(it, idx, list);
+  const th = el('div', 'vthumb'); th.setAttribute('aria-hidden', 'true'); setThumb(th, it.thumb); th.onclick = open;
+  if (it.duration) th.appendChild(el('span', 'vdur', fmtDur(it.duration)));
+  const info = el('div', 'vinfo');
+  const av = el('div', 'vav', initial(it.uploader)); av.style.background = colorFor(it.uploader); av.setAttribute('aria-hidden', 'true');
+  const tx = el('div', 'vtext'); tx.setAttribute('role', 'button'); tx.tabIndex = 0; tx.setAttribute('aria-label', labelFor(it));
+  tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও'));
+  tx.appendChild(el('div', 'vmeta', metaText(it)));
+  tx.onclick = open; tx.onkeydown = e => { if (e.key === 'Enter') open(); };
+  const more = el('button', 'vmore', '⋮'); more.type = 'button'; more.setAttribute('aria-label', 'আরও অপশন: ' + (it.title || ''));
+  more.onclick = () => openSheet(it);
+  info.append(av, tx, more);
+  art.append(th, info);
+  return art;
+}
+function makeCompact(it, idx, list) {
+  const c = el('article', 'ccard');
+  const open = () => openVideo(it, idx, list);
+  const th = el('div', 'cthumb'); th.setAttribute('aria-hidden', 'true'); setThumb(th, it.thumb); th.onclick = open;
+  if (it.duration) th.appendChild(el('span', 'vdur', fmtDur(it.duration)));
+  const tx = el('div', 'vtext'); tx.setAttribute('role', 'button'); tx.tabIndex = 0; tx.setAttribute('aria-label', labelFor(it));
+  tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও'));
+  tx.appendChild(el('div', 'vmeta', metaText(it)));
+  tx.onclick = open; tx.onkeydown = e => { if (e.key === 'Enter') open(); };
+  const more = el('button', 'vmore', '⋮'); more.type = 'button'; more.setAttribute('aria-label', 'আরও অপশন');
+  more.onclick = () => openSheet(it);
+  c.append(th, tx, more);
+  return c;
+}
+function hint(box, text) { box.textContent = ''; box.appendChild(el('p', 'hint', text)); }
+function skeletons(box, n) {
+  box.textContent = '';
+  for (let i = 0; i < n; i++) {
+    const a = el('article', 'vcard skel'); a.setAttribute('aria-hidden', 'true');
+    a.appendChild(el('div', 'vthumb'));
+    const inf = el('div', 'vinfo'); inf.appendChild(el('div', 'vav'));
+    const t = el('div', 'vtext'); t.appendChild(el('div', 'sk')); t.appendChild(el('div', 'sk'));
+    inf.appendChild(t); a.appendChild(inf); box.appendChild(a);
+  }
+}
+
+/* =====================================================================
+   home feed
+   ===================================================================== */
+const CHIPS = [['সব', 'বাংলা ট্রেন্ডিং ভিডিও'], ['সঙ্গীত', 'বাংলা গান'], ['লাইভ', 'বাংলা লাইভ'],
+  ['গেমস', 'গেমিং বাংলা'], ['সংবাদ', 'বাংলা খবর'], ['শেখা', 'বাংলা টিউটোরিয়াল']];
+const feedCache = {}; let chipIdx = 0;
+function buildChips() {
+  const box = $('chips'); box.textContent = '';
+  CHIPS.forEach((c, i) => {
+    const b = el('button', 'chip' + (i === chipIdx ? ' active' : ''), c[0]); b.type = 'button';
+    b.setAttribute('aria-pressed', i === chipIdx ? 'true' : 'false');
+    b.onclick = () => { chipIdx = i; buildChips(); loadFeed(); };
+    box.appendChild(b);
+  });
+}
+function renderList(box, items) {
+  box.textContent = '';
+  items.forEach((it, i) => box.appendChild(makeCard(it, i, items)));
+}
+function loadFeed(force) {
+  const box = $('feed'); const q = CHIPS[chipIdx][1];
+  if (!hasAndroid()) { hint(box, 'এই পেজ ব্রাউজারে খুলেছেন — আসল ভিডিও শুধু অ্যাপের ভেতরে আসবে।'); return; }
+  if (feedCache[q] && !force) { renderList(box, feedCache[q]); return; }
+  skeletons(box, 3);
+  callNative('search', q).then(data => {
+    if (CHIPS[chipIdx][1] !== q) return;
+    if (!data.ok) { hint(box, data.error || 'লোড হয়নি'); return; }
+    feedCache[q] = data.items || [];
+    if (!feedCache[q].length) { hint(box, 'কিছু পাওয়া যায়নি'); return; }
+    renderList(box, feedCache[q]);
+  }).catch(e => hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)));
+}
+
+/* =====================================================================
+   search
+   ===================================================================== */
+function renderRecent() {
+  const box = $('recent'); box.textContent = '';
+  if ($('sresults').childNodes.length) return;
+  LS.get('recent', []).slice(0, 10).forEach(q => {
+    const r = el('div', 'recent'); r.setAttribute('role', 'button'); r.tabIndex = 0; r.setAttribute('aria-label', 'আগের সার্চ: ' + q);
+    r.append(el('span', 'ic', '🕒'), el('span', '', q));
+    r.onclick = () => { $('qInput').value = q; doSearch(q); };
+    box.appendChild(r);
+  });
+}
+function doSearch(q) {
+  q = String(q || '').trim();
+  const box = $('sresults');
+  if (!q) { hint(box, 'কিছু লিখে সার্চ করুন'); return; }
+  $('qInput').value = q; $('recent').textContent = '';
+  const rec = LS.get('recent', []).filter(x => x !== q); rec.unshift(q); LS.set('recent', rec.slice(0, 20));
+  if (!hasAndroid()) { hint(box, 'অ্যাপের ভেতরে সার্চ কাজ করবে'); return; }
+  skeletons(box, 3);
+  callNative('search', q).then(data => {
+    if (!data.ok) { hint(box, data.error || 'সার্চ ব্যর্থ'); return; }
+    const items = data.items || [];
+    if (!items.length) { hint(box, 'কিছু পাওয়া যায়নি'); return; }
+    box.textContent = '';
+    items.forEach((it, i) => box.appendChild(makeCompact(it, i, items)));
+    toast(bn(items.length) + 'টি ফল');
+  }).catch(e => hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)));
+}
+
+/* =====================================================================
+   library: history / later / liked / subscriptions
+   ===================================================================== */
+function slim(it) { return { title: it.title, url: it.url, uploader: it.uploader, duration: it.duration, views: it.views, thumb: it.thumb }; }
+function listHas(key, url) { return LS.get(key, []).some(x => x.url === url); }
+function listToggle(key, it) {
+  let l = LS.get(key, []);
+  if (l.some(x => x.url === it.url)) { l = l.filter(x => x.url !== it.url); LS.set(key, l); return false; }
+  l.unshift(slim(it)); LS.set(key, l.slice(0, 200)); return true;
+}
+function addHistory(it) {
+  if (!getSet('keepHistory')) return;
+  let l = LS.get('history', []).filter(x => x.url !== it.url);
+  l.unshift(slim(it)); LS.set('history', l.slice(0, 60));
+}
+function refreshYou() {
+  $('cntHistory').textContent = bn(LS.get('history', []).length) + 'টি ভিডিও';
+  $('cntLater').textContent = bn(LS.get('later', []).length) + 'টি ভিডিও';
+  $('cntLiked').textContent = bn(LS.get('liked', []).length) + 'টি ভিডিও';
+}
+let curListKey = '';
+const LIST_NAMES = { history: 'ইতিহাস', later: 'পরে দেখব', liked: 'পছন্দের ভিডিও' };
+function openList(key) {
+  curListKey = key; $('listTitle').textContent = LIST_NAMES[key];
+  renderListScreen(); go('list');
+}
+function renderListScreen() {
+  const items = LS.get(curListKey, []); const box = $('listBody'); box.textContent = '';
+  if (!items.length) { hint(box, 'এখানে এখন কিছু নেই'); return; }
+  items.forEach((it, i) => box.appendChild(makeCompact(it, i, items)));
+}
+function clearList() {
+  if (!curListKey || !confirm(LIST_NAMES[curListKey] + ' খালি করবেন?')) return;
+  LS.set(curListKey, []); renderListScreen(); toast('খালি হয়েছে');
+}
+function renderSubs() {
+  const box = $('subsBox'); box.textContent = '';
+  const subs = LS.get('subs', []);
+  if (!subs.length) { hint(box, 'কোনো চ্যানেল সাবস্ক্রাইব করা নেই। ভিডিও দেখার সময় "সাবস্ক্রাইব" চাপুন। (এগুলো শুধু এই ফোনে থাকে, ইউটিউব অ্যাকাউন্টের সাথে যুক্ত নয়)'); return; }
+  const row = el('div', 'avrow');
+  subs.forEach(name => {
+    const b = el('button', 'avitem'); b.type = 'button'; b.setAttribute('aria-label', name + ' চ্যানেলের ভিডিও খুঁজুন');
+    const av = el('div', 'vav', initial(name)); av.style.background = colorFor(name); av.setAttribute('aria-hidden', 'true');
+    b.append(av, el('span', 'nm', name));
+    b.onclick = () => { go('search'); doSearch(name); };
+    row.appendChild(b);
+  });
+  box.appendChild(row);
+  box.appendChild(el('p', 'hint', 'চ্যানেলের ছবিতে চাপলে সেই নামে সার্চ হবে।'));
+}
+
+/* =====================================================================
+   bottom sheet (⋮)
+   ===================================================================== */
+function openSheet(it) {
+  const sh = $('sheet'); sh.textContent = '';
+  const add = (icon, label, fn) => {
+    const b = el('button', 'row'); b.type = 'button';
+    b.append(el('span', 'ic', icon), el('span', '', label));
+    b.querySelector('.ic').setAttribute('aria-hidden', 'true');
+    b.onclick = () => { closeSheet(); fn(); };
+    sh.appendChild(b);
+  };
+  add('🔖', listHas('later', it.url) ? 'পরে দেখব থেকে সরান' : 'পরে দেখব-তে রাখুন', () => {
+    toast(listToggle('later', it) ? 'পরে দেখব-তে রাখা হয়েছে' : 'সরানো হয়েছে'); });
+  add('↗️', 'শেয়ার', () => shareItem(it));
+  add('✕', 'বন্ধ করুন', () => {});
+  $('scrim').classList.add('on'); sh.classList.add('on');
+}
+function closeSheet() { $('scrim').classList.remove('on'); $('sheet').classList.remove('on'); }
+
+/* =====================================================================
+   player
+   ===================================================================== */
+let curVideo = null, playToken = 0, triedSrc = [];
+const ALL_SRC = ['newpipe', 'piped', 'invidious'];
+const SRC_NAME = { newpipe: 'NewPipe', piped: 'Piped', invidious: 'Invidious' };
+
+function openVideo(it, idx, list) {
+  queue = list || [it]; qIndex = idx || 0;
+  if (!$('player').classList.contains('active')) go('player');
+  playItem(it);
+}
+function setBuffering(on) { $('spin').classList.toggle('on', !!on); }
+function paintSub() { const on = (LS.get('subs', []).indexOf(curVideo.uploader) >= 0);
+  const b = $('bSub'); b.classList.toggle('on', on); b.textContent = on ? 'সাবস্ক্রাইবড' : 'সাবস্ক্রাইব';
+  b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+function paintPills() {
+  const l = listHas('liked', curVideo.url), s = listHas('later', curVideo.url);
+  $('bLike').classList.toggle('on', l); $('bLike').setAttribute('aria-pressed', l ? 'true' : 'false');
+  $('bLater').classList.toggle('on', s); $('bLater').setAttribute('aria-pressed', s ? 'true' : 'false');
+}
+function paintMeta() {
+  const p = [];
+  const v = fmtViews(curVideo.views); if (v) p.push(v);
+  if (curVideo.duration) p.push(fmtDur(curVideo.duration));
+  $('pMeta').textContent = p.join(' · ');
+}
+function renderUpNext() {
+  const box = $('upnext'); box.textContent = '';
+  const rest = queue.map((it, i) => ({ it, i })).filter(x => x.i !== qIndex);
+  if (!rest.length) { box.appendChild(el('p', 'hint', 'আর কোনো ভিডিও নেই')); return; }
+  rest.forEach(x => box.appendChild(makeCompact(x.it, x.i, queue)));
+}
+function playItem(it) {
+  curVideo = Object.assign({}, it, { desc: '' });
+  const token = ++playToken; triedSrc = [];
+  $('pTitle').textContent = it.title || 'ভিডিও';
+  $('pChannel').textContent = it.uploader || 'চ্যানেল';
+  const av = $('pAv'); av.textContent = initial(it.uploader); av.style.background = colorFor(it.uploader);
+  $('pDesc').textContent = 'বিবরণ লোড হচ্ছে…'; $('pDesc').classList.add('clamp');
+  $('srcBadge').textContent = ''; $('aiOut').textContent = ''; $('aiOut').classList.remove('busy');
+  paintMeta(); paintSub(); paintPills(); renderUpNext();
+  window.scrollTo(0, 0);
+  const v = $('mainVideo');
+  try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}
+  if (!hasAndroid()) { toast('অ্যাপের ভেতরে খুললে ভিডিও চলবে'); return; }
+  loadStream(token, 'auto');
+}
+function loadStream(token, src) {
+  setBuffering(true);
+  const p = (src === 'auto') ? callNative('getStreams', curVideo.url || '') : callNative('getStreamsSrc', curVideo.url || '', src);
+  p.then(data => {
+    if (token !== playToken) return;
+    if (!data.ok) { setBuffering(false); toast(data.error || 'স্ট্রিম পাওয়া যায়নি'); $('pDesc').textContent = ''; return; }
+    const used = data.source || src;
+    if (triedSrc.indexOf(used) < 0) triedSrc.push(used);
+    let play = data.playUrl || '';
+    if (!play && data.audioStreams && data.audioStreams[0]) play = data.audioStreams[0].url;
+    if (!play) { setBuffering(false); toast('প্লে URL নেই'); return; }
+    curVideo.desc = stripHtml(data.description || '');
+    if (data.views) curVideo.views = data.views;
+    if (data.duration && !curVideo.duration) curVideo.duration = data.duration;
+    paintMeta();
+    $('pDesc').textContent = curVideo.desc || '(বিবরণ নেই)';
+    $('srcBadge').textContent = 'সোর্স: ' + (SRC_NAME[used] || used) + (data.audioOnly ? ' · শুধু অডিও' : '');
+    const v = $('mainVideo');
+    v.src = play;
+    try { v.playbackRate = parseFloat(getSet('speed')) || 1; } catch (e) {}
+    v.play().catch(() => {});
+    addHistory(curVideo);
+  }).catch(e => { if (token === playToken) { setBuffering(false); toast('ত্রুটি: ' + (e && e.message ? e.message : e)); } });
+}
+function wirePlayer() {
+  const v = $('mainVideo');
+  v.addEventListener('waiting', () => setBuffering(true));
+  v.addEventListener('playing', () => setBuffering(false));
+  v.addEventListener('canplay', () => setBuffering(false));
+  v.addEventListener('ended', () => { if (getSet('autoplay')) playNext(true); });
+  v.addEventListener('error', () => {
+    if (!v.getAttribute('src')) return;
+    const next = ALL_SRC.find(s => triedSrc.indexOf(s) < 0);
+    if (next) { toast('এই সোর্সে চলেনি, ' + SRC_NAME[next] + ' দিয়ে চেষ্টা হচ্ছে…'); loadStream(playToken, next); }
+    else { setBuffering(false); toast('ভিডিও চালানো যায়নি'); }
+  });
+  $('bPrev').onclick = playPrev; $('bNext').onclick = () => playNext(false);
+  $('bFwd').onclick = () => skipBy(1); $('bRew').onclick = () => skipBy(-1);
+}
+function skipBy(dir) {
+  const v = $('mainVideo'); if (!v || !v.duration) return;
+  const sec = parseInt(getSet('skip'), 10) || 10;
+  v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + dir * sec));
+}
+function playNext(auto) {
+  if (qIndex + 1 < queue.length) { qIndex++; playItem(queue[qIndex]); }
+  else if (!auto) toast('আর পরের ভিডিও নেই');
+}
+function playPrev() {
+  if (qIndex > 0) { qIndex--; playItem(queue[qIndex]); } else toast('আর আগের ভিডিও নেই');
+}
+function toggleLike() { if (!curVideo) return; toast(listToggle('liked', curVideo) ? 'পছন্দ করা হয়েছে' : 'পছন্দ সরানো হয়েছে'); paintPills(); }
+function toggleLater() { if (!curVideo) return; toast(listToggle('later', curVideo) ? 'পরে দেখব-তে রাখা হয়েছে' : 'সরানো হয়েছে'); paintPills(); }
+function toggleSub() {
+  if (!curVideo || !curVideo.uploader) return;
+  let s = LS.get('subs', []); const i = s.indexOf(curVideo.uploader);
+  if (i >= 0) s.splice(i, 1); else s.unshift(curVideo.uploader);
+  LS.set('subs', s); paintSub(); toast(i >= 0 ? 'সাবস্ক্রিপশন বাতিল' : 'সাবস্ক্রাইব করা হয়েছে');
+}
+function shareItem(it) {
+  const text = (it.title || '') + '\n' + (it.url || '');
+  if (window.Android && Android.share) Android.share(text);
+  else if (navigator.share) navigator.share({ title: it.title, text }).catch(() => {});
+  else toast('শেয়ার শুধু অ্যাপে কাজ করবে');
+}
+function shareVideo() { if (curVideo) shareItem(curVideo); }
+
+/* =====================================================================
+   AI
+   ===================================================================== */
+const SYSTEM_PROMPT = 'তুমি একজন সহায়ক। উত্তর সহজ বাংলায় ও সংক্ষেপে দাও (অনুবাদ চাইলে নির্দিষ্ট ভাষায়)। ' +
+  'তুমি ভিডিওটি নিজে দেখোনি বা শোনোনি; শুধু নিচে দেওয়া শিরোনাম, চ্যানেল ও বিবরণ জানো। যা জানো না তা বানিয়ে বোলো না।';
+function provCfg(name) {
+  if (name === 'gemini') return { p: 'gemini', base: '', model: (getSet('gemModel') || '').trim() || 'gemini-2.5-flash', key: getSet('gemKey') || '' };
+  if (name === 'grok') return { p: 'openai', base: 'https://api.x.ai/v1', model: (getSet('grokModel') || '').trim() || 'grok-3', key: getSet('grokKey') || '' };
+  return { p: 'openai', base: getSet('cusBase') || '', model: getSet('cusModel') || '', key: getSet('cusKey') || '' };
+}
+function videoContext() {
+  const d = (curVideo.desc || '').slice(0, 3500);
+  return 'শিরোনাম: ' + (curVideo.title || '') + '\nচ্যানেল: ' + (curVideo.uploader || '') +
+    '\nসময়কাল: ' + (curVideo.duration ? fmtDur(curVideo.duration) : 'অজানা') +
+    '\nবিবরণ:\n' + (d || '(বিবরণ পাওয়া যায়নি)');
+}
+function buildPrompt(kind, question) {
+  const ctx = videoContext();
+  if (kind === 'sum') return 'নিচের ভিডিও সম্পর্কে ৫টি ছোট পয়েন্টে বাংলায় সারাংশ দাও। প্রথম লাইনে এক বাক্যে জানাও যে এটা শুধু শিরোনাম ও বিবরণ থেকে বলা হচ্ছে।\n\n' + ctx;
+  if (kind === 'fact') return 'নিচের ভিডিওর শিরোনামটি ক্লিকবেইট বা অতিরঞ্জিত কিনা, শিরোনাম ও বিবরণ মেলে কিনা, আর কোন দাবিগুলো আলাদা করে যাচাই করা দরকার — বাংলায় সংক্ষেপে বলো। তুমি ইন্টারনেট বা ভিডিও দেখতে পারছ না, তাই কোনো দাবি নিশ্চিতভাবে সত্য বা মিথ্যা বোলো না।\n\n' + ctx;
+  if (kind === 'tr') return 'নিচের শিরোনাম ও বিবরণ ' + (getSet('trLang') || 'বাংলা') + ' ভাষায় অনুবাদ করো। শুধু অনুবাদ দাও।\n\n' + ctx;
+  return 'ভিডিও সম্পর্কে তথ্য:\n' + ctx + '\n\nপ্রশ্ন: ' + question;
+}
+const PROV_KEY = { sum: 'provSum', fact: 'provFact', tr: 'provTr', ask: 'provAsk' };
+const PROV_LABEL = { gemini: 'Gemini', grok: 'Grok', custom: 'কাস্টম AI' };
+let aiBusy = false;
+function runAI(kind) {
+  if (!curVideo) { toast('আগে একটা ভিডিও খুলুন'); return; }
+  if (!hasAndroid()) { toast('AI অ্যাপের ভেতরে কাজ করবে'); return; }
+  let q = '';
+  if (kind === 'ask') {
+    q = $('aiQ').value.trim();
+    if (!q) { toast('প্রশ্ন লিখুন'); $('aiQ').focus(); return; }
+  }
+  const pname = getSet(PROV_KEY[kind]) || 'gemini';
+  const cfg = provCfg(pname);
+  if (!String(cfg.key).trim()) { toast(PROV_LABEL[pname] + '-এর API key নেই — সেটিংসে দিন'); go('settings'); return; }
+  if (aiBusy) { toast('আগের অনুরোধ চলছে, একটু অপেক্ষা করুন'); return; }
+  aiBusy = true;
+  const out = $('aiOut'); out.classList.add('busy'); out.textContent = PROV_LABEL[pname] + ' ভাবছে…';
+  callNative('ai', cfg.p, cfg.base, cfg.model, cfg.key, SYSTEM_PROMPT, buildPrompt(kind, q)).then(d => {
+    aiBusy = false; out.classList.remove('busy');
+    if (!d.ok) { out.textContent = 'ত্রুটি: ' + (d.error || 'AI উত্তর দেয়নি'); return; }
+    out.textContent = d.text;
+    if (getSet('aiSpeak')) speak(d.text);
+  }).catch(e => { aiBusy = false; out.classList.remove('busy'); out.textContent = 'ত্রুটি: ' + (e && e.message ? e.message : e); });
+}
+function speak(text) {
+  try {
+    if (!window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'bn-IN'; speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+/* =====================================================================
+   start
+   ===================================================================== */
+window.addEventListener('DOMContentLoaded', function () {
+  loadSettings();
+  wirePlayer();
+  buildChips();
+  show('home');
+  loadFeed();
+});
+</script>
 </body>
 </html>
