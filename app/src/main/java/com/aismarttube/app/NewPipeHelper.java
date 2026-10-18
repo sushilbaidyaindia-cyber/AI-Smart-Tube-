@@ -1,30 +1,53 @@
 package com.aismarttube.app;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.schabi.newpipe.extractor.InfoItem;
 import org.schabi.newpipe.extractor.NewPipe;
+import org.schabi.newpipe.extractor.ServiceList;
 import org.schabi.newpipe.extractor.downloader.Downloader;
 import org.schabi.newpipe.extractor.downloader.Request;
 import org.schabi.newpipe.extractor.downloader.Response;
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException;
 import org.schabi.newpipe.extractor.localization.Localization;
+import org.schabi.newpipe.extractor.search.SearchInfo;
+import org.schabi.newpipe.extractor.stream.AudioStream;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
+import org.schabi.newpipe.extractor.stream.StreamInfoItem;
+import org.schabi.newpipe.extractor.stream.VideoStream;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
+/**
+ * Two-source wrapper for the WebView UI.
+ *   1) NewPipe Extractor (runs on the phone, uses the phone's own IP)
+ *   2) Piped public servers   3) Invidious public servers  (automatic fallbacks, order changeable)
+ * Every method returns a JSON string: {ok:true,...,source:"newpipe"|"piped"} or {ok:false,error}.
+ */
 public class NewPipeHelper {
 
-    static {
-        NewPipe.init(new RealDownloader(), new Localization("bn", "IN"));
+    private static volatile boolean inited = false;
+
+    public static synchronized void ensureInit() {
+        if (inited) return;
+        try {
+            NewPipe.init(new RealDownloader(), new Localization("bn", "IN"));
+            inited = true;
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
     }
 
     static class RealDownloader extends Downloader {
-
         private static final String USER_AGENT =
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
@@ -39,76 +62,270 @@ public class NewPipeHelper {
                 connection.setReadTimeout(25000);
                 connection.setInstanceFollowRedirects(true);
 
-                // আধুনিক ব্রাউজারের মতো হেডার (br বাদ দেওয়া হয়েছে)
+                // defaults first; NewPipe's own headers then REPLACE them
                 connection.setRequestProperty("User-Agent", USER_AGENT);
                 connection.setRequestProperty("Accept-Language", "en-US,en;q=0.9,bn;q=0.8");
-                connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-                connection.setRequestProperty("Accept-Encoding", "gzip, deflate");
-                connection.setRequestProperty("Sec-Ch-Ua", "\"Chromium\";v=\"128\", \"Not;A=Brand\";v=\"24\", \"Google Chrome\";v=\"128\"");
-                connection.setRequestProperty("Sec-Ch-Ua-Mobile", "?0");
-                connection.setRequestProperty("Sec-Ch-Ua-Platform", "\"Windows\"");
-                connection.setRequestProperty("Sec-Fetch-Dest", "document");
-                connection.setRequestProperty("Sec-Fetch-Mode", "navigate");
-                connection.setRequestProperty("Sec-Fetch-Site", "none");
-                connection.setRequestProperty("Sec-Fetch-User", "?1");
-                connection.setRequestProperty("Upgrade-Insecure-Requests", "1");
-                connection.setRequestProperty("Cache-Control", "max-age=0");
 
-                // রিকোয়েস্ট থেকে আসা অতিরিক্ত হেডার যোগ করা
                 Map<String, List<String>> headers = request.headers();
                 if (headers != null) {
                     for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
-                        for (String value : entry.getValue()) {
-                            connection.addRequestProperty(entry.getKey(), value);
+                        if (entry.getKey() == null) continue;
+                        List<String> values = entry.getValue();
+                        if (values == null || values.isEmpty()) continue;
+                        connection.setRequestProperty(entry.getKey(), values.get(0));
+                        for (int i = 1; i < values.size(); i++) {
+                            connection.addRequestProperty(entry.getKey(), values.get(i));
                         }
                     }
                 }
 
-                connection.connect();
+                // POST body — YouTube search/player calls need this
+                byte[] body = request.dataToSend();
+                if (body != null && body.length > 0) {
+                    connection.setDoOutput(true);
+                    connection.setFixedLengthStreamingMode(body.length);
+                    connection.getOutputStream().write(body);
+                    connection.getOutputStream().flush();
+                }
 
                 int responseCode = connection.getResponseCode();
                 String responseMessage = connection.getResponseMessage();
 
-                java.io.InputStream inputStream;
-                if (responseCode >= 400) {
-                    inputStream = connection.getErrorStream();
-                } else {
-                    inputStream = connection.getInputStream();
+                if (responseCode == 429) {
+                    throw new ReCaptchaException("YouTube থেকে ব্লক (429)", request.url());
                 }
 
-                // GZIP সাপোর্ট
+                InputStream inputStream = (responseCode >= 400)
+                        ? connection.getErrorStream()
+                        : connection.getInputStream();
+                if (inputStream == null) {
+                    return new Response(responseCode, responseMessage,
+                            connection.getHeaderFields(), "", request.url());
+                }
+
                 String contentEncoding = connection.getContentEncoding();
                 if (contentEncoding != null && contentEncoding.equalsIgnoreCase("gzip")) {
                     inputStream = new GZIPInputStream(inputStream);
                 }
 
-                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
-                StringBuilder responseBody = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    responseBody.append(line).append("\n");
-                }
-                reader.close();
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int r;
+                while ((r = inputStream.read(buf)) != -1) bos.write(buf, 0, r);
+                inputStream.close();
 
-                Map<String, List<String>> responseHeaders = connection.getHeaderFields();
+                String finalUrl = connection.getURL() != null
+                        ? connection.getURL().toString() : request.url();
 
                 return new Response(
                         responseCode,
                         responseMessage,
-                        responseHeaders,
-                        responseBody.toString(),
-                        request.url()
+                        connection.getHeaderFields(),
+                        bos.toString("UTF-8"),
+                        finalUrl
                 );
-
             } finally {
-                if (connection != null) {
-                    connection.disconnect();
-                }
+                if (connection != null) connection.disconnect();
             }
         }
     }
 
+    // ------------------------------------------------------------------ search
+
+    private static volatile String primary = "newpipe";
+
+    /** Which source is tried first: newpipe | piped | invidious (the others follow as fallbacks). */
+    public static void setPrimary(String p) {
+        if ("newpipe".equals(p) || "piped".equals(p) || "invidious".equals(p)) primary = p;
+    }
+
+    private static List<String> order() {
+        List<String> l = new ArrayList<>();
+        l.add(primary);
+        for (String s : new String[]{"newpipe", "piped", "invidious"}) {
+            if (!l.contains(s)) l.add(s);
+        }
+        return l;
+    }
+
+    /** Search videos: tries every source in order until one gives results. */
+    public static String search(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return err("খালি সার্চ");
+        }
+        final String q = query.trim();
+        StringBuilder errs = new StringBuilder();
+        for (String src : order()) {
+            try {
+                JSONObject r;
+                if ("newpipe".equals(src)) r = searchNewPipe(q);
+                else if ("piped".equals(src)) r = PipedClient.search(q);
+                else r = InvidiousClient.search(q);
+                if (r.getJSONArray("items").length() > 0) return r.toString();
+                errs.append(src).append(": কোনো ফল নেই; ");
+            } catch (Throwable e) {
+                e.printStackTrace();
+                errs.append(src).append(": ").append(e.getMessage()).append("; ");
+            }
+        }
+        return err("সার্চ ব্যর্থ — " + errs);
+    }
+
+    private static JSONObject searchNewPipe(String q) throws Exception {
+        ensureInit();
+        SearchInfo info = SearchInfo.getInfo(
+                ServiceList.YouTube,
+                ServiceList.YouTube.getSearchQHFactory().fromQuery(
+                        q, Collections.singletonList("videos"), "")
+        );
+        JSONArray items = new JSONArray();
+        int n = 0;
+        for (InfoItem item : info.getRelatedItems()) {
+            if (!(item instanceof StreamInfoItem)) continue;
+            StreamInfoItem s = (StreamInfoItem) item;
+            JSONObject o = new JSONObject();
+            o.put("title", s.getName() != null ? s.getName() : "");
+            o.put("url", s.getUrl() != null ? s.getUrl() : "");
+            o.put("uploader", s.getUploaderName() != null ? s.getUploaderName() : "");
+            o.put("duration", s.getDuration());
+            o.put("views", s.getViewCount());
+            String thumb = "";
+            try {
+                if (s.getThumbnails() != null && !s.getThumbnails().isEmpty()) {
+                    thumb = s.getThumbnails().get(s.getThumbnails().size() - 1).getUrl();
+                }
+            } catch (Throwable ignored) {}
+            o.put("thumb", thumb);
+            items.put(o);
+            if (++n >= 30) break;
+        }
+        JSONObject root = new JSONObject();
+        root.put("ok", true);
+        root.put("query", q);
+        root.put("items", items);
+        root.put("source", "newpipe");
+        return root;
+    }
+
+    // ----------------------------------------------------------------- streams
+
+    public static String getStreams(String videoUrl) {
+        return getStreams(videoUrl, "auto");
+    }
+
+    /** only = "auto" (all sources in order) or one of newpipe | piped | invidious. */
+    public static String getStreams(String videoUrl, String only) {
+        if (videoUrl == null || videoUrl.trim().isEmpty()) {
+            return err("লিংক নেই");
+        }
+        final String u = videoUrl.trim();
+        List<String> srcs = (only == null || "auto".equals(only))
+                ? order() : Collections.singletonList(only);
+        StringBuilder errs = new StringBuilder();
+        for (String src : srcs) {
+            try {
+                JSONObject r;
+                if ("newpipe".equals(src)) r = streamsNewPipe(u);
+                else if ("piped".equals(src)) r = PipedClient.getStreams(u);
+                else if ("invidious".equals(src)) r = InvidiousClient.getStreams(u);
+                else continue;
+                if (!r.optString("playUrl", "").isEmpty()) return r.toString();
+                errs.append(src).append(": প্লে URL নেই; ");
+            } catch (Throwable e) {
+                e.printStackTrace();
+                errs.append(src).append(": ").append(e.getMessage()).append("; ");
+            }
+        }
+        return err("স্ট্রিম আনা যায়নি — " + errs);
+    }
+
+    private static JSONObject streamsNewPipe(String videoUrl) throws Exception {
+        ensureInit();
+        StreamInfo streamInfo = StreamInfo.getInfo(videoUrl);
+        JSONObject root = new JSONObject();
+        root.put("ok", true);
+        root.put("source", "newpipe");
+        root.put("title", streamInfo.getName());
+        root.put("uploader", streamInfo.getUploaderName());
+        root.put("url", streamInfo.getUrl());
+        root.put("views", streamInfo.getViewCount());
+        root.put("duration", streamInfo.getDuration());
+        try {
+            root.put("description", streamInfo.getDescription() != null
+                    ? streamInfo.getDescription().getContent() : "");
+        } catch (Throwable t) {
+            root.put("description", "");
+        }
+
+        // progressive = video + audio together (plays directly in <video>)
+        JSONArray videos = new JSONArray();
+        List<VideoStream> vstreams = streamInfo.getVideoStreams();
+        if (vstreams != null) {
+            for (VideoStream vs : vstreams) {
+                JSONObject o = new JSONObject();
+                o.put("url", vs.getContent());
+                o.put("quality", vs.getResolution());
+                o.put("format", vs.getFormat() != null ? vs.getFormat().getName() : "");
+                o.put("hasVideo", true);
+                o.put("hasAudio", true);
+                videos.put(o);
+            }
+        }
+        List<VideoStream> vonly = streamInfo.getVideoOnlyStreams();
+        if (vonly != null) {
+            for (VideoStream vs : vonly) {
+                JSONObject o = new JSONObject();
+                o.put("url", vs.getContent());
+                o.put("quality", vs.getResolution());
+                o.put("format", vs.getFormat() != null ? vs.getFormat().getName() : "");
+                o.put("hasVideo", true);
+                o.put("hasAudio", false);
+                videos.put(o);
+            }
+        }
+        root.put("videoStreams", videos);
+
+        JSONArray audios = new JSONArray();
+        List<AudioStream> astreams = streamInfo.getAudioStreams();
+        if (astreams != null) {
+            for (AudioStream as : astreams) {
+                JSONObject o = new JSONObject();
+                o.put("url", as.getContent());
+                o.put("bitrate", as.getAverageBitrate());
+                o.put("format", as.getFormat() != null ? as.getFormat().getName() : "");
+                audios.put(o);
+            }
+        }
+        root.put("audioStreams", audios);
+
+        // 1) progressive video+audio  2) HLS  3) audio only
+        String playUrl = "";
+        boolean audioOnly = false;
+        if (vstreams != null) {
+            for (VideoStream vs : vstreams) {
+                if (vs.getContent() != null && !vs.getContent().isEmpty()) {
+                    playUrl = vs.getContent();
+                    break;
+                }
+            }
+        }
+        if (playUrl.isEmpty()) {
+            try {
+                String hls = streamInfo.getHlsUrl();
+                if (hls != null && !hls.isEmpty()) playUrl = hls;
+            } catch (Throwable ignored) {}
+        }
+        if (playUrl.isEmpty() && astreams != null && !astreams.isEmpty()) {
+            playUrl = astreams.get(0).getContent();
+            audioOnly = true;
+        }
+        root.put("playUrl", playUrl);
+        root.put("audioOnly", audioOnly);
+        return root;
+    }
+
     public static String getVideoInfo(String videoUrl) {
+        ensureInit();
         try {
             StreamInfo streamInfo = StreamInfo.getInfo(videoUrl);
             StringBuilder info = new StringBuilder();
@@ -118,6 +335,17 @@ public class NewPipeHelper {
             return info.toString();
         } catch (Exception e) {
             return "ত্রুটি হয়েছে: " + e.getMessage();
+        }
+    }
+
+    private static String err(String msg) {
+        try {
+            JSONObject o = new JSONObject();
+            o.put("ok", false);
+            o.put("error", msg);
+            return o.toString();
+        } catch (Exception e) {
+            return "{\"ok\":false,\"error\":\"error\"}";
         }
     }
 }

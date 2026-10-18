@@ -1,0 +1,168 @@
+package com.aismarttube.app;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+/**
+ * Calls AI providers from the phone (no browser CORS problems).
+ *  - provider "gemini": Google Gemini generateContent API
+ *  - anything else    : OpenAI-compatible /chat/completions (Grok/xAI, OpenRouter, Groq, DeepSeek ...)
+ * API keys come from the app settings each call; they are never written to logs.
+ */
+public class AiClient {
+
+    private static final String GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
+
+    /** Returns {ok:true,text:"..."} or {ok:false,error:"..."} */
+    public static String call(String provider, String baseUrl, String model, String key,
+                              String system, String user) {
+        try {
+            if (key == null || key.trim().isEmpty()) {
+                return err("API key দেওয়া হয়নি — সেটিংসে AI অংশে দিন");
+            }
+            if (model == null || model.trim().isEmpty()) {
+                return err("মডেলের নাম দেওয়া হয়নি — সেটিংসে দিন");
+            }
+            String text;
+            if ("gemini".equals(provider)) {
+                text = gemini(model.trim(), key.trim(), system, user);
+            } else {
+                text = openAiCompatible(baseUrl, model.trim(), key.trim(), system, user);
+            }
+            if (text == null || text.trim().isEmpty()) {
+                return err("AI খালি উত্তর দিয়েছে");
+            }
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("text", text.trim());
+            return o.toString();
+        } catch (Throwable e) {
+            return err(String.valueOf(e.getMessage()));
+        }
+    }
+
+    private static String gemini(String model, String key, String system, String user) throws Exception {
+        JSONObject body = new JSONObject();
+        if (system != null && !system.isEmpty()) {
+            body.put("systemInstruction", new JSONObject().put("parts",
+                    new JSONArray().put(new JSONObject().put("text", system))));
+        }
+        body.put("contents", new JSONArray().put(new JSONObject()
+                .put("role", "user")
+                .put("parts", new JSONArray().put(new JSONObject().put("text", user)))));
+
+        String resp = post(GEMINI_BASE + model + ":generateContent", body.toString(),
+                "x-goog-api-key", key);
+        JSONObject root = new JSONObject(resp);
+        JSONArray cands = root.optJSONArray("candidates");
+        if (cands == null || cands.length() == 0) {
+            JSONObject fb = root.optJSONObject("promptFeedback");
+            if (fb != null && fb.has("blockReason")) {
+                throw new IOException("Gemini উত্তর আটকে দিয়েছে: " + fb.optString("blockReason"));
+            }
+            throw new IOException("Gemini কোনো উত্তর দেয়নি");
+        }
+        JSONObject content = cands.getJSONObject(0).optJSONObject("content");
+        if (content == null) throw new IOException("Gemini উত্তরে লেখা নেই");
+        JSONArray parts = content.optJSONArray("parts");
+        StringBuilder sb = new StringBuilder();
+        if (parts != null) {
+            for (int i = 0; i < parts.length(); i++) {
+                sb.append(parts.getJSONObject(i).optString("text", ""));
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String openAiCompatible(String baseUrl, String model, String key,
+                                           String system, String user) throws Exception {
+        String base = baseUrl == null ? "" : baseUrl.trim();
+        if (!base.startsWith("https://")) {
+            throw new IOException("Base URL অবশ্যই https:// দিয়ে শুরু হতে হবে");
+        }
+        while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        String url = base.endsWith("/chat/completions") ? base : base + "/chat/completions";
+
+        JSONArray msgs = new JSONArray();
+        if (system != null && !system.isEmpty()) {
+            msgs.put(new JSONObject().put("role", "system").put("content", system));
+        }
+        msgs.put(new JSONObject().put("role", "user").put("content", user));
+        JSONObject body = new JSONObject().put("model", model).put("messages", msgs);
+
+        String resp = post(url, body.toString(), "Authorization", "Bearer " + key);
+        JSONObject root = new JSONObject(resp);
+        JSONArray choices = root.optJSONArray("choices");
+        if (choices == null || choices.length() == 0) throw new IOException("AI কোনো উত্তর দেয়নি");
+        JSONObject msg = choices.getJSONObject(0).optJSONObject("message");
+        return msg == null ? "" : msg.optString("content", "");
+    }
+
+    private static String post(String url, String json, String authHeader, String authValue) throws IOException {
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(url).openConnection();
+            c.setRequestMethod("POST");
+            c.setConnectTimeout(20000);
+            c.setReadTimeout(90000);
+            c.setDoOutput(true);
+            c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            c.setRequestProperty("Accept", "application/json");
+            c.setRequestProperty(authHeader, authValue);
+            byte[] data = json.getBytes("UTF-8");
+            c.setFixedLengthStreamingMode(data.length);
+            OutputStream os = c.getOutputStream();
+            os.write(data);
+            os.flush();
+            os.close();
+
+            int code = c.getResponseCode();
+            InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+            String body = in == null ? "" : readAll(in);
+            if (code >= 400) throw new IOException(describeError(code, body));
+            return body;
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
+    private static String describeError(int code, String body) {
+        String msg = "";
+        try {
+            JSONObject o = new JSONObject(body);
+            Object e = o.opt("error");
+            if (e instanceof JSONObject) msg = ((JSONObject) e).optString("message", "");
+            else if (e != null) msg = String.valueOf(e);
+        } catch (Throwable ignored) {}
+        if (msg.isEmpty()) msg = body.length() > 200 ? body.substring(0, 200) : body;
+        String hint = "";
+        if (code == 400 || code == 404) hint = " (মডেলের নাম বা অনুরোধ ঠিক আছে কিনা দেখুন)";
+        else if (code == 401 || code == 403) hint = " (API key ঠিক আছে কিনা দেখুন)";
+        else if (code == 429) hint = " (লিমিট শেষ, একটু পরে চেষ্টা করুন)";
+        return "AI সার্ভার HTTP " + code + ": " + msg + hint;
+    }
+
+    private static String readAll(InputStream in) throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int r;
+        while ((r = in.read(buf)) != -1) bos.write(buf, 0, r);
+        in.close();
+        return bos.toString("UTF-8");
+    }
+
+    private static String err(String msg) {
+        try {
+            return new JSONObject().put("ok", false).put("error", msg).toString();
+        } catch (Exception e) {
+            return "{\"ok\":false,\"error\":\"error\"}";
+        }
+    }
+}
