@@ -50,6 +50,12 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQ_VOICE = 4401;
     private static final int REQ_STORAGE = 4402;
+    private static final int REQ_NOTIFY = 4403;
+
+    /** the running activity, so the notification buttons can reach the page */
+    static volatile MainActivity current;
+    /** true = keep playing with the screen off (setting "ব্যাকগ্রাউন্ডে চালান") */
+    private volatile boolean bgPlay = true;
     private static final String UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
@@ -75,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         root = new FrameLayout(this);
-        webView = new WebView(this);
+        webView = new BgWebView(this);
         root.addView(webView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
@@ -122,6 +128,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        current = this;
         setupMediaSession();
         webView.loadUrl("file:///android_asset/index.html");
     }
@@ -149,6 +156,7 @@ public class MainActivity extends AppCompatActivity {
             });
             applyPlaybackState(false, "AI Smart Tube");
             mediaSession.setActive(true);
+            PlaybackService.sessionToken = mediaSession.getSessionToken();
         } catch (Throwable t) {
             t.printStackTrace();
             mediaSession = null;
@@ -177,6 +185,37 @@ public class MainActivity extends AppCompatActivity {
             if (!mediaSession.isActive()) mediaSession.setActive(true);
         } catch (Throwable t) {
             t.printStackTrace();
+        }
+    }
+
+    /** called by PlaybackService (notification buttons) */
+    static void dispatch(String cmd) {
+        MainActivity a = current;
+        if (a != null && cmd != null) a.remote(cmd);
+    }
+
+    /** A WebView that is not told "you are invisible" when the screen turns off, so audio keeps going. */
+    private class BgWebView extends WebView {
+        BgWebView(Context c) { super(c); }
+        @Override
+        protected void onWindowVisibilityChanged(int visibility) {
+            super.onWindowVisibilityChanged(bgPlay ? View.VISIBLE : visibility);
+        }
+    }
+
+    private void updateService(boolean playing, String title) {
+        try {
+            if (!bgPlay) {
+                stopService(new Intent(this, PlaybackService.class));
+                return;
+            }
+            Intent i = new Intent(this, PlaybackService.class)
+                    .setAction(PlaybackService.ACTION_UPDATE)
+                    .putExtra(PlaybackService.EXTRA_TITLE, title == null ? "" : title)
+                    .putExtra(PlaybackService.EXTRA_PLAYING, playing);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
+        } catch (Throwable t) {
+            t.printStackTrace();   // e.g. started from background on Android 12+: sound just keeps playing as before
         }
     }
 
@@ -413,7 +452,21 @@ public class MainActivity extends AppCompatActivity {
         /** The page tells us whether the video is playing, so media buttons and TalkBack toggle correctly. */
         @JavascriptInterface
         public void setPlayback(boolean playing, String title) {
-            runOnUiThread(() -> applyPlaybackState(playing, title));
+            runOnUiThread(() -> {
+                applyPlaybackState(playing, title);
+                updateService(playing, title);
+                if (playing && Build.VERSION.SDK_INT >= 33 && bgPlay
+                        && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY);
+                }
+            });
+        }
+
+        /** true = keep playing when the screen is off or the app is in the background */
+        @JavascriptInterface
+        public void setBackground(boolean on) {
+            bgPlay = on;
+            if (!on) runOnUiThread(() -> stopService(new Intent(MainActivity.this, PlaybackService.class)));
         }
 
         // ---- old sync methods kept so nothing else breaks ----
@@ -437,6 +490,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         pool.shutdownNow();
+        current = null;
+        try { stopService(new Intent(this, PlaybackService.class)); } catch (Throwable ignored) {}
+        PlaybackService.sessionToken = null;
         if (mediaSession != null) {
             try {
                 mediaSession.setActive(false);
