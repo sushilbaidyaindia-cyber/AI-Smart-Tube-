@@ -3,205 +3,270 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<meta name="theme-color" content="#0f0f0f" />
-<title>MyTube</title>
+<meta name="theme-color" content="#09161a" />
+<title>AI Smart Tube</title>
 <style>
+  /* ============================================================
+     AI Smart Tube — deep teal ink + amber.
+     Built screen-reader first: big targets, clear headings, no colour-only meaning.
+     ============================================================ */
   :root {
-    --bg:#0f0f0f; --bg2:#272727; --bg3:#3f3f3f; --text:#f1f1f1; --muted:#aaaaaa;
-    --red:#ff0033; --blue:#3ea6ff; --line:#2a2a2a;
-    --top-h:52px; --tab-h:54px;
+    --fs: 1;
+    --bg:#09161a; --bg2:#102229; --bg3:#183039; --line:#26485a;
+    --text:#eaf5f3; --muted:#a4bcc0;
+    --accent:#ffb84a; --on-accent:#1b1200; --accent-text:#ffc86e;
+    --ok:#6fe0ae; --warn:#ffc15e; --bad:#ff8a7a; --focus:#7fdcff;
+    --top-h:3.5rem; --tab-h:3.75rem;
   }
   html[data-theme="light"] {
-    --bg:#ffffff; --bg2:#f2f2f2; --bg3:#e3e3e3; --text:#0f0f0f; --muted:#606060; --line:#e5e5e5;
+    --bg:#f4faf9; --bg2:#e4f1ef; --bg3:#d0e5e2; --line:#9fc3c2;
+    --text:#082228; --muted:#38565d;
+    --accent:#ffb84a; --on-accent:#1b1200; --accent-text:#7a4300;
+    --ok:#0c6b45; --warn:#8a5200; --bad:#a3271a; --focus:#0a5fa8;
   }
+  html[data-contrast="high"][data-theme="dark"] { --bg:#000; --bg2:#0b1418; --bg3:#17262c; --line:#8fb3bd; --text:#fff; --muted:#e0eef0; }
+  html[data-contrast="high"][data-theme="light"] { --bg:#fff; --bg2:#eef5f4; --bg3:#d9e8e6; --line:#4a6f72; --text:#000; --muted:#13333a; }
+
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html { font-size:calc(16px * var(--fs)); }
   html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
-    font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif; }
-  body { padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px)); }
-  button { font-family:inherit; color:inherit; }
-  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+    font-family:"Noto Sans Bengali", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { line-height:1.65; padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px)); }
+  button, input, select { font:inherit; color:inherit; }
+  button { cursor:pointer; }
+  h1,h2,h3 { line-height:1.4; margin:0; }
+  :focus-visible { outline:3px solid var(--focus); outline-offset:2px; border-radius:6px; }
+  [tabindex="-1"]:focus { outline:none; }
+  .sr { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .i { display:inline-flex; width:1.5rem; height:1.5rem; flex:none; }
+  .i svg { width:100%; height:100%; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .i.fill svg { fill:currentColor; stroke:none; }
+  html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-motion="reduce"] *::after {
+    animation:none !important; transition:none !important; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
 
   /* ---------- top bar ---------- */
-  .topbar { position:sticky; top:0; z-index:40; height:var(--top-h); display:flex; align-items:center;
-    gap:4px; padding:0 4px 0 12px; background:var(--bg); }
-  .brand { display:flex; align-items:center; gap:6px; font-weight:800; font-size:20px; letter-spacing:-.5px; flex:1; }
-  .logo { width:28px; height:20px; border-radius:6px; background:var(--red); color:#fff; font-size:11px;
-    display:flex; align-items:center; justify-content:center; }
-  .ibtn { width:44px; height:44px; border:0; border-radius:50%; background:transparent; font-size:20px;
-    display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none; }
+  .topbar { position:sticky; top:0; z-index:40; min-height:var(--top-h); display:flex; align-items:center; gap:.25rem;
+    padding:0 .25rem 0 1rem; background:var(--bg); }
+  .brand { flex:1; display:flex; align-items:center; gap:.6rem; font-weight:800; font-size:1.2rem; letter-spacing:-.01em; min-width:0; }
+  .brand svg { width:2rem; height:2rem; flex:none; }
+  .brand span.t { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ibtn { width:3rem; height:3rem; border:0; border-radius:50%; background:transparent; display:flex; align-items:center;
+    justify-content:center; flex:none; }
   .ibtn:active { background:var(--bg2); }
 
   /* ---------- screens ---------- */
-  .screen { display:none; max-width:760px; margin:0 auto; }
+  .screen { display:none; max-width:47.5rem; margin:0 auto; }
   .screen.active { display:block; }
-  .pad { padding:12px; }
-  .hint { color:var(--muted); font-size:13px; text-align:center; margin:24px 16px; line-height:1.5; }
-  h2.title { font-size:18px; margin:6px 12px 12px; }
+  .hint { color:var(--muted); font-size:.9rem; text-align:center; margin:1.5rem 1rem; line-height:1.7; }
+  .title { font-size:1.2rem; font-weight:700; margin:.5rem 1rem .75rem; }
+  .subbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:.25rem; padding:.25rem; background:var(--bg); }
+  .subbar h2 { font-size:1.15rem; flex:1; margin:0 .5rem; }
+
+  /* ---------- welcome card ---------- */
+  .welcome { margin:.25rem 1rem 1rem; padding:1rem 1.1rem; border-radius:1rem; background:var(--bg2); border:1px solid var(--line); }
+  .welcome h2 { font-size:1.05rem; margin-bottom:.35rem; }
+  .welcome p { margin:0 0 .75rem; color:var(--muted); font-size:.92rem; }
+  .btnrow { display:flex; gap:.5rem; flex-wrap:wrap; }
+
+  /* ---------- buttons ---------- */
+  .btn { min-height:2.9rem; padding:0 1.1rem; border:0; border-radius:1.5rem; background:var(--bg3); font-weight:600; font-size:.95rem;
+    display:inline-flex; align-items:center; justify-content:center; gap:.5rem; }
+  .btn:active { filter:brightness(1.15); }
+  .btn.primary { background:var(--accent); color:var(--on-accent); }
+  .btn.danger { color:var(--bad); }
 
   /* ---------- chips ---------- */
-  .chips { position:sticky; top:var(--top-h); z-index:30; display:flex; gap:8px; overflow-x:auto;
-    padding:8px 12px 12px; background:var(--bg); scrollbar-width:none; }
+  .chips { position:sticky; top:var(--top-h); z-index:30; display:flex; gap:.5rem; overflow-x:auto; padding:.5rem 1rem .75rem;
+    background:var(--bg); scrollbar-width:none; }
   .chips::-webkit-scrollbar { display:none; }
-  .chip { flex:none; border:0; border-radius:8px; height:32px; padding:0 12px; font-size:14px; font-weight:500;
-    background:var(--bg2); cursor:pointer; }
-  .chip.active { background:var(--text); color:var(--bg); }
+  .chip { flex:none; min-height:2.5rem; padding:0 1rem; border:1px solid var(--line); border-radius:1.25rem; background:transparent;
+    font-size:.92rem; font-weight:500; }
+  .chip[aria-pressed="true"] { background:var(--text); color:var(--bg); border-color:var(--text); font-weight:700; }
 
-  /* ---------- video card (YouTube mobile style) ---------- */
-  .vcard { margin:0 0 22px; }
+  /* ---------- video cards ---------- */
+  .vcard { margin:0 0 1.6rem; }
   .vthumb { position:relative; aspect-ratio:16/9; background:var(--bg2) center/cover no-repeat; cursor:pointer; }
-  .vdur { position:absolute; right:8px; bottom:8px; background:rgba(0,0,0,.8); color:#fff; font-size:12px;
-    font-weight:600; padding:1px 5px; border-radius:4px; }
-  .vinfo { display:flex; gap:12px; padding:12px 4px 0 12px; align-items:flex-start; }
-  .vav { width:36px; height:36px; border-radius:50%; flex:none; display:flex; align-items:center;
-    justify-content:center; font-weight:700; color:#fff; font-size:15px; }
+  .vdur { position:absolute; right:.5rem; bottom:.5rem; background:rgba(0,0,0,.82); color:#fff; font-size:.78rem; font-weight:700;
+    padding:.05rem .4rem; border-radius:.3rem; }
+  .vinfo { display:flex; gap:.75rem; padding:.75rem .25rem 0 1rem; align-items:flex-start; }
+  .vav { width:2.4rem; height:2.4rem; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    font-weight:700; color:#fff; font-size:1rem; }
   .vtext { flex:1; min-width:0; cursor:pointer; }
-  .vtitle { font-size:14px; font-weight:500; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2;
-    -webkit-box-orient:vertical; overflow:hidden; }
-  .vmeta { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.4; }
-  .vmore { flex:none; width:36px; height:36px; border:0; background:transparent; font-size:20px; cursor:pointer;
-    border-radius:50%; }
+  .vtitle { font-size:.97rem; font-weight:600; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .vmeta { font-size:.82rem; color:var(--muted); margin-top:.15rem; }
+  .vmore { flex:none; width:3rem; height:3rem; border:0; background:transparent; border-radius:50%; display:flex; align-items:center; justify-content:center; }
   .vmore:active { background:var(--bg2); }
-  .skel .vthumb { background:var(--bg2); animation:pulse 1.2s infinite ease-in-out; }
-  .skel .sk { height:12px; border-radius:6px; background:var(--bg2); margin:8px 0; animation:pulse 1.2s infinite ease-in-out; }
+  .ccard { display:flex; gap:.7rem; padding:.45rem .25rem .45rem 1rem; align-items:flex-start; }
+  .ccard .cthumb { position:relative; width:42%; max-width:12.5rem; aspect-ratio:16/9; border-radius:.6rem; background:var(--bg2) center/cover no-repeat; flex:none; cursor:pointer; overflow:hidden; }
+  .skel .vthumb, .skel .sk { background:var(--bg2); animation:pulse 1.3s infinite ease-in-out; }
+  .skel .sk { height:.8rem; border-radius:.4rem; margin:.5rem 0; }
   @keyframes pulse { 50% { opacity:.45; } }
-  @media (prefers-reduced-motion: reduce) { .skel .vthumb,.skel .sk { animation:none; } }
-
-  /* compact card (search results / up next) */
-  .ccard { display:flex; gap:10px; padding:6px 4px 6px 12px; align-items:flex-start; }
-  .ccard .cthumb { position:relative; width:42%; max-width:200px; aspect-ratio:16/9; border-radius:8px;
-    background:var(--bg2) center/cover no-repeat; flex:none; cursor:pointer; }
-  .ccard .vtext { padding-top:2px; }
 
   /* ---------- search ---------- */
-  .sbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:4px; padding:4px 4px 4px 4px;
-    background:var(--bg); }
-  .sbar input { flex:1; min-width:0; height:40px; border:0; border-radius:20px; background:var(--bg2); color:var(--text);
-    font-size:16px; padding:0 16px; outline:0; }
-  .recent { display:flex; align-items:center; gap:14px; padding:12px 16px; cursor:pointer; }
-  .recent span.ic { color:var(--muted); }
+  .sbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:.15rem; padding:.25rem; background:var(--bg); }
+  .sbar input { flex:1; min-width:0; height:2.9rem; border:1px solid var(--line); border-radius:1.5rem; background:var(--bg2); color:var(--text); font-size:1rem; padding:0 1rem; outline:0; }
+  .sbar input:focus-visible { outline:3px solid var(--focus); outline-offset:1px; }
+  .recent { display:flex; align-items:center; gap:.9rem; min-height:3rem; padding:.4rem 1rem; width:100%; border:0; background:transparent; text-align:left; }
+  .recent:active { background:var(--bg2); }
+  .recent .i { color:var(--muted); }
 
   /* ---------- tabs ---------- */
-  .tabs { position:fixed; left:0; right:0; bottom:0; z-index:50; height:calc(var(--tab-h) + env(safe-area-inset-bottom,0px));
-    padding-bottom:env(safe-area-inset-bottom,0px); display:flex; background:var(--bg); border-top:1px solid var(--line); }
-  .tab { flex:1; border:0; background:transparent; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:2px; font-size:10px; color:var(--muted); cursor:pointer; }
-  .tab .ic { font-size:21px; line-height:1; }
-  .tab.active { color:var(--text); font-weight:700; }
+  .tabs { position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; background:var(--bg); border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom,0px); }
+  .tab { flex:1; min-height:var(--tab-h); border:0; background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:.15rem; font-size:.72rem; color:var(--muted); }
+  .tab[aria-current="page"] { color:var(--text); font-weight:800; }
+  .tab[aria-current="page"] .i { color:var(--accent-text); }
 
-  /* ---------- list rows (you / subs) ---------- */
-  .row { display:flex; align-items:center; gap:16px; padding:14px 16px; cursor:pointer; border:0; background:transparent;
-    width:100%; text-align:left; font-size:15px; }
+  /* ---------- rows ---------- */
+  .row { display:flex; align-items:center; gap:1rem; width:100%; min-height:3.5rem; padding:.55rem 1rem; border:0; background:transparent; text-align:left; font-size:1rem; }
   .row:active { background:var(--bg2); }
-  .row .ic { width:28px; text-align:center; font-size:20px; }
-  .row small { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
-  .avrow { display:flex; gap:16px; overflow-x:auto; padding:6px 12px 14px; scrollbar-width:none; }
+  .row .i { color:var(--accent-text); }
+  .row small { display:block; color:var(--muted); font-size:.82rem; line-height:1.45; }
+  .avrow { display:flex; gap:1rem; overflow-x:auto; padding:.4rem 1rem 1rem; scrollbar-width:none; }
   .avrow::-webkit-scrollbar { display:none; }
-  .avitem { flex:none; width:64px; text-align:center; font-size:11px; border:0; background:transparent; cursor:pointer; }
-  .avitem .vav { width:52px; height:52px; margin:0 auto 6px; font-size:20px; }
-  .avitem span.nm { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .avitem { flex:none; width:4.6rem; text-align:center; font-size:.76rem; border:0; background:transparent; }
+  .avitem .vav { width:3.4rem; height:3.4rem; margin:0 auto .3rem; font-size:1.3rem; }
+  .avitem .nm { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 
   /* ---------- player ---------- */
   .pvideo { position:sticky; top:0; z-index:35; background:#000; aspect-ratio:16/9; }
   .pvideo video { width:100%; height:100%; background:#000; object-fit:contain; display:block; }
   .spin { position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none; }
   .spin.on { display:flex; }
-  .spin i { width:38px; height:38px; border:4px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%;
-    animation:rot .9s linear infinite; }
+  .spin i { width:2.4rem; height:2.4rem; border:.25rem solid rgba(255,255,255,.28); border-top-color:#fff; border-radius:50%; animation:rot .9s linear infinite; }
   @keyframes rot { to { transform:rotate(360deg); } }
-  .ptitle { font-size:18px; font-weight:600; line-height:1.35; margin:12px 12px 4px; }
-  .pmeta { font-size:12px; color:var(--muted); margin:0 12px 10px; }
-  .pills { display:flex; gap:8px; overflow-x:auto; padding:4px 12px 10px; scrollbar-width:none; }
+  .transport { display:flex; justify-content:center; gap:.4rem; padding:.5rem .5rem .25rem; }
+  .tbtn { width:3.4rem; height:3.4rem; border:0; border-radius:50%; background:var(--bg2); display:flex; align-items:center; justify-content:center; }
+  .tbtn:active { background:var(--bg3); }
+  .tbtn.main { width:4rem; height:4rem; background:var(--accent); color:var(--on-accent); }
+  .ptitle { font-size:1.2rem; font-weight:700; line-height:1.5; margin:.75rem 1rem .25rem; }
+  .pmeta { font-size:.85rem; color:var(--muted); margin:0 1rem .15rem; }
+  .srcbadge { font-size:.8rem; color:var(--muted); margin:0 1rem .5rem; }
+  .pills { display:flex; gap:.5rem; overflow-x:auto; padding:.35rem 1rem .6rem; scrollbar-width:none; }
   .pills::-webkit-scrollbar { display:none; }
-  .pill { flex:none; display:flex; align-items:center; gap:6px; height:36px; padding:0 14px; border:0; border-radius:18px;
-    background:var(--bg2); font-size:13px; font-weight:500; white-space:nowrap; cursor:pointer; }
+  .pill { flex:none; display:flex; align-items:center; gap:.45rem; min-height:2.75rem; padding:0 1rem; border:0; border-radius:1.4rem; background:var(--bg2);
+    font-size:.88rem; font-weight:600; white-space:nowrap; }
   .pill:active { background:var(--bg3); }
-  .pill.on { background:var(--text); color:var(--bg); }
-  .chrow { display:flex; align-items:center; gap:12px; padding:10px 12px; }
+  .pill[aria-pressed="true"] { background:var(--text); color:var(--bg); }
+  .pill.accent { background:var(--accent); color:var(--on-accent); }
+  .pill .i { width:1.25rem; height:1.25rem; }
+  .chrow { display:flex; align-items:center; gap:.75rem; padding:.5rem 1rem; }
   .chrow .info { flex:1; min-width:0; }
-  .chrow .info strong { display:block; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .chrow .info span { font-size:12px; color:var(--muted); }
-  .subbtn { border:0; border-radius:18px; height:36px; padding:0 16px; font-weight:600; font-size:14px;
-    background:var(--text); color:var(--bg); cursor:pointer; }
-  .subbtn.on { background:var(--bg2); color:var(--text); }
-  .descbox { margin:6px 12px; padding:12px; border-radius:12px; background:var(--bg2); font-size:13px; line-height:1.5;
-    cursor:pointer; white-space:pre-wrap; word-break:break-word; }
+  .chrow .info strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chrow .info span { font-size:.8rem; color:var(--muted); }
+  .subbtn { min-height:2.75rem; padding:0 1.2rem; border:0; border-radius:1.4rem; font-weight:700; background:var(--text); color:var(--bg); }
+  .subbtn[aria-pressed="true"] { background:var(--bg3); color:var(--text); }
+  .descbox { margin:.4rem 1rem; padding:.9rem 1rem; border-radius:.9rem; background:var(--bg2); font-size:.9rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; width:calc(100% - 2rem); border:0; text-align:left; display:block; }
   .descbox.clamp { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-  .srcbadge { font-size:11px; color:var(--muted); margin:2px 12px 6px; }
-  .transport { display:flex; justify-content:space-around; padding:2px 8px 6px; }
-  .transport .pill { padding:0 18px; }
 
-  /* ---------- AI panel ---------- */
-  .aibox { margin:12px; padding:12px; border-radius:14px; background:var(--bg2); }
-  .aibox h3 { margin:0 0 10px; font-size:15px; }
-  .aibtns { display:flex; flex-wrap:wrap; gap:8px; }
-  .aibtns .pill { background:var(--bg3); }
-  .askrow { display:flex; gap:8px; margin-top:10px; }
-  .askrow input { flex:1; min-width:0; height:40px; border:1px solid var(--bg3); border-radius:20px; background:var(--bg);
-    color:var(--text); padding:0 14px; font-size:14px; outline:0; }
-  .aiout { margin-top:12px; font-size:14px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
-  .aiout.busy { color:var(--muted); }
-  .aifoot { margin-top:8px; font-size:11px; color:var(--muted); line-height:1.45; }
+  /* ---------- AI hub — the one distinctive thing ---------- */
+  .aihub { margin:1.1rem 1rem; border:1px solid var(--line); border-radius:1.1rem; background:var(--bg2); overflow:hidden; }
+  .aihub > header { display:flex; align-items:center; gap:.6rem; padding:.9rem 1rem .5rem; }
+  .aihub > header .i { color:var(--accent-text); }
+  .aihub > header h2 { font-size:1.1rem; }
+  .aibtn { display:flex; align-items:center; gap:.9rem; width:100%; min-height:3.6rem; padding:.55rem 1rem; border:0; border-top:1px solid var(--line); background:transparent; text-align:left; }
+  .aibtn:active { background:var(--bg3); }
+  .aibtn .i { color:var(--accent-text); }
+  .aibtn b { display:block; font-size:.98rem; }
+  .aibtn small { display:block; color:var(--muted); font-size:.8rem; line-height:1.4; }
+  .askrow { display:flex; gap:.5rem; padding:.6rem 1rem .8rem; border-top:1px solid var(--line); }
+  .askrow input { flex:1; min-width:0; height:2.9rem; border:1px solid var(--line); border-radius:1.5rem; background:var(--bg); padding:0 1rem; outline:0; }
+  .aiout { padding:.9rem 1rem 1rem; border-top:1px solid var(--line); background:var(--bg); }
+  .aiout:empty { display:none; }
+  .aiout h3 { font-size:1rem; margin-bottom:.4rem; color:var(--accent-text); }
+  .aitext { white-space:pre-wrap; word-break:break-word; font-size:.97rem; line-height:1.8; }
+  .aiout.busy .aitext { color:var(--muted); }
+  .aiacts { display:flex; gap:.5rem; margin-top:.75rem; flex-wrap:wrap; }
+  .aifoot { padding:.2rem 1rem .9rem; color:var(--muted); font-size:.78rem; line-height:1.6; }
+  .meter { margin:.2rem 0 .8rem; }
+  .mtop { display:flex; align-items:baseline; gap:.7rem; }
+  .mscore { font-size:2.2rem; font-weight:800; line-height:1; }
+  .mverdict { font-size:1.1rem; font-weight:700; }
+  .mbar { height:.9rem; border-radius:.5rem; background:var(--bg3); margin:.5rem 0 .25rem; overflow:hidden; border:1px solid var(--line); }
+  .mbar i { display:block; height:100%; border-radius:.5rem; background:var(--ok); min-width:.4rem; }
+  .meter.mid .mbar i { background:var(--warn); } .meter.mid .mverdict { color:var(--warn); }
+  .meter.high .mbar i { background:var(--bad); } .meter.high .mverdict { color:var(--bad); }
+  .meter.low .mverdict { color:var(--ok); }
+  .mscale { display:flex; justify-content:space-between; font-size:.74rem; color:var(--muted); }
+  .aitext ul { margin:.2rem 0 .6rem; padding-left:1.2rem; } .aitext h4 { margin:.7rem 0 .2rem; font-size:.95rem; }
 
-  /* ---------- sheet & snack ---------- */
-  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:80; display:none; }
+  /* ---------- sheet / dialog / snack ---------- */
+  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:80; display:none; }
   .scrim.on { display:block; }
-  .sheet { position:fixed; left:0; right:0; bottom:0; z-index:90; background:var(--bg2); border-radius:16px 16px 0 0;
-    padding:8px 0 calc(12px + env(safe-area-inset-bottom,0px)); display:none; max-width:760px; margin:0 auto; }
+  .sheet { position:fixed; left:0; right:0; bottom:0; z-index:90; background:var(--bg2); border-radius:1.2rem 1.2rem 0 0; padding:.5rem 0 calc(.75rem + env(safe-area-inset-bottom,0px));
+    display:none; max-width:47.5rem; margin:0 auto; border:1px solid var(--line); border-bottom:0; }
   .sheet.on { display:block; }
-  .snack { position:fixed; left:12px; right:12px; bottom:calc(var(--tab-h) + 12px); z-index:100; background:#323232; color:#fff;
-    border-radius:8px; padding:12px 16px; font-size:14px; display:none; max-width:560px; margin:0 auto; }
+  .sheet .sh-title { padding:.5rem 1rem; font-size:.85rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dlg { position:fixed; z-index:95; left:1rem; right:1rem; top:50%; transform:translateY(-50%); max-width:26rem; margin:0 auto; background:var(--bg2);
+    border:1px solid var(--line); border-radius:1.1rem; padding:1.1rem; display:none; }
+  .dlg.on { display:block; }
+  .dlg h2 { font-size:1.1rem; margin-bottom:.4rem; } .dlg p { margin:0 0 1rem; color:var(--muted); font-size:.95rem; }
+  .snack { position:fixed; left:1rem; right:1rem; bottom:calc(var(--tab-h) + .8rem); z-index:100; background:#2b3a3f; color:#fff; border-radius:.6rem; padding:.8rem 1rem; display:none; max-width:35rem; margin:0 auto; font-size:.92rem; }
   .snack.on { display:block; }
 
   /* ---------- settings ---------- */
-  .set-top { display:flex; align-items:center; gap:4px; padding:4px; position:sticky; top:0; background:var(--bg); z-index:40; }
-  .set-top h2 { margin:0; font-size:18px; }
-  .group { margin:0 12px 16px; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
-  .group h3 { margin:0; padding:12px 14px 6px; font-size:13px; color:var(--blue); }
-  .srow { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px;
-    border-top:1px solid var(--line); min-height:54px; }
+  .group { margin:0 1rem 1.2rem; border:1px solid var(--line); border-radius:1rem; overflow:hidden; background:var(--bg); }
+  .group h2 { padding:.9rem 1rem .4rem; font-size:1rem; color:var(--accent-text); }
+  .group .note { padding:0 1rem .7rem; color:var(--muted); font-size:.84rem; line-height:1.65; margin:0; }
+  .srow { display:flex; align-items:center; justify-content:space-between; gap:.8rem; padding:.75rem 1rem; border-top:1px solid var(--line); min-height:3.6rem; }
   .srow .lb { flex:1; min-width:0; }
-  .srow .lb strong { display:block; font-size:15px; font-weight:600; }
-  .srow .lb small { display:block; font-size:12px; color:var(--muted); margin-top:3px; line-height:1.4; }
+  .srow .lb strong { display:block; font-weight:600; font-size:.97rem; }
+  .srow .lb small { display:block; color:var(--muted); font-size:.8rem; line-height:1.5; margin-top:.1rem; }
   .srow select, .srow input[type=text], .srow input[type=password], .srow input[type=url] {
-    border:1px solid var(--bg3); border-radius:10px; background:var(--bg2); color:var(--text); padding:10px 12px;
-    font-size:14px; max-width:52%; min-width:110px; }
+    border:1px solid var(--line); border-radius:.7rem; background:var(--bg2); color:var(--text); padding:.65rem .75rem; font-size:.92rem; max-width:55%; min-width:6.5rem; min-height:2.75rem; }
   .srow.col { flex-direction:column; align-items:stretch; }
   .srow.col input { max-width:100%; width:100%; }
-  .switch { position:relative; width:52px; height:32px; flex:none; }
-  .switch input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; z-index:2; }
-  .switch .sl { position:absolute; inset:0; border-radius:16px; background:var(--bg3); transition:background .15s; }
-  .switch .sl::after { content:""; position:absolute; top:4px; left:4px; width:24px; height:24px; border-radius:50%; background:#fff;
-    transition:transform .15s; }
-  .switch input:checked + .sl { background:var(--blue); }
-  .switch input:checked + .sl::after { transform:translateX(20px); }
-  .sbtn { width:100%; border:0; border-top:1px solid var(--line); background:transparent; padding:14px; text-align:left; font-size:15px;
-    font-weight:600; cursor:pointer; }
-  .sbtn.danger { color:#ff6b5e; }
+  .srow .tst { font-size:.82rem; color:var(--muted); min-height:1.2rem; margin-top:.3rem; }
+  .switch { position:relative; width:3.4rem; height:2.1rem; flex:none; }
+  .switch input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; z-index:2; }
+  .switch .sl { position:absolute; inset:0; border-radius:1.05rem; background:var(--bg3); border:1px solid var(--line); transition:background .15s; }
+  .switch .sl::after { content:""; position:absolute; top:.2rem; left:.2rem; width:1.6rem; height:1.6rem; border-radius:50%; background:var(--text); transition:transform .15s; }
+  .switch input:checked + .sl { background:var(--accent); border-color:var(--accent); }
+  .switch input:checked + .sl::after { transform:translateX(1.3rem); background:var(--on-accent); }
+  .switch input:focus-visible + .sl { outline:3px solid var(--focus); outline-offset:2px; }
+  .sbtn { display:flex; align-items:center; gap:.7rem; width:100%; min-height:3.4rem; padding:.6rem 1rem; border:0; border-top:1px solid var(--line); background:transparent; text-align:left; font-weight:600; }
+  .sbtn.danger { color:var(--bad); }
+  .privacy p, .privacy li { font-size:.95rem; line-height:1.85; }
+  .privacy ul { margin:.2rem 0 1rem; padding-left:1.3rem; }
+  .privacy h2 { font-size:1.05rem; margin:1.1rem 1rem .3rem; color:var(--accent-text); }
+  .privacy p { margin:.2rem 1rem; }
+  .privacy ul { margin-left:1rem; margin-right:1rem; }
 </style>
 </head>
 <body>
 
-<!-- ============ TOP BAR (home / subs / you) ============ -->
+<div class="sr" id="live" role="status" aria-live="polite"></div>
+
+<!-- ============ TOP BAR ============ -->
 <header class="topbar" id="topbar">
-  <div class="brand" role="heading" aria-level="1" aria-label="MyTube"><span class="logo" aria-hidden="true">▶</span>MyTube</div>
-  <button type="button" class="ibtn" aria-label="সার্চ" onclick="go('search')">🔍</button>
-  <button type="button" class="ibtn" aria-label="সেটিংস" onclick="go('settings')">⚙️</button>
+  <h1 class="brand" aria-label="এআই স্মার্ট টিউব">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--accent)"/><path d="M11 8.5v15l12-7.5z" fill="var(--on-accent)"/><path d="M25 4l.8 2.3 2.3.8-2.3.8L25 10.2l-.8-2.3-2.3-.8 2.3-.8z" fill="var(--bg)"/></svg>
+    <span class="t">Smart Tube</span>
+  </h1>
+  <button type="button" class="ibtn" aria-label="ভয়েস সার্চ" onclick="voiceSearch()"><span class="i" data-i="mic"></span></button>
+  <button type="button" class="ibtn" aria-label="সার্চ" onclick="go('search')"><span class="i" data-i="search"></span></button>
+  <button type="button" class="ibtn" aria-label="সেটিংস" onclick="go('settings')"><span class="i" data-i="sliders"></span></button>
 </header>
 
 <!-- ============ HOME ============ -->
 <main id="home" class="screen active" aria-label="হোম">
+  <h2 class="sr" id="homeH" tabindex="-1">হোম</h2>
+  <div id="welcome"></div>
   <div class="chips" id="chips" role="group" aria-label="ক্যাটাগরি"></div>
   <div id="feed" aria-live="polite"></div>
 </main>
 
 <!-- ============ SEARCH ============ -->
 <section id="search" class="screen" aria-label="সার্চ">
+  <h2 class="sr" id="searchH" tabindex="-1">সার্চ</h2>
   <div class="sbar">
-    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()">←</button>
-    <input type="search" id="qInput" placeholder="সার্চ করুন" aria-label="সার্চ লিখুন" enterkeyhint="search"
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()"><span class="i" data-i="back"></span></button>
+    <input type="search" id="qInput" placeholder="ভিডিও খুঁজুন" aria-label="সার্চ লিখুন" enterkeyhint="search"
            onkeydown="if(event.key==='Enter'){doSearch(this.value)}" />
-    <button type="button" class="ibtn" aria-label="সার্চ শুরু করুন" onclick="doSearch($('qInput').value)">🔍</button>
-    <button type="button" class="ibtn" aria-label="ভয়েস সার্চ" onclick="toast('ভয়েস সার্চ পরে যোগ হবে')">🎤</button>
+    <button type="button" class="ibtn" aria-label="সার্চ শুরু করুন" onclick="doSearch($('qInput').value)"><span class="i" data-i="search"></span></button>
+    <button type="button" class="ibtn" aria-label="ভয়েস সার্চ" onclick="voiceSearch()"><span class="i" data-i="mic"></span></button>
   </div>
   <div id="recent"></div>
   <div id="sresults" aria-live="polite"></div>
@@ -209,26 +274,26 @@
 
 <!-- ============ SUBSCRIPTIONS ============ -->
 <section id="subs" class="screen" aria-label="সাবস্ক্রিপশন">
-  <h2 class="title">সাবস্ক্রিপশন</h2>
+  <h2 class="title" id="subsH" tabindex="-1">সাবস্ক্রিপশন</h2>
   <div id="subsBox"></div>
 </section>
 
-<!-- ============ YOU / LIBRARY ============ -->
+<!-- ============ YOU ============ -->
 <section id="you" class="screen" aria-label="আপনি">
-  <h2 class="title">আপনি</h2>
-  <button type="button" class="row" onclick="openList('history')"><span class="ic" aria-hidden="true">🕒</span><span>ইতিহাস<small id="cntHistory"></small></span></button>
-  <button type="button" class="row" onclick="openList('later')"><span class="ic" aria-hidden="true">🔖</span><span>পরে দেখব<small id="cntLater"></small></span></button>
-  <button type="button" class="row" onclick="openList('liked')"><span class="ic" aria-hidden="true">👍</span><span>পছন্দের ভিডিও<small id="cntLiked"></small></span></button>
-  <button type="button" class="row" onclick="toast('ডাউনলোড পরে যোগ হবে')"><span class="ic" aria-hidden="true">⬇️</span><span>ডাউনলোড<small>শীঘ্রই আসছে</small></span></button>
-  <button type="button" class="row" onclick="go('settings')"><span class="ic" aria-hidden="true">✨</span><span>AI ও সেটিংস<small>API key, সোর্স, প্লেব্যাক</small></span></button>
+  <h2 class="title" id="youH" tabindex="-1">আপনি</h2>
+  <button type="button" class="row" onclick="openList('history')"><span class="i" data-i="history"></span><span>ইতিহাস<small id="cntHistory"></small></span></button>
+  <button type="button" class="row" onclick="openList('later')"><span class="i" data-i="bookmark"></span><span>পরে দেখব<small id="cntLater"></small></span></button>
+  <button type="button" class="row" onclick="openList('liked')"><span class="i" data-i="like"></span><span>পছন্দের ভিডিও<small id="cntLiked"></small></span></button>
+  <button type="button" class="row" onclick="go('settings')"><span class="i" data-i="sliders"></span><span>সেটিংস<small>AI, সোর্স, প্লেব্যাক, অ্যাক্সেসিবিলিটি</small></span></button>
+  <button type="button" class="row" onclick="go('privacy')"><span class="i" data-i="shield"></span><span>গোপনীয়তা<small>কোন তথ্য কোথায় যায়</small></span></button>
 </section>
 
-<!-- ============ GENERIC LIST ============ -->
+<!-- ============ LIST ============ -->
 <section id="list" class="screen" aria-label="তালিকা">
-  <div class="sbar">
-    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()">←</button>
-    <h2 class="title" id="listTitle" style="margin:0 8px;flex:1">তালিকা</h2>
-    <button type="button" class="pill" id="listClear" onclick="clearList()" aria-label="তালিকা খালি করুন">খালি করুন</button>
+  <div class="subbar">
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()"><span class="i" data-i="back"></span></button>
+    <h2 id="listTitle" tabindex="-1">তালিকা</h2>
+    <button type="button" class="btn" onclick="clearList()">খালি করুন</button>
   </div>
   <div id="listBody"></div>
 </section>
@@ -239,21 +304,24 @@
     <video id="mainVideo" playsinline controls aria-label="ভিডিও"></video>
     <div class="spin" id="spin" aria-hidden="true"><i></i></div>
   </div>
-  <div class="transport" role="toolbar" aria-label="প্লেয়ার নিয়ন্ত্রণ">
-    <button type="button" class="pill" id="bPrev" aria-label="পূর্ববর্তী ভিডিও">⏮</button>
-    <button type="button" class="pill" id="bRew" aria-label="পিছিয়ে যান">⏪</button>
-    <button type="button" class="pill" id="bFwd" aria-label="এগিয়ে যান">⏩</button>
-    <button type="button" class="pill" id="bNext" aria-label="পরবর্তী ভিডিও">⏭</button>
+  <div class="transport" role="group" aria-label="প্লেয়ার নিয়ন্ত্রণ">
+    <button type="button" class="tbtn" id="bPrev" aria-label="আগের ভিডিও"><span class="i fill" data-i="prev"></span></button>
+    <button type="button" class="tbtn" id="bRew" aria-label="পিছিয়ে যান"><span class="i" data-i="rew"></span></button>
+    <button type="button" class="tbtn main" id="bPlay" aria-label="চালান"><span class="i fill" data-i="play" id="playIc"></span></button>
+    <button type="button" class="tbtn" id="bFwd" aria-label="এগিয়ে যান"><span class="i" data-i="fwd"></span></button>
+    <button type="button" class="tbtn" id="bNext" aria-label="পরের ভিডিও"><span class="i fill" data-i="next"></span></button>
   </div>
-  <h1 class="ptitle" id="pTitle">ভিডিও</h1>
+  <h1 class="ptitle" id="pTitle" tabindex="-1">ভিডিও</h1>
   <p class="pmeta" id="pMeta"></p>
-  <div class="srcbadge" id="srcBadge" aria-live="polite"></div>
+  <p class="srcbadge" id="srcBadge"></p>
 
-  <div class="pills" role="toolbar" aria-label="ভিডিও অ্যাকশন">
-    <button type="button" class="pill" id="bLike" aria-pressed="false" onclick="toggleLike()"><span aria-hidden="true">👍</span>পছন্দ</button>
-    <button type="button" class="pill" aria-label="শেয়ার" onclick="shareVideo()"><span aria-hidden="true">↗️</span>শেয়ার</button>
-    <button type="button" class="pill" id="bLater" aria-pressed="false" onclick="toggleLater()"><span aria-hidden="true">🔖</span>সেভ</button>
-    <button type="button" class="pill" aria-label="ডাউনলোড" onclick="toast('ডাউনলোড পরে যোগ হবে')"><span aria-hidden="true">⬇️</span>ডাউনলোড</button>
+  <div class="pills" role="group" aria-label="ভিডিও অ্যাকশন">
+    <button type="button" class="pill accent" id="bDl" onclick="downloadCurrent()"><span class="i" data-i="download"></span>M4A ডাউনলোড</button>
+    <button type="button" class="pill" id="bAudio" aria-pressed="false" onclick="toggleAudioMode()"><span class="i" data-i="headphones"></span>শুধু অডিও</button>
+    <button type="button" class="pill" id="bTimer" onclick="cycleTimer()"><span class="i" data-i="timer"></span><span id="timerLb">টাইমার বন্ধ</span></button>
+    <button type="button" class="pill" id="bLike" aria-pressed="false" onclick="toggleLike()"><span class="i" data-i="like"></span>পছন্দ</button>
+    <button type="button" class="pill" id="bLater" aria-pressed="false" onclick="toggleLater()"><span class="i" data-i="bookmark"></span>সেভ</button>
+    <button type="button" class="pill" onclick="shareVideo()"><span class="i" data-i="share"></span>শেয়ার</button>
   </div>
 
   <div class="chrow">
@@ -262,139 +330,199 @@
     <button type="button" class="subbtn" id="bSub" aria-pressed="false" onclick="toggleSub()">সাবস্ক্রাইব</button>
   </div>
 
-  <div class="descbox clamp" id="pDesc" role="button" tabindex="0" aria-label="বিবরণ, বড় বা ছোট করতে চাপুন"
-       onclick="this.classList.toggle('clamp')">বিবরণ লোড হচ্ছে…</div>
+  <button type="button" class="descbox clamp" id="pDesc" aria-expanded="false" onclick="toggleDesc()">বিবরণ লোড হচ্ছে…</button>
 
-  <div class="aibox" id="aiBox">
-    <h3>✨ AI সহায়ক</h3>
-    <div class="aibtns" role="toolbar" aria-label="AI অপশন">
-      <button type="button" class="pill" onclick="runAI('sum')">📝 সারাংশ</button>
-      <button type="button" class="pill" onclick="runAI('fact')">🕵️ গোয়েন্দা</button>
-      <button type="button" class="pill" onclick="runAI('tr')">🌐 অনুবাদ</button>
-    </div>
+  <section class="aihub" aria-labelledby="aiH">
+    <header><span class="i" data-i="sparkle"></span><h2 id="aiH">AI সহায়ক</h2></header>
+    <button type="button" class="aibtn" onclick="runAI('sum')"><span class="i" data-i="list"></span><span><b>সারাংশ</b><small>মূল কথাগুলো ছোট ছোট পয়েন্টে</small></span></button>
+    <button type="button" class="aibtn" onclick="runAI('fact')"><span class="i" data-i="alert"></span><span><b>ক্লিকবেইট পরীক্ষা</b><small>শিরোনাম কতটা বিশ্বাসযোগ্য, স্কোর সহ</small></span></button>
+    <button type="button" class="aibtn" onclick="runAI('tr')"><span class="i" data-i="translate"></span><span><b>অনুবাদ</b><small id="trSub">শিরোনাম, বিবরণ ও সাবটাইটেল বাংলায়</small></span></button>
+    <button type="button" class="aibtn" onclick="runAI('scene')"><span class="i" data-i="eye"></span><span><b>দৃশ্যের বর্ণনা</b><small>Gemini ভিডিও দেখে বলে কী ঘটছে, কে আছে, পর্দায় কী লেখা</small></span></button>
     <div class="askrow">
-      <input type="text" id="aiQ" placeholder="এই ভিডিও নিয়ে প্রশ্ন করুন" aria-label="AI-কে প্রশ্ন লিখুন"
+      <input type="text" id="aiQ" placeholder="এই ভিডিও নিয়ে প্রশ্ন করুন" aria-label="AI-কে প্রশ্ন লিখুন" enterkeyhint="send"
              onkeydown="if(event.key==='Enter'){runAI('ask')}" />
-      <button type="button" class="pill" aria-label="প্রশ্ন পাঠান" onclick="runAI('ask')">পাঠান</button>
+      <button type="button" class="btn primary" onclick="runAI('ask')">পাঠান</button>
     </div>
-    <div class="aiout" id="aiOut" role="status" aria-live="polite"></div>
-    <div class="aifoot">AI শুধু ভিডিওর শিরোনাম, চ্যানেল ও বিবরণ দেখে উত্তর দেয় — ভিডিওর ভেতরের কথা বা ছবি দেখে না। ভুলও হতে পারে।</div>
-  </div>
+    <div class="aiout" id="aiOut" aria-live="polite"></div>
+    <p class="aifoot">AI ভুল করতে পারে। ভিডিও না দেখলে সে শুধু শিরোনাম, বিবরণ ও সাবটাইটেল থেকে বলে।</p>
+  </section>
 
-  <h2 class="title" style="margin-top:18px">পরবর্তী ভিডিও</h2>
+  <h2 class="title" style="margin-top:1.4rem">পরের ভিডিও</h2>
   <div id="upnext"></div>
 </section>
 
 <!-- ============ SETTINGS ============ -->
 <section id="settings" class="screen" aria-label="সেটিংস">
-  <div class="set-top">
-    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()">←</button>
-    <h2>সেটিংস</h2>
+  <div class="subbar">
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()"><span class="i" data-i="back"></span></button>
+    <h2 id="setH" tabindex="-1">সেটিংস</h2>
   </div>
 
-  <div class="group" role="group" aria-label="AI">
-    <h3>✨ AI (নিজের API key দিন)</h3>
+  <div class="group">
+    <h2>AI — আপনার নিজের API key</h2>
+    <p class="note">Key শুধু এই ফোনে সেভ থাকে এবং আপনার বেছে নেওয়া AI সার্ভিসকেই পাঠানো হয়।</p>
     <div class="srow col">
-      <div class="lb"><strong>Gemini API key</strong><small>Google AI Studio থেকে নেওয়া key। শুধু এই ফোনে সেভ থাকে।</small></div>
+      <div class="lb"><strong>Gemini API key</strong><small>Google AI Studio থেকে নেওয়া</small></div>
       <input type="password" id="gemKey" class="sv" aria-label="Gemini API key" autocomplete="off" />
+      <div class="tst" id="t_gemini" role="status" aria-live="polite"></div>
+      <button type="button" class="btn" onclick="testAI('gemini')">Gemini পরীক্ষা করুন</button>
     </div>
-    <div class="srow">
-      <div class="lb"><strong>Gemini মডেল</strong><small>ভুল হলে এখানে বদলান</small></div>
-      <input type="text" id="gemModel" class="sv" aria-label="Gemini মডেলের নাম" placeholder="gemini-2.5-flash" />
+    <div class="srow col">
+      <div class="lb"><strong>Gemini মডেল</strong><small>দ্রুত ও সাশ্রয়ী: gemini-3.8-flash। সবচেয়ে শক্তিশালী কিন্তু ধীর ও খরচ বেশি: gemini-4-argon</small></div>
+      <input type="text" id="gemModel" class="sv" aria-label="Gemini মডেলের নাম" />
     </div>
     <div class="srow col">
       <div class="lb"><strong>Grok (xAI) API key</strong></div>
       <input type="password" id="grokKey" class="sv" aria-label="Grok API key" autocomplete="off" />
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>Grok মডেল</strong></div>
-      <input type="text" id="grokModel" class="sv" aria-label="Grok মডেলের নাম" placeholder="grok-3" />
+      <div class="tst" id="t_grok" role="status" aria-live="polite"></div>
+      <button type="button" class="btn" onclick="testAI('grok')">Grok পরীক্ষা করুন</button>
     </div>
     <div class="srow col">
-      <div class="lb"><strong>কাস্টম AI (OpenAI-সামঞ্জস্যপূর্ণ)</strong><small>OpenRouter, Groq, DeepSeek ইত্যাদি। Base URL https:// দিয়ে শুরু হতে হবে, যেমন https://openrouter.ai/api/v1</small></div>
-      <input type="url" id="cusBase" class="sv" aria-label="কাস্টম Base URL" placeholder="https://…/v1" />
-      <input type="text" id="cusModel" class="sv" aria-label="কাস্টম মডেলের নাম" placeholder="মডেলের নাম" style="margin-top:8px" />
-      <input type="password" id="cusKey" class="sv" aria-label="কাস্টম API key" autocomplete="off" placeholder="API key" style="margin-top:8px" />
+      <div class="lb"><strong>Grok মডেল</strong><small>সর্বশেষ: grok-4.7</small></div>
+      <input type="text" id="grokModel" class="sv" aria-label="Grok মডেলের নাম" />
     </div>
-    <div class="srow">
-      <div class="lb"><strong>সারাংশ</strong><small>কোন AI দিয়ে</small></div>
-      <select id="provSum" class="sv" aria-label="সারাংশের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">কাস্টম</option></select>
+    <div class="srow col">
+      <div class="lb"><strong>অন্য AI (OpenAI-সামঞ্জস্যপূর্ণ)</strong><small>OpenRouter, Groq, DeepSeek ইত্যাদি। Base URL https:// দিয়ে শুরু হতে হবে, যেমন https://openrouter.ai/api/v1</small></div>
+      <input type="url" id="cusBase" class="sv" aria-label="অন্য AI-এর Base URL" />
+      <input type="text" id="cusModel" class="sv" aria-label="অন্য AI-এর মডেলের নাম" placeholder="মডেলের নাম" style="margin-top:.5rem" />
+      <input type="password" id="cusKey" class="sv" aria-label="অন্য AI-এর API key" autocomplete="off" placeholder="API key" style="margin-top:.5rem" />
+      <div class="tst" id="t_custom" role="status" aria-live="polite"></div>
+      <button type="button" class="btn" onclick="testAI('custom')">পরীক্ষা করুন</button>
     </div>
-    <div class="srow">
-      <div class="lb"><strong>গোয়েন্দা (ক্লিকবেইট/যাচাই)</strong></div>
-      <select id="provFact" class="sv" aria-label="গোয়েন্দার AI"><option value="grok">Grok</option><option value="gemini">Gemini</option><option value="custom">কাস্টম</option></select>
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>অনুবাদ</strong></div>
-      <select id="provTr" class="sv" aria-label="অনুবাদের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">কাস্টম</option></select>
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>প্রশ্ন-উত্তর</strong></div>
-      <select id="provAsk" class="sv" aria-label="প্রশ্ন-উত্তরের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">কাস্টম</option></select>
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>অনুবাদের ভাষা</strong></div>
-      <select id="trLang" class="sv" aria-label="অনুবাদের ভাষা"><option value="বাংলা">বাংলা</option><option value="English">English</option><option value="हिन्दी">हिन्दी</option></select>
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>উত্তর জোরে পড়ুক</strong><small>TalkBack চালু থাকলে এটা বন্ধ রাখুন, নইলে দুবার পড়বে</small></div>
-      <label class="switch"><input type="checkbox" id="aiSpeak" class="sv" aria-label="AI উত্তর জোরে পড়ুক" /><span class="sl"></span></label>
-    </div>
+    <div class="srow"><div class="lb"><strong>সারাংশ কে করবে</strong></div>
+      <select id="provSum" class="sv" aria-label="সারাংশের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">অন্য AI</option></select></div>
+    <div class="srow"><div class="lb"><strong>ক্লিকবেইট পরীক্ষা কে করবে</strong></div>
+      <select id="provFact" class="sv" aria-label="ক্লিকবেইট পরীক্ষার AI"><option value="grok">Grok</option><option value="gemini">Gemini</option><option value="custom">অন্য AI</option></select></div>
+    <div class="srow"><div class="lb"><strong>অনুবাদ কে করবে</strong></div>
+      <select id="provTr" class="sv" aria-label="অনুবাদের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">অন্য AI</option></select></div>
+    <div class="srow"><div class="lb"><strong>প্রশ্নের উত্তর কে দেবে</strong></div>
+      <select id="provAsk" class="sv" aria-label="প্রশ্নোত্তরের AI"><option value="gemini">Gemini</option><option value="grok">Grok</option><option value="custom">অন্য AI</option></select></div>
+    <div class="srow"><div class="lb"><strong>উত্তরের ভাষা</strong><small>অনুবাদ কোন ভাষায় হবে, সেটাও এটাই</small></div>
+      <select id="aiLang" class="sv" aria-label="উত্তরের ভাষা"><option value="বাংলা">বাংলা</option><option value="English">English</option><option value="हिन्दी">हिन्दी</option></select></div>
+    <div class="srow"><div class="lb"><strong>সারাংশের দৈর্ঘ্য</strong></div>
+      <select id="sumLen" class="sv" aria-label="সারাংশের দৈর্ঘ্য"><option value="3">ছোট (৩ পয়েন্ট)</option><option value="5">মাঝারি (৫ পয়েন্ট)</option><option value="8">বিস্তারিত (৮ পয়েন্ট)</option></select></div>
+    <div class="srow"><div class="lb"><strong>Gemini সরাসরি ভিডিও দেখুক</strong><small>সারাংশ, ক্লিকবেইট ও প্রশ্নে ভিডিওর লিংক Gemini-কে দেওয়া হয়, তাই সে ছবি ও কথা দুটোই বোঝে। শুধু প্রকাশ্য ভিডিওতে কাজ করে, ফ্রি সীমা আছে।</small></div>
+      <label class="switch"><input type="checkbox" id="aiWatch" class="sv" aria-label="Gemini সরাসরি ভিডিও দেখুক" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>সাবটাইটেল পড়ে AI-কে দিন</strong><small>Grok বা অন্য AI ভিডিও দেখতে পায় না, তাই ভিডিওতে সাবটাইটেল থাকলে সেটা পাঠানো হয়।</small></div>
+      <label class="switch"><input type="checkbox" id="useTranscript" class="sv" aria-label="সাবটাইটেল পড়ে AI-কে দিন" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>উত্তর নিজে থেকে জোরে পড়ুক</strong><small>টকব্যাক চালু থাকলে বন্ধ রাখুন, নইলে দুইবার পড়বে</small></div>
+      <label class="switch"><input type="checkbox" id="aiSpeak" class="sv" aria-label="উত্তর জোরে পড়ুক" /><span class="sl"></span></label></div>
   </div>
 
-  <div class="group" role="group" aria-label="সোর্স">
-    <h3>ভিডিও সোর্স</h3>
-    <div class="srow">
-      <div class="lb"><strong>প্রথমে কোনটা চেষ্টা হবে</strong><small>ব্যর্থ হলে বাকিগুলো নিজে থেকে চেষ্টা হয়</small></div>
-      <select id="primary" class="sv" aria-label="প্রাইমারি সোর্স"><option value="newpipe">NewPipe</option><option value="piped">Piped</option><option value="invidious">Invidious</option></select>
-    </div>
+  <div class="group">
+    <h2>ভিডিওর সোর্স</h2>
+    <div class="srow"><div class="lb"><strong>প্রথমে কোনটা চেষ্টা হবে</strong></div>
+      <select id="primary" class="sv" aria-label="প্রথম সোর্স"><option value="newpipe">NewPipe</option><option value="piped">Piped</option><option value="invidious">Invidious</option></select></div>
+    <div class="srow"><div class="lb"><strong>ব্যর্থ হলে অন্যটা চেষ্টা করুক</strong><small>বন্ধ করলে শুধু প্রথম সোর্সই ব্যবহার হবে</small></div>
+      <label class="switch"><input type="checkbox" id="fallback" class="sv" aria-label="স্বয়ংক্রিয় ফলব্যাক" /><span class="sl"></span></label></div>
   </div>
 
-  <div class="group" role="group" aria-label="প্লেব্যাক">
-    <h3>প্লেব্যাক</h3>
-    <div class="srow">
-      <div class="lb"><strong>এগিয়ে / পিছিয়ে</strong><small>বাটনে কত সেকেন্ড লাফ</small></div>
-      <select id="skip" class="sv" aria-label="স্কিপ সেকেন্ড"><option value="5">৫ সেকেন্ড</option><option value="10">১০ সেকেন্ড</option><option value="15">১৫ সেকেন্ড</option><option value="30">৩০ সেকেন্ড</option></select>
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>স্পিড</strong></div>
-      <select id="speed" class="sv" aria-label="প্লেব্যাক স্পিড"><option value="0.75">০.৭৫×</option><option value="1">১×</option><option value="1.25">১.২৫×</option><option value="1.5">১.৫×</option><option value="2">২×</option></select>
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>অটোপ্লে</strong><small>শেষ হলে পরের ভিডিও চলবে</small></div>
-      <label class="switch"><input type="checkbox" id="autoplay" class="sv" aria-label="অটোপ্লে" /><span class="sl"></span></label>
-    </div>
+  <div class="group">
+    <h2>প্লেব্যাক</h2>
+    <div class="srow"><div class="lb"><strong>ভিডিওর মান</strong><small>অটো মানে ৭২০p পর্যন্ত। ডেটা বাঁচাতে কম মান বেছে নিন।</small></div>
+      <select id="quality" class="sv" aria-label="ভিডিওর মান"><option value="auto">অটো</option><option value="max">সর্বোচ্চ</option><option value="720">৭২০p</option><option value="360">৩৬০p</option><option value="low">সর্বনিম্ন</option></select></div>
+    <div class="srow"><div class="lb"><strong>শুধু অডিও মোড</strong><small>ছবি ছাড়া শুধু শব্দ, ডেটা কম লাগে</small></div>
+      <label class="switch"><input type="checkbox" id="audioOnly" class="sv" aria-label="শুধু অডিও মোড" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>আগের জায়গা থেকে চালু</strong><small>আগে যতদূর দেখেছেন, সেখান থেকে শুরু হবে</small></div>
+      <label class="switch"><input type="checkbox" id="resume" class="sv" aria-label="আগের জায়গা থেকে চালু" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>শেষ হলে পরেরটা চালান</strong></div>
+      <label class="switch"><input type="checkbox" id="autoplay" class="sv" aria-label="অটোপ্লে" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>এগিয়ে / পিছিয়ে</strong></div>
+      <select id="skip" class="sv" aria-label="স্কিপ সেকেন্ড"><option value="5">৫ সেকেন্ড</option><option value="10">১০ সেকেন্ড</option><option value="15">১৫ সেকেন্ড</option><option value="30">৩০ সেকেন্ড</option></select></div>
+    <div class="srow"><div class="lb"><strong>গতি</strong></div>
+      <select id="speed" class="sv" aria-label="প্লেব্যাক গতি"><option value="0.75">০.৭৫×</option><option value="1">১×</option><option value="1.25">১.২৫×</option><option value="1.5">১.৫×</option><option value="2">২×</option></select></div>
   </div>
 
-  <div class="group" role="group" aria-label="অন্যান্য">
-    <h3>অন্যান্য</h3>
-    <div class="srow">
-      <div class="lb"><strong>থিম</strong></div>
-      <select id="theme" class="sv" aria-label="থিম"><option value="dark">গাঢ়</option><option value="light">হালকা</option></select>
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>বড় লেখা</strong></div>
-      <label class="switch"><input type="checkbox" id="bigText" class="sv" aria-label="বড় লেখা" /><span class="sl"></span></label>
-    </div>
-    <div class="srow">
-      <div class="lb"><strong>দেখার ইতিহাস রাখো</strong></div>
-      <label class="switch"><input type="checkbox" id="keepHistory" class="sv" aria-label="দেখার ইতিহাস রাখো" /><span class="sl"></span></label>
-    </div>
-    <button type="button" class="sbtn danger" onclick="if(confirm('ইতিহাস মুছবেন?')){LS.set('history',[]);toast('ইতিহাস মুছে গেছে');refreshYou();}">🗑 দেখার ইতিহাস মুছুন</button>
-    <button type="button" class="sbtn danger" onclick="if(confirm('সার্চ ইতিহাস মুছবেন?')){LS.set('recent',[]);toast('সার্চ ইতিহাস মুছে গেছে');}">🗑 সার্চ ইতিহাস মুছুন</button>
+  <div class="group">
+    <h2>সার্চ ও ভয়েস</h2>
+    <div class="srow"><div class="lb"><strong>ভয়েস সার্চের ভাষা</strong><small>ফোনে Google ভয়েস টাইপিং চালু থাকতে হবে</small></div>
+      <select id="voiceLang" class="sv" aria-label="ভয়েস সার্চের ভাষা"><option value="bn-IN">বাংলা (ভারত)</option><option value="bn-BD">বাংলা (বাংলাদেশ)</option><option value="en-IN">English (India)</option><option value="hi-IN">हिन्दी</option></select></div>
+  </div>
+
+  <div class="group">
+    <h2>ডাউনলোড</h2>
+    <p class="note">অডিও M4A ফাইল হয়ে ফোনের Music ফোল্ডারের AISmartTube-এর ভেতরে সেভ হয়।</p>
+    <div class="srow"><div class="lb"><strong>শুধু ওয়াইফাইয়ে ডাউনলোড</strong><small>মোবাইল ডেটায় ডাউনলোড শুরু হবে না, ওয়াইফাই এলে হবে</small></div>
+      <label class="switch"><input type="checkbox" id="wifiOnly" class="sv" aria-label="শুধু ওয়াইফাইয়ে ডাউনলোড" /><span class="sl"></span></label></div>
+  </div>
+
+  <div class="group">
+    <h2>অ্যাক্সেসিবিলিটি</h2>
+    <p class="note">টকব্যাকে দুই আঙুলে ডবল-ট্যাপ করলে ভিডিও চলবে বা থামবে। কাজ না করলে টকব্যাক সেটিংসে ওই অঙ্গভঙ্গির কাজ "মিডিয়া চালান বা থামান" আছে কিনা দেখুন।</p>
+    <div class="srow"><div class="lb"><strong>লেখার আকার</strong></div>
+      <select id="textSize" class="sv" aria-label="লেখার আকার"><option value="0.9">ছোট</option><option value="1">স্বাভাবিক</option><option value="1.15">বড়</option><option value="1.3">অনেক বড়</option></select></div>
+    <div class="srow"><div class="lb"><strong>উচ্চ কনট্রাস্ট</strong><small>লেখা ও সীমারেখা আরও স্পষ্ট</small></div>
+      <label class="switch"><input type="checkbox" id="contrast" class="sv" aria-label="উচ্চ কনট্রাস্ট" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>কম অ্যানিমেশন</strong></div>
+      <label class="switch"><input type="checkbox" id="reduceMotion" class="sv" aria-label="কম অ্যানিমেশন" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>পাতা বদলালে শিরোনামে ফোকাস</strong><small>টকব্যাক নতুন পাতার শিরোনাম থেকে পড়া শুরু করবে</small></div>
+      <label class="switch"><input type="checkbox" id="focusHeading" class="sv" aria-label="পাতা বদলালে শিরোনামে ফোকাস" /><span class="sl"></span></label></div>
+  </div>
+
+  <div class="group">
+    <h2>থিম</h2>
+    <div class="srow"><div class="lb"><strong>রঙের থিম</strong></div>
+      <select id="theme" class="sv" aria-label="থিম"><option value="auto">ফোনের মতো</option><option value="dark">গাঢ়</option><option value="light">হালকা</option></select></div>
+  </div>
+
+  <div class="group">
+    <h2>গোপনীয়তা ও ডেটা</h2>
+    <div class="srow"><div class="lb"><strong>দেখার ইতিহাস রাখুন</strong></div>
+      <label class="switch"><input type="checkbox" id="keepHistory" class="sv" aria-label="দেখার ইতিহাস রাখুন" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>সার্চের ইতিহাস রাখুন</strong></div>
+      <label class="switch"><input type="checkbox" id="keepSearch" class="sv" aria-label="সার্চের ইতিহাস রাখুন" /><span class="sl"></span></label></div>
+    <button type="button" class="sbtn" onclick="go('privacy')"><span class="i" data-i="shield"></span>কোন তথ্য কোথায় যায়, পড়ুন</button>
+    <button type="button" class="sbtn danger" onclick="clearData('history')"><span class="i" data-i="trash"></span>দেখার ইতিহাস মুছুন</button>
+    <button type="button" class="sbtn danger" onclick="clearData('recent')"><span class="i" data-i="trash"></span>সার্চের ইতিহাস মুছুন</button>
+    <button type="button" class="sbtn danger" onclick="clearData('all')"><span class="i" data-i="trash"></span>সব ডেটা ও API key মুছুন</button>
+  </div>
+</section>
+
+<!-- ============ PRIVACY ============ -->
+<section id="privacy" class="screen privacy" aria-label="গোপনীয়তা">
+  <div class="subbar">
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()"><span class="i" data-i="back"></span></button>
+    <h2 id="privH" tabindex="-1">গোপনীয়তা</h2>
+  </div>
+  <h2>এই অ্যাপ নিজে যা করে না</h2>
+  <ul>
+    <li>অ্যাকাউন্ট বা লগইন চায় না।</li>
+    <li>বিজ্ঞাপন দেখায় না, কোনো ট্র্যাকার বা অ্যানালিটিক্স নেই।</li>
+    <li>আপনার তথ্য কোনো নিজস্ব সার্ভারে পাঠায় না। এই অ্যাপের কোনো নিজস্ব সার্ভারই নেই।</li>
+  </ul>
+  <h2>যা শুধু এই ফোনে থাকে</h2>
+  <ul>
+    <li>ইতিহাস, পছন্দ, পরে দেখব, সাবস্ক্রিপশন, কোথায় থেমেছিলেন, সেটিংস।</li>
+    <li>আপনার API key। এগুলো ফোনের ব্রাউজার-স্টোরেজে সাধারণ লেখা হিসেবে থাকে, এনক্রিপ্ট করা নয়। তাই ফোনটা অন্যকে দিলে সাবধান।</li>
+  </ul>
+  <h2>যাদের সাথে অ্যাপ যোগাযোগ করে</h2>
+  <ul>
+    <li>ভিডিও খুঁজতে ও চালাতে ইউটিউব। ফোন থেকে সরাসরি যায়, তাই ইউটিউব আপনার আইপি ঠিকানা দেখে।</li>
+    <li>ফলব্যাকে Piped বা Invidious-এর পাবলিক সার্ভার। সেগুলো আপনার সার্চের শব্দ ও আইপি দেখতে পারে। চাইলে সেটিংসে ফলব্যাক বন্ধ করুন।</li>
+    <li>AI চালালে শিরোনাম, বিবরণ ও সাবটাইটেল যায় আপনার বেছে নেওয়া সার্ভিসে (Google Gemini, xAI Grok বা আপনার দেওয়া সার্ভার)। Gemini-কে ভিডিও দেখতে দিলে ভিডিওর লিংকও যায়। তারা নিজেদের নিয়ম অনুযায়ী তা সংরক্ষণ করতে পারে।</li>
+    <li>ডাউনলোড করলে ইউটিউবের সার্ভার থেকে ফাইল নামে।</li>
+  </ul>
+  <h2>তাই সত্যিটা হলো</h2>
+  <p>অ্যাপ নিজে কিছু সংগ্রহ করে না, কিন্তু ইউটিউব ও আপনার বেছে নেওয়া AI সার্ভিস আপনার অনুরোধ দেখতে পায়। AI একদম ব্যবহার না করলে এবং ফলব্যাক বন্ধ রাখলে বাইরে যায় শুধু ইউটিউবের সাথে যোগাযোগ।</p>
+  <div class="btnrow" style="margin:1rem">
+    <button type="button" class="btn danger" onclick="clearData('all')">সব ডেটা ও API key মুছুন</button>
   </div>
 </section>
 
 <!-- ============ BOTTOM TABS ============ -->
 <nav class="tabs" id="tabs" aria-label="মূল নেভিগেশন">
-  <button type="button" class="tab active" id="tab-home" onclick="go('home')"><span class="ic" aria-hidden="true">🏠</span>হোম</button>
-  <button type="button" class="tab" id="tab-subs" onclick="go('subs')"><span class="ic" aria-hidden="true">▶️</span>সাবস্ক্রিপশন</button>
-  <button type="button" class="tab" id="tab-you" onclick="go('you')"><span class="ic" aria-hidden="true">👤</span>আপনি</button>
+  <button type="button" class="tab" id="tab-home" onclick="go('home')"><span class="i" data-i="home"></span>হোম</button>
+  <button type="button" class="tab" id="tab-subs" onclick="go('subs')"><span class="i" data-i="subs"></span>সাবস্ক্রিপশন</button>
+  <button type="button" class="tab" id="tab-you" onclick="go('you')"><span class="i" data-i="user"></span>আপনি</button>
 </nav>
 
-<!-- sheet + snack -->
-<div class="scrim" id="scrim" onclick="closeSheet()"></div>
-<div class="sheet" id="sheet" role="dialog" aria-label="অপশন"></div>
+<!-- sheet, dialog, snack -->
+<div class="scrim" id="scrim" onclick="closeOverlays()"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="আরও অপশন"></div>
+<div class="dlg" id="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgT" aria-describedby="dlgM">
+  <h2 id="dlgT"></h2><p id="dlgM"></p>
+  <div class="btnrow"><button type="button" class="btn primary" id="dlgOk">ঠিক আছে</button><button type="button" class="btn" id="dlgNo">বাতিল</button></div>
+</div>
 <div class="snack" id="snack" role="status" aria-live="polite"></div>
 
 <script>
@@ -404,67 +532,96 @@
 const $ = id => document.getElementById(id);
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('mt_' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('mt_' + k, JSON.stringify(v)); } catch (e) {} }
+  set(k, v) { try { localStorage.setItem('mt_' + k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem('mt_' + k); } catch (e) {} }
 };
-function el(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text != null) e.textContent = text;
-  return e;
-}
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 const BN = '০১২৩৪৫৬৭৮৯';
 function bn(s) { return String(s).replace(/\d/g, d => BN[d]); }
 function fmtDur(sec) {
   sec = Math.max(0, Math.floor(Number(sec) || 0));
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-  return h ? (h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'))
-           : (m + ':' + String(s).padStart(2, '0'));
+  return h ? (h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0')) : (m + ':' + String(s).padStart(2, '0'));
+}
+function spokenDur(sec) {
+  sec = Math.max(0, Math.floor(Number(sec) || 0));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60, p = [];
+  if (h) p.push(bn(h) + ' ঘণ্টা'); if (m) p.push(bn(m) + ' মিনিট'); if (s && !h) p.push(bn(s) + ' সেকেন্ড');
+  return p.join(' ') || '০ সেকেন্ড';
 }
 function fmtViews(n) {
-  n = Number(n) || 0;
-  if (n <= 0) return '';
-  let v, unit;
-  if (n >= 1e7) { v = n / 1e7; unit = ' কোটি'; }
-  else if (n >= 1e5) { v = n / 1e5; unit = ' লাখ'; }
-  else if (n >= 1e3) { v = n / 1e3; unit = ' হাজার'; }
-  else return bn(n) + ' ভিউ';
-  const s = v >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
-  return bn(s) + unit + ' ভিউ';
+  n = Number(n) || 0; if (n <= 0) return '';
+  let v, u;
+  if (n >= 1e7) { v = n / 1e7; u = ' কোটি'; } else if (n >= 1e5) { v = n / 1e5; u = ' লাখ'; }
+  else if (n >= 1e3) { v = n / 1e3; u = ' হাজার'; } else return bn(n) + ' ভিউ';
+  return bn(v >= 10 ? Math.round(v) : Math.round(v * 10) / 10) + u + ' ভিউ';
 }
-function colorFor(name) {
-  let h = 0; const s = String(name || '?');
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
-  return 'hsl(' + h + ',45%,38%)';
-}
+function colorFor(name) { let h = 0; const s = String(name || '?'); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return 'hsl(' + h + ',42%,34%)'; }
 function initial(name) { return (String(name || '?').trim()[0] || '?').toUpperCase(); }
 function stripHtml(h) {
-  try {
-    const d = new DOMParser().parseFromString(String(h || '').replace(/<br\s*\/?>/gi, '\n'), 'text/html');
-    return (d.body.textContent || '').trim();
-  } catch (e) { return String(h || ''); }
+  try { const d = new DOMParser().parseFromString(String(h || '').replace(/<br\s*\/?>/gi, '\n'), 'text/html'); return (d.body.textContent || '').trim(); }
+  catch (e) { return String(h || ''); }
 }
-function hasAndroid() { return !!(window.Android && typeof Android.searchAsync === 'function' || (window.Android && typeof Android.search === 'function')); }
+function vidKey(url) { const m = /[?&]v=([\w-]{6,})/.exec(url || '') || /youtu\.be\/([\w-]{6,})/.exec(url || ''); return m ? m[1] : (url || ''); }
+function isYoutube(url) { return /^https:\/\/(www\.|m\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/.test(url || ''); }
+function hasAndroid() { return !!(window.Android && (typeof Android.searchAsync === 'function' || typeof Android.search === 'function')); }
 function toast(msg) {
   if (window.Android && typeof Android.showToast === 'function') { Android.showToast(String(msg)); return; }
   const s = $('snack'); s.textContent = msg; s.classList.add('on');
-  clearTimeout(toast._t); toast._t = setTimeout(() => s.classList.remove('on'), 2600);
+  clearTimeout(toast._t); toast._t = setTimeout(() => s.classList.remove('on'), 2800);
 }
 
+/* ---------- icons ---------- */
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>',
+  sliders: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  home: '<path d="M4 11l8-7 8 7v9a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/>',
+  subs: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M7 3.5h10M10.5 11l4.5 2.5-4.5 2.5z"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  play: '<path d="M8 5v14l11-7z"/>',
+  pause: '<rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/>',
+  prev: '<path d="M18 5v14L8 12z"/><rect x="5" y="5" width="2.5" height="14"/>',
+  next: '<path d="M6 5v14l10-7z"/><rect x="16.5" y="5" width="2.5" height="14"/>',
+  rew: '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8M3 3v5h5"/>',
+  fwd: '<path d="M21 12a9 9 0 11-9-9 9 9 0 016.4 2.6L21 8M21 3v5h-5"/>',
+  more: '<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>',
+  like: '<path d="M7 11v9H4v-9zM7 11l4-8c1.5 0 2.5 1 2.5 2.5V9H19a2 2 0 012 2.3l-1.3 7A2 2 0 0117.7 20H7"/>',
+  bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>',
+  share: '<path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5"/>',
+  download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+  timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>',
+  headphones: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/>',
+  sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>',
+  back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  translate: '<path d="M4 5h9M8.5 3v2M6 5c0 4 3 7 7 8M12 5c0 3-2 6-6 8M13 20l4-9 4 9M14.5 17h5"/>',
+  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  speak: '<path d="M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 010 7"/>'
+};
+function ic(name) { return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (ICONS[name] || '') + '</svg>'; }
+function hydrateIcons(root) {
+  (root || document).querySelectorAll('.i[data-i]').forEach(e => { e.innerHTML = ic(e.getAttribute('data-i')); e.removeAttribute('data-i'); });
+}
+function iconEl(name, extra) { const s = el('span', 'i' + (extra ? ' ' + extra : '')); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ic(name); return s; }
+
 /* =====================================================================
-   native bridge (async, falls back to sync)
+   native bridge (async; falls back to sync)
    ===================================================================== */
 const _pending = {}; let _seq = 0;
-window.__nativeResult = function (id, json) {
-  const cb = _pending[id]; delete _pending[id];
-  if (cb) cb(json);
-};
+window.__nativeResult = function (id, json) { const cb = _pending[id]; delete _pending[id]; if (cb) cb(json); };
 function callNative(method, ...args) {
   return new Promise(function (resolve, reject) {
     try {
       const a = Android[method + 'Async'];
       if (typeof a === 'function') {
         const id = 'r' + (++_seq);
-        const timer = setTimeout(function () { delete _pending[id]; reject(new Error('সময় শেষ, আবার চেষ্টা করুন')); }, 120000);
+        const timer = setTimeout(function () { delete _pending[id]; reject(new Error('সময় শেষ, আবার চেষ্টা করুন')); }, 170000);
         _pending[id] = function (json) { clearTimeout(timer); try { resolve(JSON.parse(json)); } catch (e) { reject(e); } };
         a.call(Android, id, ...args);
       } else {
@@ -475,23 +632,36 @@ function callNative(method, ...args) {
 }
 
 /* =====================================================================
-   settings (all inputs with class "sv")
+   settings
    ===================================================================== */
-const SET_DEFAULTS = { gemModel: 'gemini-2.5-flash', grokModel: 'grok-3', provSum: 'gemini', provFact: 'grok',
-  provTr: 'gemini', provAsk: 'gemini', trLang: 'বাংলা', aiSpeak: false, primary: 'newpipe', skip: '10', speed: '1',
-  autoplay: true, theme: 'dark', bigText: false, keepHistory: true };
-function getSet(id) {
-  const all = LS.get('settings', {});
-  return (id in all) ? all[id] : SET_DEFAULTS[id];
-}
+const SET_DEFAULTS = {
+  gemModel: 'gemini-3.8-flash', grokModel: 'grok-4.7',
+  provSum: 'gemini', provFact: 'grok', provTr: 'gemini', provAsk: 'gemini',
+  aiLang: 'বাংলা', sumLen: '5', aiWatch: true, useTranscript: true, aiSpeak: false,
+  primary: 'newpipe', fallback: true,
+  quality: 'auto', audioOnly: false, resume: true, autoplay: true, skip: '10', speed: '1',
+  voiceLang: 'bn-IN', wifiOnly: true,
+  textSize: '1', contrast: false, reduceMotion: false, focusHeading: true,
+  theme: 'auto', keepHistory: true, keepSearch: true
+};
+function getSet(id) { const all = LS.get('settings', {}); return (id in all) ? all[id] : SET_DEFAULTS[id]; }
 function applySettings() {
-  const t = getSet('theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', t);
-  document.body.style.fontSize = getSet('bigText') ? '18px' : '';
+  const root = document.documentElement;
+  let t = getSet('theme') || 'auto';
+  if (t === 'auto') t = (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+  root.setAttribute('data-theme', t);
+  root.style.setProperty('--fs', getSet('textSize') || '1');
+  if (getSet('contrast')) root.setAttribute('data-contrast', 'high'); else root.removeAttribute('data-contrast');
+  if (getSet('reduceMotion')) root.setAttribute('data-motion', 'reduce'); else root.removeAttribute('data-motion');
+  try { const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = t === 'light' ? '#f4faf9' : '#09161a'; } catch (e) {}
   try { if (window.Android && Android.setPrimary) Android.setPrimary(getSet('primary') || 'newpipe'); } catch (e) {}
+  try { if (window.Android && Android.setFallback) Android.setFallback(!!getSet('fallback')); } catch (e) {}
+  try { $('mainVideo').playbackRate = parseFloat(getSet('speed')) || 1; } catch (e) {}
+  try { $('trSub').textContent = 'শিরোনাম, বিবরণ ও সাবটাইটেল ' + (getSet('aiLang') === 'বাংলা' ? 'বাংলায়' : getSet('aiLang') + ' ভাষায়'); } catch (e) {}
+  try { $('bAudio').setAttribute('aria-pressed', getSet('audioOnly') ? 'true' : 'false'); } catch (e) {}
 }
 function saveSettings() {
-  const o = {};
+  const o = LS.get('settings', {});
   document.querySelectorAll('.sv').forEach(e => { o[e.id] = (e.type === 'checkbox') ? e.checked : e.value; });
   LS.set('settings', o);
   applySettings();
@@ -505,173 +675,192 @@ function loadSettings() {
   });
   applySettings();
 }
+function setSetting(id, val) {
+  const o = LS.get('settings', {}); o[id] = val; LS.set('settings', o);
+  const e = $(id); if (e) { if (e.type === 'checkbox') e.checked = !!val; else e.value = val; }
+  applySettings();
+}
+
+/* =====================================================================
+   overlays: bottom sheet and confirm dialog
+   ===================================================================== */
+let lastFocus = null, dlgResolve = null;
+function anyOverlay() { return $('sheet').classList.contains('on') || $('dlg').classList.contains('on'); }
+function closeOverlays() {
+  $('scrim').classList.remove('on'); $('sheet').classList.remove('on');
+  if ($('dlg').classList.contains('on')) { $('dlg').classList.remove('on'); if (dlgResolve) { const r = dlgResolve; dlgResolve = null; r(false); } }
+  if (lastFocus && document.body.contains(lastFocus)) { try { lastFocus.focus({ preventScroll: true }); } catch (e) {} }
+  lastFocus = null;
+}
+function askConfirm(title, msg, okText) {
+  return new Promise(resolve => {
+    lastFocus = document.activeElement;
+    $('dlgT').textContent = title; $('dlgM').textContent = msg; $('dlgOk').textContent = okText || 'ঠিক আছে';
+    dlgResolve = resolve;
+    const done = v => { $('dlg').classList.remove('on'); $('scrim').classList.remove('on'); dlgResolve = null; resolve(v); if (lastFocus) { try { lastFocus.focus({ preventScroll: true }); } catch (e) {} } };
+    $('dlgOk').onclick = () => done(true); $('dlgNo').onclick = () => done(false);
+    $('scrim').classList.add('on'); $('dlg').classList.add('on');
+    setTimeout(() => $('dlgNo').focus(), 60);
+  });
+}
 
 /* =====================================================================
    navigation
    ===================================================================== */
 const TABS = ['home', 'subs', 'you'];
-const BAR_SCREENS = ['home', 'subs', 'you'];
+const FOCUS_ID = { home: 'homeH', search: 'qInput', subs: 'subsH', you: 'youH', list: 'listTitle', player: 'pTitle', settings: 'setH', privacy: 'privH' };
 let stack = ['home'];
-function show(name) {
-  ['home', 'search', 'subs', 'you', 'list', 'player', 'settings'].forEach(id => $(id).classList.toggle('active', id === name));
-  TABS.forEach(t => {
-    const b = $('tab-' + t);
-    b.classList.toggle('active', t === name);
-    if (t === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
-  });
-  $('topbar').style.display = BAR_SCREENS.includes(name) ? 'flex' : 'none';
-  $('tabs').style.display = BAR_SCREENS.includes(name) ? 'flex' : 'none';
+function show(name, noFocus) {
+  Object.keys(FOCUS_ID).forEach(id => $(id).classList.toggle('active', id === name));
+  TABS.forEach(t => { const b = $('tab-' + t); if (t === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  const bars = TABS.includes(name);
+  $('topbar').style.display = bars ? 'flex' : 'none';
+  $('tabs').style.display = bars ? 'flex' : 'none';
   window.scrollTo(0, 0);
   if (name === 'subs') renderSubs();
   if (name === 'you') refreshYou();
   if (name === 'search') renderRecent();
+  if (!noFocus && getSet('focusHeading') && name !== 'search') {
+    setTimeout(() => { const f = $(FOCUS_ID[name]); if (f) { try { f.focus({ preventScroll: true }); } catch (e) {} } }, 150);
+  }
 }
 function go(name) {
-  if (TABS.includes(name)) stack = [name];
-  else if (stack[stack.length - 1] !== name) stack.push(name);
+  closeOverlays();
+  if (TABS.includes(name)) stack = [name]; else if (stack[stack.length - 1] !== name) stack.push(name);
   show(name);
-  if (name === 'search') setTimeout(() => $('qInput').focus(), 80);
-}
-function stopVideo() {
-  try { const v = $('mainVideo'); v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}
-  playToken++;
+  if (name === 'search') setTimeout(() => $('qInput').focus(), 100);
 }
 function back() {
-  if ($('sheet').classList.contains('on')) { closeSheet(); return true; }
+  if (anyOverlay()) { closeOverlays(); return true; }
   if (stack.length <= 1) return false;
   const leaving = stack.pop();
-  if (leaving === 'player') stopVideo();
+  if (leaving === 'player') leavePlayer();
   show(stack[stack.length - 1]);
   return true;
 }
 window.__appBack = function () { return back(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && anyOverlay()) closeOverlays(); });
 
 /* =====================================================================
    cards
    ===================================================================== */
 let queue = [], qIndex = 0;
-function metaText(it) {
-  const parts = [];
-  if (it.uploader) parts.push(it.uploader);
-  const v = fmtViews(it.views); if (v) parts.push(v);
-  return parts.join(' · ');
-}
-function labelFor(it) {
-  return [it.title || 'ভিডিও', it.uploader || '', it.duration ? ('সময় ' + fmtDur(it.duration)) : '', fmtViews(it.views)]
-    .filter(Boolean).join(', ');
-}
-function setThumb(div, url) {
-  if (url) div.style.backgroundImage = 'url("' + String(url).replace(/"/g, '%22') + '")';
+function metaText(it) { const p = []; if (it.uploader) p.push(it.uploader); const v = fmtViews(it.views); if (v) p.push(v); return p.join(' · '); }
+function labelFor(it) { return [it.title || 'ভিডিও', it.uploader || '', it.duration ? ('সময় ' + spokenDur(it.duration)) : '', fmtViews(it.views)].filter(Boolean).join(', '); }
+function setThumb(div, url) { if (url) div.style.backgroundImage = 'url("' + String(url).replace(/"/g, '%22') + '")'; }
+function makeMore(it) {
+  const more = el('button', 'vmore'); more.type = 'button'; more.setAttribute('aria-label', 'আরও অপশন: ' + (it.title || 'ভিডিও'));
+  more.appendChild(iconEl('more')); more.onclick = () => openSheet(it); return more;
 }
 function makeCard(it, idx, list) {
-  const art = el('article', 'vcard');
-  const open = () => openVideo(it, idx, list);
+  const art = el('article', 'vcard'); const open = () => openVideo(it, idx, list);
   const th = el('div', 'vthumb'); th.setAttribute('aria-hidden', 'true'); setThumb(th, it.thumb); th.onclick = open;
   if (it.duration) th.appendChild(el('span', 'vdur', fmtDur(it.duration)));
   const info = el('div', 'vinfo');
   const av = el('div', 'vav', initial(it.uploader)); av.style.background = colorFor(it.uploader); av.setAttribute('aria-hidden', 'true');
   const tx = el('div', 'vtext'); tx.setAttribute('role', 'button'); tx.tabIndex = 0; tx.setAttribute('aria-label', labelFor(it));
-  tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও'));
-  tx.appendChild(el('div', 'vmeta', metaText(it)));
+  tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও')); tx.appendChild(el('div', 'vmeta', metaText(it)));
   tx.onclick = open; tx.onkeydown = e => { if (e.key === 'Enter') open(); };
-  const more = el('button', 'vmore', '⋮'); more.type = 'button'; more.setAttribute('aria-label', 'আরও অপশন: ' + (it.title || ''));
-  more.onclick = () => openSheet(it);
-  info.append(av, tx, more);
-  art.append(th, info);
-  return art;
+  info.append(av, tx, makeMore(it)); art.append(th, info); return art;
 }
 function makeCompact(it, idx, list) {
-  const c = el('article', 'ccard');
-  const open = () => openVideo(it, idx, list);
+  const c = el('article', 'ccard'); const open = () => openVideo(it, idx, list);
   const th = el('div', 'cthumb'); th.setAttribute('aria-hidden', 'true'); setThumb(th, it.thumb); th.onclick = open;
   if (it.duration) th.appendChild(el('span', 'vdur', fmtDur(it.duration)));
   const tx = el('div', 'vtext'); tx.setAttribute('role', 'button'); tx.tabIndex = 0; tx.setAttribute('aria-label', labelFor(it));
-  tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও'));
-  tx.appendChild(el('div', 'vmeta', metaText(it)));
+  tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও')); tx.appendChild(el('div', 'vmeta', metaText(it)));
   tx.onclick = open; tx.onkeydown = e => { if (e.key === 'Enter') open(); };
-  const more = el('button', 'vmore', '⋮'); more.type = 'button'; more.setAttribute('aria-label', 'আরও অপশন');
-  more.onclick = () => openSheet(it);
-  c.append(th, tx, more);
-  return c;
+  c.append(th, tx, makeMore(it)); return c;
 }
 function hint(box, text) { box.textContent = ''; box.appendChild(el('p', 'hint', text)); }
 function skeletons(box, n) {
   box.textContent = '';
   for (let i = 0; i < n; i++) {
-    const a = el('article', 'vcard skel'); a.setAttribute('aria-hidden', 'true');
-    a.appendChild(el('div', 'vthumb'));
-    const inf = el('div', 'vinfo'); inf.appendChild(el('div', 'vav'));
-    const t = el('div', 'vtext'); t.appendChild(el('div', 'sk')); t.appendChild(el('div', 'sk'));
+    const a = el('article', 'vcard skel'); a.setAttribute('aria-hidden', 'true'); a.appendChild(el('div', 'vthumb'));
+    const inf = el('div', 'vinfo'); inf.appendChild(el('div', 'vav')); const t = el('div', 'vtext'); t.appendChild(el('div', 'sk')); t.appendChild(el('div', 'sk'));
     inf.appendChild(t); a.appendChild(inf); box.appendChild(a);
   }
+  box.setAttribute('aria-busy', 'true');
 }
 
 /* =====================================================================
-   home feed
+   home feed + welcome card
    ===================================================================== */
-const CHIPS = [['সব', 'বাংলা ট্রেন্ডিং ভিডিও'], ['সঙ্গীত', 'বাংলা গান'], ['লাইভ', 'বাংলা লাইভ'],
-  ['গেমস', 'গেমিং বাংলা'], ['সংবাদ', 'বাংলা খবর'], ['শেখা', 'বাংলা টিউটোরিয়াল']];
+const CHIPS = [['সব', 'বাংলা ট্রেন্ডিং ভিডিও'], ['সঙ্গীত', 'বাংলা গান'], ['লাইভ', 'বাংলা লাইভ'], ['গেমস', 'গেমিং বাংলা'], ['সংবাদ', 'বাংলা খবর'], ['শেখা', 'বাংলা টিউটোরিয়াল']];
 const feedCache = {}; let chipIdx = 0;
 function buildChips() {
   const box = $('chips'); box.textContent = '';
   CHIPS.forEach((c, i) => {
-    const b = el('button', 'chip' + (i === chipIdx ? ' active' : ''), c[0]); b.type = 'button';
-    b.setAttribute('aria-pressed', i === chipIdx ? 'true' : 'false');
-    b.onclick = () => { chipIdx = i; buildChips(); loadFeed(); };
-    box.appendChild(b);
+    const b = el('button', 'chip', c[0]); b.type = 'button'; b.setAttribute('aria-pressed', i === chipIdx ? 'true' : 'false');
+    b.onclick = () => { chipIdx = i; buildChips(); loadFeed(); }; box.appendChild(b);
   });
 }
-function renderList(box, items) {
-  box.textContent = '';
-  items.forEach((it, i) => box.appendChild(makeCard(it, i, items)));
+function buildWelcome() {
+  const box = $('welcome'); box.textContent = '';
+  if (LS.get('welcomed', false)) return;
+  const c = el('section', 'welcome'); c.setAttribute('aria-labelledby', 'wlT');
+  const h = el('h2', '', 'বিজ্ঞাপন নেই, অ্যাকাউন্ট লাগে না'); h.id = 'wlT';
+  const p = el('p', '', 'আপনার ইতিহাস ও সেটিংস শুধু এই ফোনে থাকে। AI চালু করতে সেটিংসে নিজের API key দিন।');
+  const row = el('div', 'btnrow');
+  const a = el('button', 'btn primary', 'বুঝেছি'); a.type = 'button'; a.onclick = () => { LS.set('welcomed', true); buildWelcome(); };
+  const b = el('button', 'btn', 'গোপনীয়তা পড়ুন'); b.type = 'button'; b.onclick = () => { LS.set('welcomed', true); buildWelcome(); go('privacy'); };
+  row.append(a, b); c.append(h, p, row); box.appendChild(c);
 }
-function loadFeed(force) {
+function renderList(box, items) { box.textContent = ''; box.removeAttribute('aria-busy'); items.forEach((it, i) => box.appendChild(makeCard(it, i, items))); }
+function loadFeed() {
   const box = $('feed'); const q = CHIPS[chipIdx][1];
-  if (!hasAndroid()) { hint(box, 'এই পেজ ব্রাউজারে খুলেছেন — আসল ভিডিও শুধু অ্যাপের ভেতরে আসবে।'); return; }
-  if (feedCache[q] && !force) { renderList(box, feedCache[q]); return; }
+  if (!hasAndroid()) { hint(box, 'এই পাতা ব্রাউজারে খুলেছেন। আসল ভিডিও শুধু অ্যাপের ভেতরে আসবে।'); return; }
+  if (feedCache[q]) { renderList(box, feedCache[q]); return; }
   skeletons(box, 3);
   callNative('search', q).then(data => {
     if (CHIPS[chipIdx][1] !== q) return;
-    if (!data.ok) { hint(box, data.error || 'লোড হয়নি'); return; }
+    box.removeAttribute('aria-busy');
+    if (!data.ok) { hint(box, (data.error || 'লোড হয়নি') + '। সেটিংসে সোর্স বদলে দেখুন।'); return; }
     feedCache[q] = data.items || [];
     if (!feedCache[q].length) { hint(box, 'কিছু পাওয়া যায়নি'); return; }
     renderList(box, feedCache[q]);
-  }).catch(e => hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)));
+  }).catch(e => { box.removeAttribute('aria-busy'); hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)); });
 }
 
 /* =====================================================================
-   search
+   search and voice search
    ===================================================================== */
 function renderRecent() {
   const box = $('recent'); box.textContent = '';
-  if ($('sresults').childNodes.length) return;
+  if ($('sresults').childNodes.length || !getSet('keepSearch')) return;
   LS.get('recent', []).slice(0, 10).forEach(q => {
-    const r = el('div', 'recent'); r.setAttribute('role', 'button'); r.tabIndex = 0; r.setAttribute('aria-label', 'আগের সার্চ: ' + q);
-    r.append(el('span', 'ic', '🕒'), el('span', '', q));
-    r.onclick = () => { $('qInput').value = q; doSearch(q); };
-    box.appendChild(r);
+    const r = el('button', 'recent'); r.type = 'button'; r.setAttribute('aria-label', 'আগের সার্চ: ' + q);
+    r.append(iconEl('history'), el('span', '', q)); r.onclick = () => { $('qInput').value = q; doSearch(q); }; box.appendChild(r);
   });
 }
 function doSearch(q) {
-  q = String(q || '').trim();
-  const box = $('sresults');
+  q = String(q || '').trim(); const box = $('sresults');
   if (!q) { hint(box, 'কিছু লিখে সার্চ করুন'); return; }
   $('qInput').value = q; $('recent').textContent = '';
-  const rec = LS.get('recent', []).filter(x => x !== q); rec.unshift(q); LS.set('recent', rec.slice(0, 20));
+  if (getSet('keepSearch')) { const rec = LS.get('recent', []).filter(x => x !== q); rec.unshift(q); LS.set('recent', rec.slice(0, 20)); }
   if (!hasAndroid()) { hint(box, 'অ্যাপের ভেতরে সার্চ কাজ করবে'); return; }
   skeletons(box, 3);
   callNative('search', q).then(data => {
+    box.removeAttribute('aria-busy');
     if (!data.ok) { hint(box, data.error || 'সার্চ ব্যর্থ'); return; }
     const items = data.items || [];
     if (!items.length) { hint(box, 'কিছু পাওয়া যায়নি'); return; }
-    box.textContent = '';
-    items.forEach((it, i) => box.appendChild(makeCompact(it, i, items)));
-    toast(bn(items.length) + 'টি ফল');
-  }).catch(e => hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)));
+    box.textContent = ''; items.forEach((it, i) => box.appendChild(makeCompact(it, i, items)));
+    toast(bn(items.length) + 'টি ফল পাওয়া গেছে');
+  }).catch(e => { box.removeAttribute('aria-busy'); hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)); });
 }
+function voiceSearch() {
+  if (!(window.Android && typeof Android.startVoice === 'function')) { toast('ভয়েস সার্চ শুধু অ্যাপের ভেতরে কাজ করবে'); return; }
+  try { Android.startVoice(getSet('voiceLang') || 'bn-IN'); } catch (e) { toast('ভয়েস সার্চ চালু করা যায়নি'); }
+}
+window.__voiceResult = function (text) {
+  text = String(text || '').trim();
+  if (!text) { toast('কিছু শোনা যায়নি, আবার চেষ্টা করুন'); return; }
+  go('search'); doSearch(text);
+};
 
 /* =====================================================================
-   library: history / later / liked / subscriptions
+   library: history / later / liked / subscriptions / resume positions
    ===================================================================== */
 function slim(it) { return { title: it.title, url: it.url, uploader: it.uploader, duration: it.duration, views: it.views, thumb: it.thumb }; }
 function listHas(key, url) { return LS.get(key, []).some(x => x.url === url); }
@@ -682,8 +871,7 @@ function listToggle(key, it) {
 }
 function addHistory(it) {
   if (!getSet('keepHistory')) return;
-  let l = LS.get('history', []).filter(x => x.url !== it.url);
-  l.unshift(slim(it)); LS.set('history', l.slice(0, 60));
+  const l = LS.get('history', []).filter(x => x.url !== it.url); l.unshift(slim(it)); LS.set('history', l.slice(0, 60));
 }
 function refreshYou() {
   $('cntHistory').textContent = bn(LS.get('history', []).length) + 'টি ভিডিও';
@@ -692,80 +880,91 @@ function refreshYou() {
 }
 let curListKey = '';
 const LIST_NAMES = { history: 'ইতিহাস', later: 'পরে দেখব', liked: 'পছন্দের ভিডিও' };
-function openList(key) {
-  curListKey = key; $('listTitle').textContent = LIST_NAMES[key];
-  renderListScreen(); go('list');
-}
+function openList(key) { curListKey = key; $('listTitle').textContent = LIST_NAMES[key]; renderListScreen(); go('list'); }
 function renderListScreen() {
   const items = LS.get(curListKey, []); const box = $('listBody'); box.textContent = '';
   if (!items.length) { hint(box, 'এখানে এখন কিছু নেই'); return; }
   items.forEach((it, i) => box.appendChild(makeCompact(it, i, items)));
 }
-function clearList() {
-  if (!curListKey || !confirm(LIST_NAMES[curListKey] + ' খালি করবেন?')) return;
+async function clearList() {
+  if (!curListKey) return;
+  if (!(await askConfirm(LIST_NAMES[curListKey] + ' খালি করবেন?', 'এই তালিকার সব ভিডিও সরে যাবে।', 'খালি করুন'))) return;
   LS.set(curListKey, []); renderListScreen(); toast('খালি হয়েছে');
 }
 function renderSubs() {
-  const box = $('subsBox'); box.textContent = '';
-  const subs = LS.get('subs', []);
-  if (!subs.length) { hint(box, 'কোনো চ্যানেল সাবস্ক্রাইব করা নেই। ভিডিও দেখার সময় "সাবস্ক্রাইব" চাপুন। (এগুলো শুধু এই ফোনে থাকে, ইউটিউব অ্যাকাউন্টের সাথে যুক্ত নয়)'); return; }
+  const box = $('subsBox'); box.textContent = ''; const subs = LS.get('subs', []);
+  if (!subs.length) { hint(box, 'কোনো চ্যানেল সাবস্ক্রাইব করা নেই। ভিডিও দেখার সময় "সাবস্ক্রাইব" চাপুন। এগুলো শুধু এই ফোনে থাকে, ইউটিউব অ্যাকাউন্টের সাথে যুক্ত নয়।'); return; }
   const row = el('div', 'avrow');
   subs.forEach(name => {
     const b = el('button', 'avitem'); b.type = 'button'; b.setAttribute('aria-label', name + ' চ্যানেলের ভিডিও খুঁজুন');
     const av = el('div', 'vav', initial(name)); av.style.background = colorFor(name); av.setAttribute('aria-hidden', 'true');
-    b.append(av, el('span', 'nm', name));
-    b.onclick = () => { go('search'); doSearch(name); };
-    row.appendChild(b);
+    b.append(av, el('span', 'nm', name)); b.onclick = () => { go('search'); doSearch(name); }; row.appendChild(b);
   });
-  box.appendChild(row);
-  box.appendChild(el('p', 'hint', 'চ্যানেলের ছবিতে চাপলে সেই নামে সার্চ হবে।'));
+  box.appendChild(row); box.appendChild(el('p', 'hint', 'চ্যানেলের নামে চাপলে সেই নামে সার্চ হবে।'));
+}
+async function clearData(what) {
+  const msg = { history: ['দেখার ইতিহাস মুছবেন?', 'দেখা ভিডিওর তালিকা ও কোথায় থেমেছিলেন, সব মুছে যাবে।'],
+    recent: ['সার্চের ইতিহাস মুছবেন?', 'আগের সব সার্চ মুছে যাবে।'],
+    all: ['সব ডেটা মুছবেন?', 'ইতিহাস, পছন্দ, সাবস্ক্রিপশন, সেটিংস ও API key, সব মুছে যাবে।'] }[what];
+  if (!(await askConfirm(msg[0], msg[1], 'মুছুন'))) return;
+  if (what === 'history') { LS.set('history', []); LS.del('pos'); }
+  else if (what === 'recent') LS.set('recent', []);
+  else { try { Object.keys(localStorage).filter(k => k.indexOf('mt_') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+    document.querySelectorAll('.sv').forEach(e => { const v = SET_DEFAULTS[e.id]; if (v !== undefined) { if (e.type === 'checkbox') e.checked = !!v; else e.value = v; } else if (e.type !== 'checkbox') e.value = ''; });
+    applySettings(); buildWelcome(); }
+  refreshYou(); toast('মুছে ফেলা হয়েছে');
 }
 
 /* =====================================================================
    bottom sheet (⋮)
    ===================================================================== */
 function openSheet(it) {
-  const sh = $('sheet'); sh.textContent = '';
+  lastFocus = document.activeElement;
+  const sh = $('sheet'); sh.textContent = ''; sh.appendChild(el('div', 'sh-title', it.title || 'ভিডিও'));
   const add = (icon, label, fn) => {
-    const b = el('button', 'row'); b.type = 'button';
-    b.append(el('span', 'ic', icon), el('span', '', label));
-    b.querySelector('.ic').setAttribute('aria-hidden', 'true');
-    b.onclick = () => { closeSheet(); fn(); };
-    sh.appendChild(b);
+    const b = el('button', 'row'); b.type = 'button'; b.append(iconEl(icon), el('span', '', label));
+    b.onclick = () => { closeOverlays(); fn(); }; sh.appendChild(b);
   };
-  add('🔖', listHas('later', it.url) ? 'পরে দেখব থেকে সরান' : 'পরে দেখব-তে রাখুন', () => {
-    toast(listToggle('later', it) ? 'পরে দেখব-তে রাখা হয়েছে' : 'সরানো হয়েছে'); });
-  add('↗️', 'শেয়ার', () => shareItem(it));
-  add('✕', 'বন্ধ করুন', () => {});
+  add('download', 'M4A ডাউনলোড', () => downloadItem(it));
+  add('bookmark', listHas('later', it.url) ? 'পরে দেখব থেকে সরান' : 'পরে দেখব-তে রাখুন', () => toast(listToggle('later', it) ? 'পরে দেখব-তে রাখা হয়েছে' : 'সরানো হয়েছে'));
+  add('share', 'শেয়ার', () => shareItem(it));
+  add('close', 'বন্ধ করুন', () => {});
   $('scrim').classList.add('on'); sh.classList.add('on');
+  setTimeout(() => { const f = sh.querySelector('button'); if (f) f.focus(); }, 60);
 }
-function closeSheet() { $('scrim').classList.remove('on'); $('sheet').classList.remove('on'); }
 
 /* =====================================================================
    player
    ===================================================================== */
-let curVideo = null, playToken = 0, triedSrc = [];
+let curVideo = null, playToken = 0, triedSrc = [], sleepTimer = null, sleepIdx = 0, lastSave = 0;
 const ALL_SRC = ['newpipe', 'piped', 'invidious'];
 const SRC_NAME = { newpipe: 'NewPipe', piped: 'Piped', invidious: 'Invidious' };
+const SLEEP = [0, 15, 30, 60];
 
 function openVideo(it, idx, list) {
   queue = list || [it]; qIndex = idx || 0;
   if (!$('player').classList.contains('active')) go('player');
   playItem(it);
 }
+function leavePlayer() { /* video keeps playing in the background unless the user stops it */
+  const v = $('mainVideo'); try { v.pause(); } catch (e) {}
+}
 function setBuffering(on) { $('spin').classList.toggle('on', !!on); }
-function paintSub() { const on = (LS.get('subs', []).indexOf(curVideo.uploader) >= 0);
-  const b = $('bSub'); b.classList.toggle('on', on); b.textContent = on ? 'সাবস্ক্রাইবড' : 'সাবস্ক্রাইব';
-  b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+function setPlayIcon(playing) {
+  const b = $('bPlay'); $('playIc').innerHTML = ic(playing ? 'pause' : 'play');
+  b.setAttribute('aria-label', playing ? 'থামান' : 'চালান');
+}
+function paintSub() {
+  const on = LS.get('subs', []).indexOf(curVideo.uploader) >= 0; const b = $('bSub');
+  b.textContent = on ? 'সাবস্ক্রাইবড' : 'সাবস্ক্রাইব'; b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  b.setAttribute('aria-label', (on ? 'সাবস্ক্রাইবড, বাতিল করতে চাপুন: ' : 'সাবস্ক্রাইব করুন: ') + (curVideo.uploader || 'চ্যানেল'));
+}
 function paintPills() {
   const l = listHas('liked', curVideo.url), s = listHas('later', curVideo.url);
-  $('bLike').classList.toggle('on', l); $('bLike').setAttribute('aria-pressed', l ? 'true' : 'false');
-  $('bLater').classList.toggle('on', s); $('bLater').setAttribute('aria-pressed', s ? 'true' : 'false');
+  $('bLike').setAttribute('aria-pressed', l ? 'true' : 'false'); $('bLater').setAttribute('aria-pressed', s ? 'true' : 'false');
 }
 function paintMeta() {
-  const p = [];
-  const v = fmtViews(curVideo.views); if (v) p.push(v);
-  if (curVideo.duration) p.push(fmtDur(curVideo.duration));
+  const p = []; const v = fmtViews(curVideo.views); if (v) p.push(v); if (curVideo.duration) p.push(fmtDur(curVideo.duration));
   $('pMeta').textContent = p.join(' · ');
 }
 function renderUpNext() {
@@ -774,152 +973,296 @@ function renderUpNext() {
   if (!rest.length) { box.appendChild(el('p', 'hint', 'আর কোনো ভিডিও নেই')); return; }
   rest.forEach(x => box.appendChild(makeCompact(x.it, x.i, queue)));
 }
+function toggleDesc() { const d = $('pDesc'); const c = d.classList.toggle('clamp'); d.setAttribute('aria-expanded', c ? 'false' : 'true'); }
+
 function playItem(it) {
-  curVideo = Object.assign({}, it, { desc: '' });
+  curVideo = Object.assign({}, it, { desc: '', streams: null, tr: undefined });
   const token = ++playToken; triedSrc = [];
-  $('pTitle').textContent = it.title || 'ভিডিও';
-  $('pChannel').textContent = it.uploader || 'চ্যানেল';
+  $('pTitle').textContent = it.title || 'ভিডিও'; $('pChannel').textContent = it.uploader || 'চ্যানেল';
   const av = $('pAv'); av.textContent = initial(it.uploader); av.style.background = colorFor(it.uploader);
-  $('pDesc').textContent = 'বিবরণ লোড হচ্ছে…'; $('pDesc').classList.add('clamp');
-  $('srcBadge').textContent = ''; $('aiOut').textContent = ''; $('aiOut').classList.remove('busy');
-  paintMeta(); paintSub(); paintPills(); renderUpNext();
+  $('pDesc').textContent = 'বিবরণ লোড হচ্ছে…'; $('pDesc').classList.add('clamp'); $('pDesc').setAttribute('aria-expanded', 'false');
+  $('srcBadge').textContent = ''; $('aiOut').textContent = ''; $('aiOut').className = 'aiout';
+  paintMeta(); paintSub(); paintPills(); renderUpNext(); setPlayIcon(false);
   window.scrollTo(0, 0);
+  if (getSet('focusHeading')) setTimeout(() => { try { $('pTitle').focus({ preventScroll: true }); } catch (e) {} }, 150);
   const v = $('mainVideo');
   try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}
   if (!hasAndroid()) { toast('অ্যাপের ভেতরে খুললে ভিডিও চলবে'); return; }
-  loadStream(token, 'auto');
+  loadStream(token, getSet('fallback') ? 'auto' : (getSet('primary') || 'newpipe'));
 }
 function loadStream(token, src) {
   setBuffering(true);
   const p = (src === 'auto') ? callNative('getStreams', curVideo.url || '') : callNative('getStreamsSrc', curVideo.url || '', src);
   p.then(data => {
     if (token !== playToken) return;
-    if (!data.ok) { setBuffering(false); toast(data.error || 'স্ট্রিম পাওয়া যায়নি'); $('pDesc').textContent = ''; return; }
-    const used = data.source || src;
-    if (triedSrc.indexOf(used) < 0) triedSrc.push(used);
-    let play = data.playUrl || '';
-    if (!play && data.audioStreams && data.audioStreams[0]) play = data.audioStreams[0].url;
-    if (!play) { setBuffering(false); toast('প্লে URL নেই'); return; }
+    if (!data.ok) { setBuffering(false); toast(data.error || 'স্ট্রিম পাওয়া যায়নি'); $('pDesc').textContent = '(বিবরণ পাওয়া যায়নি)'; return; }
+    const used = data.source || src; if (triedSrc.indexOf(used) < 0) triedSrc.push(used);
+    curVideo.streams = { video: data.videoStreams || [], audio: data.audioStreams || [], playUrl: data.playUrl || '', audioOnlyFlag: !!data.audioOnly };
     curVideo.desc = stripHtml(data.description || '');
-    if (data.views) curVideo.views = data.views;
-    if (data.duration && !curVideo.duration) curVideo.duration = data.duration;
-    paintMeta();
-    $('pDesc').textContent = curVideo.desc || '(বিবরণ নেই)';
-    $('srcBadge').textContent = 'সোর্স: ' + (SRC_NAME[used] || used) + (data.audioOnly ? ' · শুধু অডিও' : '');
-    const v = $('mainVideo');
-    v.src = play;
-    try { v.playbackRate = parseFloat(getSet('speed')) || 1; } catch (e) {}
-    v.play().catch(() => {});
-    addHistory(curVideo);
+    if (data.views) curVideo.views = data.views; if (data.duration && !curVideo.duration) curVideo.duration = data.duration;
+    paintMeta(); $('pDesc').textContent = curVideo.desc || '(বিবরণ নেই)';
+    $('srcBadge').textContent = 'সোর্স: ' + (SRC_NAME[used] || used);
+    applySource(false); addHistory(curVideo);
   }).catch(e => { if (token === playToken) { setBuffering(false); toast('ত্রুটি: ' + (e && e.message ? e.message : e)); } });
+}
+function qualityOf(s) { const m = /(\d{3,4})\s*p/i.exec(String(s.quality || '')) || /(\d{3,4})/.exec(String(s.quality || '')); return m ? parseInt(m[1], 10) : 0; }
+function pickVideo(streams) {
+  const c = streams.video.filter(v => v.url && v.hasAudio !== false);
+  if (!c.length) return streams.playUrl || '';
+  const q = getSet('quality') || 'auto'; const withH = c.map(v => ({ v, h: qualityOf(v) })).sort((a, b) => a.h - b.h);
+  let pick;
+  if (q === 'max') pick = withH[withH.length - 1];
+  else if (q === 'low') pick = withH[0];
+  else { const target = q === 'auto' ? 720 : parseInt(q, 10); const ok = withH.filter(x => x.h <= target && x.h > 0); pick = ok.length ? ok[ok.length - 1] : withH[0]; }
+  return pick.v.url;
+}
+function isM4a(a) { return /m4a|mp4|aac/i.test(String(a.format || '')); }
+function pickAudio(streams, needM4a) {
+  const list = (streams.audio || []).filter(a => a.url); const m4a = list.filter(isM4a);
+  const pool = needM4a ? m4a : (m4a.length ? m4a : list); if (!pool.length) return null;
+  return pool.slice().sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+}
+function applySource(keepTime) {
+  if (!curVideo || !curVideo.streams) return;
+  const v = $('mainVideo'); const s = curVideo.streams; let url = '', audioMode = !!getSet('audioOnly');
+  if (audioMode) { const a = pickAudio(s, false); if (a) url = a.url; else audioMode = false; }
+  if (!url) url = pickVideo(s);
+  if (!url && s.audio.length) { const a = pickAudio(s, false); if (a) { url = a.url; audioMode = true; } }
+  if (!url) { setBuffering(false); toast('প্লে করার লিংক পাওয়া যায়নি'); return; }
+  const t = keepTime ? v.currentTime : 0; const wasPlaying = !v.paused;
+  v.src = url;
+  v.addEventListener('loadedmetadata', function once() {
+    v.removeEventListener('loadedmetadata', once);
+    try { v.playbackRate = parseFloat(getSet('speed')) || 1; } catch (e) {}
+    if (keepTime && t > 1) { try { v.currentTime = t; } catch (e) {} }
+    else if (!keepTime && getSet('resume')) {
+      const pos = (LS.get('pos', {}) || {})[vidKey(curVideo.url)] || 0;
+      if (pos > 10 && v.duration && pos < v.duration - 15) { try { v.currentTime = pos; toast('আগের জায়গা থেকে চালু: ' + fmtDur(pos)); } catch (e) {} }
+    }
+  });
+  if (!keepTime || wasPlaying) v.play().catch(() => {});
+  $('bAudio').setAttribute('aria-pressed', audioMode ? 'true' : 'false');
+  const badge = $('srcBadge').textContent.replace(/ · শুধু অডিও$/, ''); $('srcBadge').textContent = badge + (audioMode ? ' · শুধু অডিও' : '');
+}
+function toggleAudioMode() {
+  const on = !getSet('audioOnly'); setSetting('audioOnly', on);
+  toast(on ? 'শুধু অডিও চালু' : 'শুধু অডিও বন্ধ'); applySource(true);
 }
 function wirePlayer() {
   const v = $('mainVideo');
+  const report = playing => { setPlayIcon(playing); try { if (window.Android && Android.setPlayback) Android.setPlayback(playing, curVideo ? (curVideo.title || '') : ''); } catch (e) {} };
   v.addEventListener('waiting', () => setBuffering(true));
-  v.addEventListener('playing', () => setBuffering(false));
+  v.addEventListener('playing', () => { setBuffering(false); report(true); });
+  v.addEventListener('play', () => report(true));
+  v.addEventListener('pause', () => report(false));
   v.addEventListener('canplay', () => setBuffering(false));
-  v.addEventListener('ended', () => { if (getSet('autoplay')) playNext(true); });
+  v.addEventListener('timeupdate', () => {
+    const now = Date.now(); if (!curVideo || now - lastSave < 5000 || !v.duration) return; lastSave = now;
+    const m = LS.get('pos', {}) || {}; m[vidKey(curVideo.url)] = Math.floor(v.currentTime);
+    const keys = Object.keys(m); if (keys.length > 150) delete m[keys[0]]; LS.set('pos', m);
+  });
+  v.addEventListener('ended', () => {
+    report(false); try { const m = LS.get('pos', {}) || {}; delete m[vidKey(curVideo.url)]; LS.set('pos', m); } catch (e) {}
+    if (getSet('autoplay')) playNext(true);
+  });
   v.addEventListener('error', () => {
-    if (!v.getAttribute('src')) return;
+    if (!v.getAttribute('src') || !curVideo) return;
     const next = ALL_SRC.find(s => triedSrc.indexOf(s) < 0);
-    if (next) { toast('এই সোর্সে চলেনি, ' + SRC_NAME[next] + ' দিয়ে চেষ্টা হচ্ছে…'); loadStream(playToken, next); }
+    if (next && getSet('fallback')) { toast('এই সোর্সে চলেনি, ' + SRC_NAME[next] + ' দিয়ে চেষ্টা হচ্ছে'); loadStream(playToken, next); }
     else { setBuffering(false); toast('ভিডিও চালানো যায়নি'); }
   });
   $('bPrev').onclick = playPrev; $('bNext').onclick = () => playNext(false);
   $('bFwd').onclick = () => skipBy(1); $('bRew').onclick = () => skipBy(-1);
+  $('bPlay').onclick = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
 }
-function skipBy(dir) {
-  const v = $('mainVideo'); if (!v || !v.duration) return;
-  const sec = parseInt(getSet('skip'), 10) || 10;
-  v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + dir * sec));
-}
-function playNext(auto) {
-  if (qIndex + 1 < queue.length) { qIndex++; playItem(queue[qIndex]); }
-  else if (!auto) toast('আর পরের ভিডিও নেই');
-}
-function playPrev() {
-  if (qIndex > 0) { qIndex--; playItem(queue[qIndex]); } else toast('আর আগের ভিডিও নেই');
-}
+/* media buttons: TalkBack two-finger double-tap, headset, lock screen — all arrive here */
+window.__remote = function (cmd) {
+  const v = $('mainVideo'); if (!curVideo || !v.getAttribute('src')) return false;
+  switch (cmd) {
+    case 'toggle': if (v.paused) v.play().catch(() => {}); else v.pause(); break;
+    case 'play': v.play().catch(() => {}); break;
+    case 'pause': v.pause(); break;
+    case 'next': playNext(false); break;
+    case 'prev': playPrev(); break;
+    case 'ff': skipBy(1); break;
+    case 'rew': skipBy(-1); break;
+    default: return false;
+  }
+  return true;
+};
+function skipBy(dir) { const v = $('mainVideo'); if (!v || !v.duration) return; const sec = parseInt(getSet('skip'), 10) || 10; v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + dir * sec)); }
+function playNext(auto) { if (qIndex + 1 < queue.length) { qIndex++; playItem(queue[qIndex]); } else if (!auto) toast('আর পরের ভিডিও নেই'); }
+function playPrev() { if (qIndex > 0) { qIndex--; playItem(queue[qIndex]); } else toast('আর আগের ভিডিও নেই'); }
 function toggleLike() { if (!curVideo) return; toast(listToggle('liked', curVideo) ? 'পছন্দ করা হয়েছে' : 'পছন্দ সরানো হয়েছে'); paintPills(); }
 function toggleLater() { if (!curVideo) return; toast(listToggle('later', curVideo) ? 'পরে দেখব-তে রাখা হয়েছে' : 'সরানো হয়েছে'); paintPills(); }
 function toggleSub() {
   if (!curVideo || !curVideo.uploader) return;
-  let s = LS.get('subs', []); const i = s.indexOf(curVideo.uploader);
-  if (i >= 0) s.splice(i, 1); else s.unshift(curVideo.uploader);
+  const s = LS.get('subs', []); const i = s.indexOf(curVideo.uploader); if (i >= 0) s.splice(i, 1); else s.unshift(curVideo.uploader);
   LS.set('subs', s); paintSub(); toast(i >= 0 ? 'সাবস্ক্রিপশন বাতিল' : 'সাবস্ক্রাইব করা হয়েছে');
 }
 function shareItem(it) {
   const text = (it.title || '') + '\n' + (it.url || '');
-  if (window.Android && Android.share) Android.share(text);
-  else if (navigator.share) navigator.share({ title: it.title, text }).catch(() => {});
-  else toast('শেয়ার শুধু অ্যাপে কাজ করবে');
+  if (window.Android && Android.share) Android.share(text); else if (navigator.share) navigator.share({ title: it.title, text }).catch(() => {}); else toast('শেয়ার শুধু অ্যাপে কাজ করবে');
 }
 function shareVideo() { if (curVideo) shareItem(curVideo); }
+function cycleTimer() {
+  sleepIdx = (sleepIdx + 1) % SLEEP.length; clearTimeout(sleepTimer); const m = SLEEP[sleepIdx];
+  $('timerLb').textContent = m ? ('টাইমার ' + bn(m) + ' মিনিট') : 'টাইমার বন্ধ';
+  if (m) { sleepTimer = setTimeout(() => { try { $('mainVideo').pause(); } catch (e) {} sleepIdx = 0; $('timerLb').textContent = 'টাইমার বন্ধ'; toast('টাইমার শেষ, ভিডিও থামানো হয়েছে'); }, m * 60000); toast(bn(m) + ' মিনিট পরে থামবে'); }
+  else toast('টাইমার বন্ধ');
+}
+
+/* ---------- one-tap M4A download ---------- */
+function startDownload(streams, title) {
+  const a = pickAudio(streams, true);
+  if (!a) { toast('এই ভিডিওর M4A অডিও পাওয়া যায়নি'); return; }
+  if (!(window.Android && typeof Android.downloadAudio === 'function')) { toast('ডাউনলোড শুধু অ্যাপের ভেতরে কাজ করবে'); return; }
+  Android.downloadAudio(a.url, title || 'audio', !!getSet('wifiOnly'));
+}
+function downloadCurrent() {
+  if (!curVideo) return;
+  if (curVideo.streams) startDownload(curVideo.streams, curVideo.title); else toast('লিংক এখনও আসেনি, একটু পরে চাপুন');
+}
+function downloadItem(it) {
+  if (curVideo && curVideo.url === it.url && curVideo.streams) { startDownload(curVideo.streams, it.title); return; }
+  if (!hasAndroid()) { toast('ডাউনলোড শুধু অ্যাপের ভেতরে কাজ করবে'); return; }
+  toast('ডাউনলোডের লিংক আনা হচ্ছে');
+  callNative('getStreams', it.url).then(d => { if (!d.ok) { toast(d.error || 'লিংক পাওয়া যায়নি'); return; } startDownload({ audio: d.audioStreams || [] }, it.title); })
+    .catch(e => toast('ত্রুটি: ' + (e && e.message ? e.message : e)));
+}
 
 /* =====================================================================
    AI
    ===================================================================== */
-const SYSTEM_PROMPT = 'তুমি একজন সহায়ক। উত্তর সহজ বাংলায় ও সংক্ষেপে দাও (অনুবাদ চাইলে নির্দিষ্ট ভাষায়)। ' +
-  'তুমি ভিডিওটি নিজে দেখোনি বা শোনোনি; শুধু নিচে দেওয়া শিরোনাম, চ্যানেল ও বিবরণ জানো। যা জানো না তা বানিয়ে বোলো না।';
 function provCfg(name) {
-  if (name === 'gemini') return { p: 'gemini', base: '', model: (getSet('gemModel') || '').trim() || 'gemini-2.5-flash', key: getSet('gemKey') || '' };
-  if (name === 'grok') return { p: 'openai', base: 'https://api.x.ai/v1', model: (getSet('grokModel') || '').trim() || 'grok-3', key: getSet('grokKey') || '' };
+  if (name === 'gemini') return { p: 'gemini', base: '', model: (getSet('gemModel') || '').trim() || SET_DEFAULTS.gemModel, key: getSet('gemKey') || '' };
+  if (name === 'grok') return { p: 'openai', base: 'https://api.x.ai/v1', model: (getSet('grokModel') || '').trim() || SET_DEFAULTS.grokModel, key: getSet('grokKey') || '' };
   return { p: 'openai', base: getSet('cusBase') || '', model: getSet('cusModel') || '', key: getSet('cusKey') || '' };
 }
-function videoContext() {
-  const d = (curVideo.desc || '').slice(0, 3500);
-  return 'শিরোনাম: ' + (curVideo.title || '') + '\nচ্যানেল: ' + (curVideo.uploader || '') +
-    '\nসময়কাল: ' + (curVideo.duration ? fmtDur(curVideo.duration) : 'অজানা') +
-    '\nবিবরণ:\n' + (d || '(বিবরণ পাওয়া যায়নি)');
-}
-function buildPrompt(kind, question) {
-  const ctx = videoContext();
-  if (kind === 'sum') return 'নিচের ভিডিও সম্পর্কে ৫টি ছোট পয়েন্টে বাংলায় সারাংশ দাও। প্রথম লাইনে এক বাক্যে জানাও যে এটা শুধু শিরোনাম ও বিবরণ থেকে বলা হচ্ছে।\n\n' + ctx;
-  if (kind === 'fact') return 'নিচের ভিডিওর শিরোনামটি ক্লিকবেইট বা অতিরঞ্জিত কিনা, শিরোনাম ও বিবরণ মেলে কিনা, আর কোন দাবিগুলো আলাদা করে যাচাই করা দরকার — বাংলায় সংক্ষেপে বলো। তুমি ইন্টারনেট বা ভিডিও দেখতে পারছ না, তাই কোনো দাবি নিশ্চিতভাবে সত্য বা মিথ্যা বোলো না।\n\n' + ctx;
-  if (kind === 'tr') return 'নিচের শিরোনাম ও বিবরণ ' + (getSet('trLang') || 'বাংলা') + ' ভাষায় অনুবাদ করো। শুধু অনুবাদ দাও।\n\n' + ctx;
-  return 'ভিডিও সম্পর্কে তথ্য:\n' + ctx + '\n\nপ্রশ্ন: ' + question;
-}
+const PROV_LABEL = { gemini: 'Gemini', grok: 'Grok', custom: 'অন্য AI' };
 const PROV_KEY = { sum: 'provSum', fact: 'provFact', tr: 'provTr', ask: 'provAsk' };
-const PROV_LABEL = { gemini: 'Gemini', grok: 'Grok', custom: 'কাস্টম AI' };
-let aiBusy = false;
-function runAI(kind) {
+const KIND_LABEL = { sum: 'সারাংশ', fact: 'ক্লিকবেইট পরীক্ষা', tr: 'অনুবাদ', scene: 'দৃশ্যের বর্ণনা', ask: 'উত্তর' };
+function aiCall(provName, system, user, videoUrl) {
+  const c = provCfg(provName);
+  return callNative('ai', c.p, c.base, c.model, c.key, system, user, videoUrl || '');
+}
+function systemPrompt() {
+  return 'তুমি AI Smart Tube অ্যাপের সহায়ক। সবসময় ' + (getSet('aiLang') || 'বাংলা') + ' ভাষায় উত্তর দাও। ' +
+    'উত্তর ছোট, স্পষ্ট ও সহজ রাখো। স্ক্রিন-রিডার ব্যবহারকারীরা শুনে পড়বেন, তাই টেবিল, ইমোজি ও অপ্রয়োজনীয় চিহ্ন এড়াও, পয়েন্ট লিখলে প্রতিটি আলাদা লাইনে "- " দিয়ে লেখো। ' +
+    'যা জানো না তা বানিয়ে বোলো না।';
+}
+function videoContext(transcript) {
+  let s = 'শিরোনাম: ' + (curVideo.title || '') + '\nচ্যানেল: ' + (curVideo.uploader || '') + '\nসময়কাল: ' + (curVideo.duration ? spokenDur(curVideo.duration) : 'অজানা') +
+    '\nবিবরণ:\n' + ((curVideo.desc || '').slice(0, 3000) || '(বিবরণ পাওয়া যায়নি)');
+  if (transcript) s += '\n\nসাবটাইটেল (ভিডিওতে যা বলা হয়েছে):\n' + transcript;
+  return s;
+}
+function buildPrompt(kind, q, transcript, watch) {
+  const ctx = videoContext(transcript);
+  const note = watch ? 'তুমি ভিডিওটি নিজে দেখতে ও শুনতে পাচ্ছ। ' : ('তুমি ভিডিওটি দেখোনি; শুধু নিচের তথ্য জানো' + (transcript ? ' (সাবটাইটেলসহ)' : '') + '। ');
+  const lang = getSet('aiLang') || 'বাংলা';
+  if (kind === 'sum') return note + 'ভিডিওটির সারাংশ ঠিক ' + bn(getSet('sumLen') || '5') + 'টি পয়েন্টে লেখো। প্রথমে এক লাইনে বলো ভিডিওটি কী নিয়ে।\n\n' + ctx;
+  if (kind === 'fact') return note + 'এই ভিডিওর শিরোনাম কতটা ক্লিকবেইট বা অতিরঞ্জিত, তা যাচাই করো। শিরোনাম ও আসল বিষয়বস্তু মেলে কিনা দেখো। ' +
+    'শুধু একটি JSON অবজেক্ট দাও, আর কিছু নয় (কোনো কোডব্লক নয়): {"score": ০ থেকে ১০০ পূর্ণসংখ্যা (০ = পুরো বিশ্বাসযোগ্য, ১০০ = পুরো ক্লিকবেইট), ' +
+    '"reasons": [সর্বোচ্চ ৩টি ছোট কারণ], "check": [আলাদা করে যাচাই করা দরকার এমন দাবি, সর্বোচ্চ ৩টি, না থাকলে ফাঁকা], "better_title": "আরও সৎ বিকল্প শিরোনাম"}. ' +
+    'score ইংরেজি সংখ্যায় দাও, বাকি লেখা ' + lang + ' ভাষায়। তুমি ইন্টারনেটে যাচাই করতে পারছ না, তাই কোনো দাবি নিশ্চিত সত্য বা মিথ্যা বোলো না।\n\n' + ctx;
+  if (kind === 'tr') return 'নিচের শিরোনাম ও বিবরণ' + (transcript ? ' এবং সাবটাইটেলের মূল অংশ' : '') + ' ' + lang + ' ভাষায় অনুবাদ করো। প্রথমে "শিরোনাম:", তারপর "বিবরণ:"' + (transcript ? ', তারপর "সাবটাইটেল:"' : '') + ' শিরোনাম দিয়ে আলাদা করো। শুধু অনুবাদ দাও।\n\n' + ctx;
+  if (kind === 'scene') return note + 'ভিডিওটির দৃশ্যগুলো সময় অনুসারে বর্ণনা করো, এমনভাবে যেন যিনি দেখতে পান না তিনি বুঝতে পারেন। প্রতিটি দৃশ্যের শুরুতে আনুমানিক সময় (মিনিট:সেকেন্ড) লেখো। ' +
+    'বলো: কে বা কী দেখা যাচ্ছে, জায়গা, পোশাক ও রং, নড়াচড়া, পর্দায় যা লেখা আছে। কথাবার্তা আলাদা করে লেখার দরকার নেই। যা স্পষ্ট বোঝা যায় না, তা অনুমান করে বলবে না।\n\n' + ctx;
+  return note + 'ভিডিওটি সম্পর্কে প্রশ্নের উত্তর দাও। উত্তর ভিডিওর তথ্যে না পেলে সেটা পরিষ্কার জানাও।\n\n' + ctx + '\n\nপ্রশ্ন: ' + q;
+}
+function ensureTranscript() {
+  if (curVideo.tr !== undefined) return Promise.resolve(curVideo.tr);
+  const token = playToken;
+  return callNative('getTranscript', curVideo.url).then(d => { const t = d.ok ? d.text : ''; if (token === playToken) curVideo.tr = t; return t; }).catch(() => '');
+}
+function parseJsonLoose(text) {
+  try { const a = text.indexOf('{'), b = text.lastIndexOf('}'); if (a < 0 || b <= a) return null; return JSON.parse(text.slice(a, b + 1)); } catch (e) { return null; }
+}
+function toList(x) { return Array.isArray(x) ? x.map(v => String(v).trim()).filter(Boolean) : (x ? [String(x)] : []); }
+let aiBusy = false, aiCache = {}, lastAiText = '';
+function aiOutStart(kind) {
+  const out = $('aiOut'); out.className = 'aiout busy'; out.textContent = '';
+  const h = el('h3', '', KIND_LABEL[kind]); h.id = 'aiOutH'; h.tabIndex = -1;
+  const t = el('div', 'aitext', 'ভাবছে…'); t.id = 'aiOutT'; out.append(h, t); return out;
+}
+function renderFact(box, text) {
+  const j = parseJsonLoose(text); const score = j ? Math.round(Number(j.score)) : NaN;
+  if (!j || !isFinite(score)) { box.textContent = text; return; }
+  const sc = Math.max(0, Math.min(100, score)); const cls = sc < 30 ? 'low' : sc < 60 ? 'mid' : 'high';
+  const verdict = sc < 30 ? 'বিশ্বাসযোগ্য' : sc < 60 ? 'একটু অতিরঞ্জিত' : 'ক্লিকবেইট';
+  box.textContent = '';
+  const m = el('div', 'meter ' + cls); m.setAttribute('role', 'img'); m.setAttribute('aria-label', 'ক্লিকবেইট স্কোর ১০০-র মধ্যে ' + bn(sc) + ', রায়: ' + verdict);
+  const top = el('div', 'mtop'); top.append(el('span', 'mscore', bn(sc)), el('span', 'mverdict', verdict));
+  const bar = el('div', 'mbar'); const fill = el('i'); fill.style.width = Math.max(3, sc) + '%'; bar.appendChild(fill);
+  const sca = el('div', 'mscale'); sca.append(el('span', '', 'বিশ্বাসযোগ্য'), el('span', '', 'ক্লিকবেইট')); m.append(top, bar, sca); box.appendChild(m);
+  const sec = (title, arr) => { if (!arr.length) return; box.appendChild(el('h4', '', title)); const ul = el('ul'); arr.forEach(x => ul.appendChild(el('li', '', x))); box.appendChild(ul); };
+  sec('কারণ', toList(j.reasons)); sec('আলাদা করে যাচাই করুন', toList(j.check));
+  if (j.better_title) { box.appendChild(el('h4', '', 'আরও সৎ শিরোনাম')); box.appendChild(el('div', '', String(j.better_title))); }
+  lastAiText = 'ক্লিকবেইট স্কোর ' + bn(sc) + ', রায়: ' + verdict + '. ' + toList(j.reasons).join('. ');
+}
+function aiOutDone(kind, text) {
+  const out = $('aiOut'); out.className = 'aiout'; const t = $('aiOutT'); t.textContent = '';
+  lastAiText = text;
+  if (kind === 'fact') renderFact(t, text); else t.textContent = text;
+  const acts = el('div', 'aiacts');
+  const sp = el('button', 'btn'); sp.type = 'button'; sp.append(iconEl('speak'), el('span', '', 'জোরে পড়ুন')); sp.onclick = () => speak(lastAiText);
+  const sh = el('button', 'btn'); sh.type = 'button'; sh.append(iconEl('share'), el('span', '', 'শেয়ার')); sh.onclick = () => { if (window.Android && Android.share) Android.share(lastAiText); else toast('শেয়ার শুধু অ্যাপে কাজ করবে'); };
+  acts.append(sp, sh); out.appendChild(acts);
+  if (getSet('focusHeading')) setTimeout(() => { try { $('aiOutH').focus({ preventScroll: false }); } catch (e) {} }, 100);
+}
+function aiOutFail(msg) {
+  const out = $('aiOut'); out.className = 'aiout'; const t = $('aiOutT'); if (t) t.textContent = 'ত্রুটি: ' + msg;
+}
+async function runAI(kind) {
   if (!curVideo) { toast('আগে একটা ভিডিও খুলুন'); return; }
   if (!hasAndroid()) { toast('AI অ্যাপের ভেতরে কাজ করবে'); return; }
   let q = '';
-  if (kind === 'ask') {
-    q = $('aiQ').value.trim();
-    if (!q) { toast('প্রশ্ন লিখুন'); $('aiQ').focus(); return; }
-  }
-  const pname = getSet(PROV_KEY[kind]) || 'gemini';
+  if (kind === 'ask') { q = $('aiQ').value.trim(); if (!q) { toast('প্রশ্ন লিখুন'); $('aiQ').focus(); return; } }
+  const pname = kind === 'scene' ? 'gemini' : (getSet(PROV_KEY[kind]) || 'gemini');
   const cfg = provCfg(pname);
-  if (!String(cfg.key).trim()) { toast(PROV_LABEL[pname] + '-এর API key নেই — সেটিংসে দিন'); go('settings'); return; }
+  if (!String(cfg.key).trim()) { toast(PROV_LABEL[pname] + '-এর API key নেই। সেটিংসে দিন।'); go('settings'); return; }
+  const watch = pname === 'gemini' && isYoutube(curVideo.url) && (kind === 'scene' || (getSet('aiWatch') && (kind === 'sum' || kind === 'fact' || kind === 'ask')));
+  if (kind === 'scene' && !isYoutube(curVideo.url)) { toast('দৃশ্যের বর্ণনা শুধু ইউটিউব ভিডিওতে চলে'); return; }
+  const ck = [curVideo.url, kind, q, cfg.model, getSet('aiLang'), getSet('sumLen'), watch].join('|');
+  if (aiCache[ck]) { aiOutStart(kind); aiOutDone(kind, aiCache[ck]); return; }
   if (aiBusy) { toast('আগের অনুরোধ চলছে, একটু অপেক্ষা করুন'); return; }
-  aiBusy = true;
-  const out = $('aiOut'); out.classList.add('busy'); out.textContent = PROV_LABEL[pname] + ' ভাবছে…';
-  callNative('ai', cfg.p, cfg.base, cfg.model, cfg.key, SYSTEM_PROMPT, buildPrompt(kind, q)).then(d => {
-    aiBusy = false; out.classList.remove('busy');
-    if (!d.ok) { out.textContent = 'ত্রুটি: ' + (d.error || 'AI উত্তর দেয়নি'); return; }
-    out.textContent = d.text;
-    if (getSet('aiSpeak')) speak(d.text);
-  }).catch(e => { aiBusy = false; out.classList.remove('busy'); out.textContent = 'ত্রুটি: ' + (e && e.message ? e.message : e); });
+  if (watch && curVideo.duration > 1800 && !(await askConfirm('ভিডিওটি বড়', 'ভিডিও ৩০ মিনিটের বেশি লম্বা। Gemini-র দেখতে সময় ও আপনার ফ্রি সীমা বেশি লাগতে পারে। চালাবেন?', 'চালান'))) return;
+  aiBusy = true; aiOutStart(kind);
+  $('aiOutT').textContent = PROV_LABEL[pname] + (watch ? ' ভিডিও দেখছে' : ' ভাবছে') + '…';
+  const token = playToken;
+  try {
+    let transcript = '';
+    if (!watch && getSet('useTranscript') && kind !== 'scene') { $('aiOutT').textContent = 'সাবটাইটেল খোঁজা হচ্ছে…'; transcript = await ensureTranscript(); $('aiOutT').textContent = PROV_LABEL[pname] + ' ভাবছে…'; }
+    const d = await aiCall(pname, systemPrompt(), buildPrompt(kind, q, transcript, watch), watch ? curVideo.url : '');
+    if (token !== playToken) { aiBusy = false; return; }
+    aiBusy = false;
+    if (!d.ok) { aiOutFail(d.error || 'AI উত্তর দেয়নি'); return; }
+    aiCache[ck] = d.text; aiOutDone(kind, d.text);
+    if (getSet('aiSpeak')) speak(lastAiText);
+  } catch (e) { aiBusy = false; aiOutFail(e && e.message ? e.message : String(e)); }
 }
 function speak(text) {
-  try {
-    if (!window.speechSynthesis) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text); u.lang = 'bn-IN'; speechSynthesis.speak(u);
-  } catch (e) {}
+  try { if (!window.speechSynthesis) { toast('এই ফোনে জোরে পড়া চালু নেই'); return; } speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'bn-IN'; speechSynthesis.speak(u); }
+  catch (e) { toast('জোরে পড়া যায়নি'); }
+}
+function testAI(name) {
+  const box = $('t_' + name); const c = provCfg(name);
+  if (!hasAndroid()) { box.textContent = 'পরীক্ষা শুধু অ্যাপের ভেতরে চলে'; return; }
+  if (!String(c.key).trim()) { box.textContent = 'আগে API key লিখুন'; return; }
+  box.textContent = 'পরীক্ষা চলছে…';
+  aiCall(name, '', 'শুধু একটি শব্দ লিখুন: ঠিক', '').then(d => {
+    box.textContent = d.ok ? ('কাজ করছে। মডেল: ' + c.model) : ('কাজ করছে না: ' + (d.error || 'অজানা ত্রুটি'));
+  }).catch(e => { box.textContent = 'কাজ করছে না: ' + (e && e.message ? e.message : e); });
 }
 
 /* =====================================================================
    start
    ===================================================================== */
 window.addEventListener('DOMContentLoaded', function () {
-  loadSettings();
-  wirePlayer();
-  buildChips();
-  show('home');
-  loadFeed();
+  hydrateIcons(); loadSettings(); wirePlayer(); buildChips(); buildWelcome(); setPlayIcon(false);
+  show('home', true); loadFeed(); refreshYou();
+  try { if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', applySettings); } catch (e) {}
 });
 </script>
 </body>
