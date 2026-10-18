@@ -89,7 +89,11 @@
   .vthumb { position:relative; aspect-ratio:16/9; background:var(--bg2) center/cover no-repeat; cursor:pointer; }
   .vdur { position:absolute; right:.5rem; bottom:.5rem; background:rgba(0,0,0,.82); color:#fff; font-size:.78rem; font-weight:700;
     padding:.05rem .4rem; border-radius:.3rem; }
-  .vinfo { display:flex; gap:.75rem; padding:.75rem .25rem 0 1rem; align-items:flex-start; }
+  .vcard { position:relative; }
+  .vmain { display:block; cursor:pointer; }
+  .vcard .vmore { position:absolute; right:.25rem; bottom:.1rem; }
+  .cmain { display:flex; gap:.7rem; flex:1; min-width:0; cursor:pointer; align-items:flex-start; }
+  .vinfo { display:flex; gap:.75rem; padding:.75rem 3.4rem 0 1rem; align-items:flex-start; }
   .vav { width:2.4rem; height:2.4rem; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
     font-weight:700; color:#fff; font-size:1rem; }
   .vtext { flex:1; min-width:0; cursor:pointer; }
@@ -98,7 +102,7 @@
   .vmore { flex:none; width:3rem; height:3rem; border:0; background:transparent; border-radius:50%; display:flex; align-items:center; justify-content:center; }
   .vmore:active { background:var(--bg2); }
   .ccard { display:flex; gap:.7rem; padding:.45rem .25rem .45rem 1rem; align-items:flex-start; }
-  .ccard .cthumb { position:relative; width:42%; max-width:12.5rem; aspect-ratio:16/9; border-radius:.6rem; background:var(--bg2) center/cover no-repeat; flex:none; cursor:pointer; overflow:hidden; }
+  .ccard .cthumb { position:relative; width:44%; max-width:12.5rem; aspect-ratio:16/9; border-radius:.6rem; background:var(--bg2) center/cover no-repeat; flex:none; cursor:pointer; overflow:hidden; }
   .skel .vthumb, .skel .sk { background:var(--bg2); animation:pulse 1.3s infinite ease-in-out; }
   .skel .sk { height:.8rem; border-radius:.4rem; margin:.5rem 0; }
   @keyframes pulse { 50% { opacity:.45; } }
@@ -141,6 +145,12 @@
   .tbtn { width:3.4rem; height:3.4rem; border:0; border-radius:50%; background:var(--bg2); display:flex; align-items:center; justify-content:center; }
   .tbtn:active { background:var(--bg3); }
   .tbtn.main { width:4rem; height:4rem; background:var(--accent); color:var(--on-accent); }
+  .seekrow { padding:.25rem 1.25rem .25rem; }
+  .prog { height:.35rem; border-radius:.2rem; background:var(--bg3); overflow:hidden; margin-top:.25rem; }
+  .prog i { display:block; height:100%; width:0; background:var(--accent); }
+  .seekrow input[type=range] { width:100%; min-height:2.75rem; margin:0; accent-color:var(--accent); }
+  .seeklb { display:flex; justify-content:space-between; font-size:.78rem; color:var(--muted); }
+  .pvideo video { cursor:pointer; }
   .ptitle { font-size:1.2rem; font-weight:700; line-height:1.5; margin:.75rem 1rem .25rem; }
   .pmeta { font-size:.85rem; color:var(--muted); margin:0 1rem .15rem; }
   .srcbadge { font-size:.8rem; color:var(--muted); margin:0 1rem .5rem; }
@@ -261,13 +271,12 @@
 <!-- ============ SEARCH ============ -->
 <section id="search" class="screen" aria-label="সার্চ">
   <h2 class="sr" id="searchH" tabindex="-1">সার্চ</h2>
-  <div class="sbar">
+  <form class="sbar" id="sform" role="search" action="javascript:void(0)" onsubmit="submitSearch(event)">
     <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()"><span class="i" data-i="back"></span></button>
-    <input type="search" id="qInput" placeholder="ভিডিও খুঁজুন" aria-label="সার্চ লিখুন" enterkeyhint="search"
-           onkeydown="if(event.key==='Enter'){doSearch(this.value)}" />
-    <button type="button" class="ibtn" aria-label="সার্চ শুরু করুন" onclick="doSearch($('qInput').value)"><span class="i" data-i="search"></span></button>
+    <input type="search" id="qInput" placeholder="ভিডিও খুঁজুন" aria-label="সার্চ লিখুন" enterkeyhint="search" autocomplete="off" />
+    <button type="submit" class="ibtn" aria-label="সার্চ শুরু করুন"><span class="i" data-i="search"></span></button>
     <button type="button" class="ibtn" aria-label="ভয়েস সার্চ" onclick="voiceSearch()"><span class="i" data-i="mic"></span></button>
-  </div>
+  </form>
   <div id="recent"></div>
   <div id="sresults" aria-live="polite"></div>
 </section>
@@ -301,7 +310,7 @@
 <!-- ============ PLAYER ============ -->
 <section id="player" class="screen" aria-label="ভিডিও প্লেয়ার">
   <div class="pvideo">
-    <video id="mainVideo" playsinline controls aria-label="ভিডিও"></video>
+    <video id="mainVideo" playsinline aria-hidden="true" tabindex="-1"></video>
     <div class="spin" id="spin" aria-hidden="true"><i></i></div>
   </div>
   <div class="transport" role="group" aria-label="প্লেয়ার নিয়ন্ত্রণ">
@@ -311,11 +320,19 @@
     <button type="button" class="tbtn" id="bFwd" aria-label="এগিয়ে যান"><span class="i" data-i="fwd"></span></button>
     <button type="button" class="tbtn" id="bNext" aria-label="পরের ভিডিও"><span class="i fill" data-i="next"></span></button>
   </div>
+  <div class="seekrow">
+    <div class="prog" aria-hidden="true"><i id="progFill"></i></div>
+    <input type="range" id="seek" min="0" max="100" step="5" value="0" aria-label="ভিডিওর অবস্থান" />
+    <div class="seeklb" aria-hidden="true"><span id="tCur">0:00</span><span id="tTot">0:00</span></div>
+  </div>
   <h1 class="ptitle" id="pTitle" tabindex="-1">ভিডিও</h1>
   <p class="pmeta" id="pMeta"></p>
   <p class="srcbadge" id="srcBadge"></p>
 
   <div class="pills" role="group" aria-label="ভিডিও অ্যাকশন">
+    <button type="button" class="pill" id="bPos" onclick="sayPosition()"><span class="i" data-i="history"></span>এখন কত সময়</button>
+    <button type="button" class="pill" id="bSpeed" onclick="cycleSpeed()"><span class="i" data-i="fwd"></span><span id="speedLb">গতি ১×</span></button>
+    <button type="button" class="pill" id="bFull" onclick="goFullscreen()"><span class="i" data-i="eye"></span>পূর্ণ পর্দা</button>
     <button type="button" class="pill accent" id="bDl" onclick="downloadCurrent()"><span class="i" data-i="download"></span>M4A ডাউনলোড</button>
     <button type="button" class="pill" id="bAudio" aria-pressed="false" onclick="toggleAudioMode()"><span class="i" data-i="headphones"></span>শুধু অডিও</button>
     <button type="button" class="pill" id="bTimer" onclick="cycleTimer()"><span class="i" data-i="timer"></span><span id="timerLb">টাইমার বন্ধ</span></button>
@@ -338,11 +355,10 @@
     <button type="button" class="aibtn" onclick="runAI('fact')"><span class="i" data-i="alert"></span><span><b>ক্লিকবেইট পরীক্ষা</b><small>শিরোনাম কতটা বিশ্বাসযোগ্য, স্কোর সহ</small></span></button>
     <button type="button" class="aibtn" onclick="runAI('tr')"><span class="i" data-i="translate"></span><span><b>অনুবাদ</b><small id="trSub">শিরোনাম, বিবরণ ও সাবটাইটেল বাংলায়</small></span></button>
     <button type="button" class="aibtn" onclick="runAI('scene')"><span class="i" data-i="eye"></span><span><b>দৃশ্যের বর্ণনা</b><small>Gemini ভিডিও দেখে বলে কী ঘটছে, কে আছে, পর্দায় কী লেখা</small></span></button>
-    <div class="askrow">
-      <input type="text" id="aiQ" placeholder="এই ভিডিও নিয়ে প্রশ্ন করুন" aria-label="AI-কে প্রশ্ন লিখুন" enterkeyhint="send"
-             onkeydown="if(event.key==='Enter'){runAI('ask')}" />
-      <button type="button" class="btn primary" onclick="runAI('ask')">পাঠান</button>
-    </div>
+    <form class="askrow" action="javascript:void(0)" onsubmit="event.preventDefault();runAI('ask');return false">
+      <input type="text" id="aiQ" placeholder="এই ভিডিও নিয়ে প্রশ্ন করুন" aria-label="AI-কে প্রশ্ন লিখুন" enterkeyhint="send" autocomplete="off" />
+      <button type="submit" class="btn primary">পাঠান</button>
+    </form>
     <div class="aiout" id="aiOut" aria-live="polite"></div>
     <p class="aifoot">AI ভুল করতে পারে। ভিডিও না দেখলে সে শুধু শিরোনাম, বিবরণ ও সাবটাইটেল থেকে বলে।</p>
   </section>
@@ -421,14 +437,20 @@
     <h2>প্লেব্যাক</h2>
     <div class="srow"><div class="lb"><strong>ভিডিওর মান</strong><small>অটো মানে ৭২০p পর্যন্ত। ডেটা বাঁচাতে কম মান বেছে নিন।</small></div>
       <select id="quality" class="sv" aria-label="ভিডিওর মান"><option value="auto">অটো</option><option value="max">সর্বোচ্চ</option><option value="720">৭২০p</option><option value="360">৩৬০p</option><option value="low">সর্বনিম্ন</option></select></div>
+    <div class="srow"><div class="lb"><strong>ব্যাকগ্রাউন্ডে চালান</strong><small>স্ক্রিন বন্ধ করলে বা অন্য অ্যাপে গেলেও চলতে থাকবে। নোটিফিকেশনে থামানো-চালানোর বোতাম থাকবে। ব্যাটারি সেভার চালু থাকলে কাজ নাও করতে পারে।</small></div>
+      <label class="switch"><input type="checkbox" id="bgPlay" class="sv" aria-label="ব্যাকগ্রাউন্ডে চালান" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>বাজার সময় ঘোষণা কমান</strong><small>গান বা ভিডিও চলার সময় ছোটখাটো বার্তা (যেমন "পছন্দ করা হয়েছে") টকব্যাক পড়বে না। ত্রুটি ও ডাউনলোডের বার্তা আসবে।</small></div>
+      <label class="switch"><input type="checkbox" id="quietPlay" class="sv" aria-label="বাজার সময় ঘোষণা কমান" /><span class="sl"></span></label></div>
     <div class="srow"><div class="lb"><strong>শুধু অডিও মোড</strong><small>ছবি ছাড়া শুধু শব্দ, ডেটা কম লাগে</small></div>
       <label class="switch"><input type="checkbox" id="audioOnly" class="sv" aria-label="শুধু অডিও মোড" /><span class="sl"></span></label></div>
     <div class="srow"><div class="lb"><strong>আগের জায়গা থেকে চালু</strong><small>আগে যতদূর দেখেছেন, সেখান থেকে শুরু হবে</small></div>
       <label class="switch"><input type="checkbox" id="resume" class="sv" aria-label="আগের জায়গা থেকে চালু" /><span class="sl"></span></label></div>
     <div class="srow"><div class="lb"><strong>শেষ হলে পরেরটা চালান</strong></div>
       <label class="switch"><input type="checkbox" id="autoplay" class="sv" aria-label="অটোপ্লে" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>এগিয়ে / পিছিয়ে</strong></div>
-      <select id="skip" class="sv" aria-label="স্কিপ সেকেন্ড"><option value="5">৫ সেকেন্ড</option><option value="10">১০ সেকেন্ড</option><option value="15">১৫ সেকেন্ড</option><option value="30">৩০ সেকেন্ড</option></select></div>
+    <div class="srow"><div class="lb"><strong>এগিয়ে / পিছিয়ে (তালিকা)</strong><small>২ মিনিট পর্যন্ত। আরও বেশি চাইলে নিচের স্লাইডার ব্যবহার করুন।</small></div>
+      <select id="skipSel" aria-label="এগিয়ে পিছিয়ে যাওয়ার সময়"></select></div>
+    <div class="srow col"><div class="lb"><strong>এগিয়ে / পিছিয়ে (স্লাইডার)</strong><small>৫ সেকেন্ড থেকে ১০ মিনিট। এখন: <span id="skipVal"></span></small></div>
+      <input type="range" id="skip" class="sv" min="5" max="600" step="5" value="10" aria-label="এগিয়ে পিছিয়ে যাওয়ার সময়, সেকেন্ডে" style="width:100%;min-height:2.75rem;accent-color:var(--accent)" /></div>
     <div class="srow"><div class="lb"><strong>গতি</strong></div>
       <select id="speed" class="sv" aria-label="প্লেব্যাক গতি"><option value="0.75">০.৭৫×</option><option value="1">১×</option><option value="1.25">১.২৫×</option><option value="1.5">১.৫×</option><option value="2">২×</option></select></div>
   </div>
@@ -566,6 +588,10 @@ function vidKey(url) { const m = /[?&]v=([\w-]{6,})/.exec(url || '') || /youtu\.
 function isYoutube(url) { return /^https:\/\/(www\.|m\.)?(youtube\.com\/watch\?v=|youtu\.be\/)/.test(url || ''); }
 function hasAndroid() { return !!(window.Android && (typeof Android.searchAsync === 'function' || typeof Android.search === 'function')); }
 function toast(msg) {
+  try {
+    const v = $('mainVideo');
+    if (getSet('quietPlay') && v && !v.paused && !/ত্রুটি|যায়নি|নেই|ডাউনলোড|key|ব্যর্থ|কাজ করবে|সময় শেষ|টাইমার/.test(String(msg))) return;
+  } catch (e) {}
   if (window.Android && typeof Android.showToast === 'function') { Android.showToast(String(msg)); return; }
   const s = $('snack'); s.textContent = msg; s.classList.add('on');
   clearTimeout(toast._t); toast._t = setTimeout(() => s.classList.remove('on'), 2800);
@@ -639,7 +665,7 @@ const SET_DEFAULTS = {
   provSum: 'gemini', provFact: 'grok', provTr: 'gemini', provAsk: 'gemini',
   aiLang: 'বাংলা', sumLen: '5', aiWatch: true, useTranscript: true, aiSpeak: false,
   primary: 'newpipe', fallback: true,
-  quality: 'auto', audioOnly: false, resume: true, autoplay: true, skip: '10', speed: '1',
+  bgPlay: true, quietPlay: true, quality: 'auto', audioOnly: false, resume: true, autoplay: true, skip: '10', speed: '1',
   voiceLang: 'bn-IN', wifiOnly: true,
   textSize: '1', contrast: false, reduceMotion: false, focusHeading: true,
   theme: 'auto', keepHistory: true, keepSearch: true
@@ -659,6 +685,9 @@ function applySettings() {
   try { $('mainVideo').playbackRate = parseFloat(getSet('speed')) || 1; } catch (e) {}
   try { $('trSub').textContent = 'শিরোনাম, বিবরণ ও সাবটাইটেল ' + (getSet('aiLang') === 'বাংলা' ? 'বাংলায়' : getSet('aiLang') + ' ভাষায়'); } catch (e) {}
   try { $('bAudio').setAttribute('aria-pressed', getSet('audioOnly') ? 'true' : 'false'); } catch (e) {}
+  try { paintSkip(); } catch (e) {}
+  try { if (window.Android && Android.setBackground) Android.setBackground(!!getSet('bgPlay')); } catch (e) {}
+  try { $('speedLb').textContent = 'গতি ' + bn(String(parseFloat(getSet('speed')) || 1)) + '×'; } catch (e) {}
 }
 function saveSettings() {
   const o = LS.get('settings', {});
@@ -724,11 +753,11 @@ function show(name, noFocus) {
     setTimeout(() => { const f = $(FOCUS_ID[name]); if (f) { try { f.focus({ preventScroll: true }); } catch (e) {} } }, 150);
   }
 }
-function go(name) {
+function go(name, noKb) {
   closeOverlays();
   if (TABS.includes(name)) stack = [name]; else if (stack[stack.length - 1] !== name) stack.push(name);
   show(name);
-  if (name === 'search') setTimeout(() => $('qInput').focus(), 100);
+  if (name === 'search' && !noKb) setTimeout(() => $('qInput').focus(), 100);
 }
 function back() {
   if (anyOverlay()) { closeOverlays(); return true; }
@@ -754,23 +783,24 @@ function makeMore(it) {
 }
 function makeCard(it, idx, list) {
   const art = el('article', 'vcard'); const open = () => openVideo(it, idx, list);
-  const th = el('div', 'vthumb'); th.setAttribute('aria-hidden', 'true'); setThumb(th, it.thumb); th.onclick = open;
+  /* the whole card (picture + text) is ONE labelled button, so touching anywhere on it is announced */
+  const main = el('div', 'vmain'); main.setAttribute('role', 'button'); main.tabIndex = 0; main.setAttribute('aria-label', labelFor(it));
+  main.onclick = open; main.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+  const th = el('div', 'vthumb'); setThumb(th, it.thumb);
   if (it.duration) th.appendChild(el('span', 'vdur', fmtDur(it.duration)));
   const info = el('div', 'vinfo');
-  const av = el('div', 'vav', initial(it.uploader)); av.style.background = colorFor(it.uploader); av.setAttribute('aria-hidden', 'true');
-  const tx = el('div', 'vtext'); tx.setAttribute('role', 'button'); tx.tabIndex = 0; tx.setAttribute('aria-label', labelFor(it));
-  tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও')); tx.appendChild(el('div', 'vmeta', metaText(it)));
-  tx.onclick = open; tx.onkeydown = e => { if (e.key === 'Enter') open(); };
-  info.append(av, tx, makeMore(it)); art.append(th, info); return art;
+  const av = el('div', 'vav', initial(it.uploader)); av.style.background = colorFor(it.uploader);
+  const tx = el('div', 'vtext'); tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও')); tx.appendChild(el('div', 'vmeta', metaText(it)));
+  info.append(av, tx); main.append(th, info); art.append(main, makeMore(it)); return art;
 }
 function makeCompact(it, idx, list) {
   const c = el('article', 'ccard'); const open = () => openVideo(it, idx, list);
-  const th = el('div', 'cthumb'); th.setAttribute('aria-hidden', 'true'); setThumb(th, it.thumb); th.onclick = open;
+  const main = el('div', 'cmain'); main.setAttribute('role', 'button'); main.tabIndex = 0; main.setAttribute('aria-label', labelFor(it));
+  main.onclick = open; main.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+  const th = el('div', 'cthumb'); setThumb(th, it.thumb);
   if (it.duration) th.appendChild(el('span', 'vdur', fmtDur(it.duration)));
-  const tx = el('div', 'vtext'); tx.setAttribute('role', 'button'); tx.tabIndex = 0; tx.setAttribute('aria-label', labelFor(it));
-  tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও')); tx.appendChild(el('div', 'vmeta', metaText(it)));
-  tx.onclick = open; tx.onkeydown = e => { if (e.key === 'Enter') open(); };
-  c.append(th, tx, makeMore(it)); return c;
+  const tx = el('div', 'vtext'); tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও')); tx.appendChild(el('div', 'vmeta', metaText(it)));
+  main.append(th, tx); c.append(main, makeMore(it)); return c;
 }
 function hint(box, text) { box.textContent = ''; box.appendChild(el('p', 'hint', text)); }
 function skeletons(box, n) {
@@ -833,10 +863,13 @@ function renderRecent() {
     r.append(iconEl('history'), el('span', '', q)); r.onclick = () => { $('qInput').value = q; doSearch(q); }; box.appendChild(r);
   });
 }
+function submitSearch(e) { if (e) e.preventDefault(); doSearch($('qInput').value); return false; }
+function announce(msg) { const l = $('live'); l.textContent = ''; setTimeout(() => { l.textContent = msg; }, 60); }
 function doSearch(q) {
   q = String(q || '').trim(); const box = $('sresults');
   if (!q) { hint(box, 'কিছু লিখে সার্চ করুন'); return; }
   $('qInput').value = q; $('recent').textContent = '';
+  try { $('qInput').blur(); } catch (e) {}   /* close the keyboard so results are reachable */
   if (getSet('keepSearch')) { const rec = LS.get('recent', []).filter(x => x !== q); rec.unshift(q); LS.set('recent', rec.slice(0, 20)); }
   if (!hasAndroid()) { hint(box, 'অ্যাপের ভেতরে সার্চ কাজ করবে'); return; }
   skeletons(box, 3);
@@ -846,7 +879,7 @@ function doSearch(q) {
     const items = data.items || [];
     if (!items.length) { hint(box, 'কিছু পাওয়া যায়নি'); return; }
     box.textContent = ''; items.forEach((it, i) => box.appendChild(makeCompact(it, i, items)));
-    toast(bn(items.length) + 'টি ফল পাওয়া গেছে');
+    announce(bn(items.length) + 'টি ফল পাওয়া গেছে');
   }).catch(e => { box.removeAttribute('aria-busy'); hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)); });
 }
 function voiceSearch() {
@@ -856,7 +889,7 @@ function voiceSearch() {
 window.__voiceResult = function (text) {
   text = String(text || '').trim();
   if (!text) { toast('কিছু শোনা যায়নি, আবার চেষ্টা করুন'); return; }
-  go('search'); doSearch(text);
+  go('search', true); doSearch(text);   /* no keyboard: search runs by itself */
 };
 
 /* =====================================================================
@@ -1071,6 +1104,13 @@ function wirePlayer() {
     if (next && getSet('fallback')) { toast('এই সোর্সে চলেনি, ' + SRC_NAME[next] + ' দিয়ে চেষ্টা হচ্ছে'); loadStream(playToken, next); }
     else { setBuffering(false); toast('ভিডিও চালানো যায়নি'); }
   });
+  v.addEventListener('timeupdate', paintProgress);
+  v.addEventListener('loadedmetadata', () => { paintProgress(); syncSeek(); });
+  v.addEventListener('pause', syncSeek); v.addEventListener('seeked', syncSeek);
+  v.onclick = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
+  const sk = $('seek');
+  ['focus', 'pointerdown', 'touchstart'].forEach(ev => sk.addEventListener(ev, syncSeek));
+  sk.addEventListener('input', () => { if (v.duration) { v.currentTime = Math.min(v.duration - 0.5, parseFloat(sk.value) || 0); sk.setAttribute('aria-valuetext', fmtSpoken(v.currentTime) + ', মোট ' + fmtSpoken(v.duration)); paintProgress(); } });
   $('bPrev').onclick = playPrev; $('bNext').onclick = () => playNext(false);
   $('bFwd').onclick = () => skipBy(1); $('bRew').onclick = () => skipBy(-1);
   $('bPlay').onclick = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
@@ -1090,7 +1130,47 @@ window.__remote = function (cmd) {
   }
   return true;
 };
-function skipBy(dir) { const v = $('mainVideo'); if (!v || !v.duration) return; const sec = parseInt(getSet('skip'), 10) || 10; v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + dir * sec)); }
+function skipSecs() { return Math.max(5, Math.min(1800, parseInt(getSet('skip'), 10) || 10)); }
+function skipSpoken(sec) { const m = Math.floor(sec / 60), r = sec % 60; return (m ? bn(m) + ' মিনিট' : '') + (m && r ? ' ' : '') + (r ? bn(r) + ' সেকেন্ড' : ''); }
+function paintSkip() {
+  const sec = skipSecs(), t = skipSpoken(sec);
+  try { $('skipVal').textContent = t; $('skip').setAttribute('aria-valuetext', t); } catch (e) {}
+  try { const sel = $('skipSel'); sel.value = [...sel.options].some(o => o.value === String(sec)) ? String(sec) : 'custom'; } catch (e) {}
+  try { $('bRew').setAttribute('aria-label', t + ' পিছিয়ে যান'); $('bFwd').setAttribute('aria-label', t + ' এগিয়ে যান'); } catch (e) {}
+}
+function buildSkipSel() {
+  const sel = $('skipSel'); sel.textContent = '';
+  [5, 10, 15, 30, 45, 60, 90, 120].forEach(n => { const o = el('option', '', skipSpoken(n)); o.value = String(n); sel.appendChild(o); });
+  const c = el('option', '', 'অন্য (স্লাইডারে ঠিক করা)'); c.value = 'custom'; sel.appendChild(c);
+  sel.onchange = () => { if (sel.value !== 'custom') setSetting('skip', sel.value); paintSkip(); };
+}
+function fmtSpoken(sec) { return spokenDur(sec); }
+function paintProgress() {
+  const v = $('mainVideo'); const d = v.duration || 0, t = v.currentTime || 0;
+  $('progFill').style.width = d ? Math.min(100, t / d * 100) + '%' : '0%';
+  $('tCur').textContent = fmtDur(t); $('tTot').textContent = d ? fmtDur(d) : '0:00';
+}
+/* the accessible slider is synced only when it is touched / paused, never every second -> no constant TalkBack chatter */
+function syncSeek() {
+  const v = $('mainVideo'), r = $('seek'); const d = Math.floor(v.duration || 0);
+  r.max = String(d || 100); r.step = String(skipSecs()); r.value = String(Math.floor(v.currentTime || 0));
+  r.setAttribute('aria-valuetext', fmtSpoken(v.currentTime || 0) + ', মোট ' + fmtSpoken(d));
+}
+function sayPosition() {
+  const v = $('mainVideo'); if (!curVideo || !v.duration) { announce('ভিডিও চালু নেই'); return; }
+  syncSeek(); announce(fmtSpoken(v.currentTime) + ' চলেছে, মোট ' + fmtSpoken(v.duration));
+}
+function cycleSpeed() {
+  const L = [0.75, 1, 1.25, 1.5, 2]; const cur = parseFloat(getSet('speed')) || 1;
+  let i = L.findIndex(x => Math.abs(x - cur) < 0.01); i = (i + 1) % L.length;
+  setSetting('speed', String(L[i])); announce('গতি ' + bn(String(L[i])) + ' গুণ');
+}
+function goFullscreen() {
+  const v = $('mainVideo');
+  try { if (v.webkitRequestFullscreen) v.webkitRequestFullscreen(); else if (v.requestFullscreen) v.requestFullscreen(); else toast('পূর্ণ পর্দা এখানে চলবে না'); }
+  catch (e) { toast('পূর্ণ পর্দা চালু করা যায়নি'); }
+}
+function skipBy(dir) { const v = $('mainVideo'); if (!v || !v.duration) return; const sec = skipSecs(); v.currentTime = Math.max(0, Math.min(v.duration - 0.5, v.currentTime + dir * sec)); }
 function playNext(auto) { if (qIndex + 1 < queue.length) { qIndex++; playItem(queue[qIndex]); } else if (!auto) toast('আর পরের ভিডিও নেই'); }
 function playPrev() { if (qIndex > 0) { qIndex--; playItem(queue[qIndex]); } else toast('আর আগের ভিডিও নেই'); }
 function toggleLike() { if (!curVideo) return; toast(listToggle('liked', curVideo) ? 'পছন্দ করা হয়েছে' : 'পছন্দ সরানো হয়েছে'); paintPills(); }
@@ -1260,7 +1340,7 @@ function testAI(name) {
    start
    ===================================================================== */
 window.addEventListener('DOMContentLoaded', function () {
-  hydrateIcons(); loadSettings(); wirePlayer(); buildChips(); buildWelcome(); setPlayIcon(false);
+  hydrateIcons(); buildSkipSel(); loadSettings(); wirePlayer(); buildChips(); buildWelcome(); setPlayIcon(false);
   show('home', true); loadFeed(); refreshYou();
   try { if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', applySettings); } catch (e) {}
 });
