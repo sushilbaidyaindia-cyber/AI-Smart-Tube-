@@ -21,26 +21,23 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Create Gradle Wrapper
-        run: |
-          gradle wrapper --gradle-version 8.2 || true
+        with:
+          components: |
+            cmdline-tools;latest
+            platform-tools
+            platforms;android-34
+            build-tools;34.0.0
+          accept-licenses: true
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
+        run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace
-          else
-            echo "Still no gradlew found"
-            ls -la
-          fi
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AI-Smart-Tube-APK
           path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: ignore
+          if-no-files-found: error
