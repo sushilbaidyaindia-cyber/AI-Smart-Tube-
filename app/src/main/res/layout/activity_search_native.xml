@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#09161A">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="8dp">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="পিছনে"
+            android:src="@android:drawable/ic_menu_revert"
+            android:tint="#EAF5F3" />
+
+        <EditText
+            android:id="@+id/query"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="#102229"
+            android:hint="ভিডিও খুঁজুন"
+            android:textColorHint="#A4BCC0"
+            android:textColor="#EAF5F3"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:inputType="text"
+            android:imeOptions="actionSearch"
+            android:importantForAutofill="no"
+            android:contentDescription="সার্চ লিখুন" />
+
+        <ImageButton
+            android:id="@+id/btnVoice"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="ভয়েস সার্চ"
+            android:src="@android:drawable/ic_btn_speak_now"
+            android:tint="#EAF5F3" />
+
+        <ImageButton
+            android:id="@+id/btnGo"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="সার্চ শুরু করুন"
+            android:src="@android:drawable/ic_menu_search"
+            android:tint="#FFB84A" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:textColor="#A4BCC0"
+        android:accessibilityLiveRegion="polite" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:contentDescription="সার্চ ফলাফল" />
+
+</LinearLayout>
