@@ -64,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
     private View customView;
     private WebChromeClient.CustomViewCallback customCallback;
     private MediaSession mediaSession;
+    private RadioPlayer radio;
+    private String radioTitle = "";
     private String[] pendingDownload; // url, title, wifiOnly("1"/"0")
     private final ExecutorService pool = Executors.newFixedThreadPool(4);
 
@@ -129,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         current = this;
+        radio = new RadioPlayer(this, this::onRadioState);
         setupMediaSession();
         webView.loadUrl("file:///android_asset/index.html");
     }
@@ -201,6 +204,35 @@ public class MainActivity extends AppCompatActivity {
         protected void onWindowVisibilityChanged(int visibility) {
             super.onWindowVisibilityChanged(bgPlay ? View.VISIBLE : visibility);
         }
+    }
+
+    /** radio state -> page + notification / lock-screen controls */
+    private void onRadioState(String state) {
+        runOnUiThread(() -> {
+            final String js = "window.__radioState && window.__radioState(" + JSONObject.quote(state) + ")";
+            if (webView != null) webView.evaluateJavascript(js, null);
+            switch (state) {
+                case "playing":
+                    applyPlaybackState(true, radioTitle);
+                    updateService(true, radioTitle);
+                    if (Build.VERSION.SDK_INT >= 33 && bgPlay
+                            && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY);
+                    }
+                    break;
+                case "paused":
+                case "error":
+                    applyPlaybackState(false, radioTitle);
+                    updateService(false, radioTitle);
+                    break;
+                case "stopped":
+                    applyPlaybackState(false, radioTitle);
+                    try { stopService(new Intent(this, PlaybackService.class)); } catch (Throwable ignored) {}
+                    break;
+                default:
+                    break;
+            }
+        });
     }
 
     private void updateService(boolean playing, String title) {
@@ -462,6 +494,32 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        /** urlsJson = ["main link", "backup link", ...] */
+        @JavascriptInterface
+        public void radioPlay(String urlsJson, String title) {
+            runOnUiThread(() -> {
+                try {
+                    org.json.JSONArray a = new org.json.JSONArray(urlsJson);
+                    String[] u = new String[a.length()];
+                    for (int i = 0; i < u.length; i++) u[i] = a.getString(i);
+                    radioTitle = title == null ? "" : title;
+                    radio.play(u);
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                    onRadioState("error");
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void radioPause() { runOnUiThread(() -> radio.pause()); }
+
+        @JavascriptInterface
+        public void radioResume() { runOnUiThread(() -> radio.resume()); }
+
+        @JavascriptInterface
+        public void radioStop() { runOnUiThread(() -> radio.stop()); }
+
         /** true = keep playing when the screen is off or the app is in the background */
         @JavascriptInterface
         public void setBackground(boolean on) {
@@ -491,6 +549,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         pool.shutdownNow();
         current = null;
+        try { if (radio != null) radio.stop(); } catch (Throwable ignored) {}
         try { stopService(new Intent(this, PlaybackService.class)); } catch (Throwable ignored) {}
         PlaybackService.sessionToken = null;
         if (mediaSession != null) {
