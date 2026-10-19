@@ -27,7 +27,8 @@
   html[data-contrast="high"][data-theme="dark"] { --bg:#000; --bg2:#0b1418; --bg3:#17262c; --line:#8fb3bd; --text:#fff; --muted:#e0eef0; }
   html[data-contrast="high"][data-theme="light"] { --bg:#fff; --bg2:#eef5f4; --bg3:#d9e8e6; --line:#4a6f72; --text:#000; --muted:#13333a; }
 
-  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .vcard, .ccard { content-visibility:auto; contain-intrinsic-size:auto 14rem; }
   html { font-size:calc(16px * var(--fs)); }
   html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
     font-family:"Noto Sans Bengali", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -145,6 +146,29 @@
   .tbtn { width:3.4rem; height:3.4rem; border:0; border-radius:50%; background:var(--bg2); display:flex; align-items:center; justify-content:center; }
   .tbtn:active { background:var(--bg3); }
   .tbtn.main { width:4rem; height:4rem; background:var(--accent); color:var(--on-accent); }
+  .rp { min-height:100vh; flex-direction:column; justify-content:center; gap:1rem; padding:1.5rem 1.25rem; }
+  #radioPlayer.active { display:flex; }
+  .rpname { font-size:1.7rem; font-weight:800; text-align:center; line-height:1.5; }
+  .rpstat { text-align:center; color:var(--muted); font-size:1rem; margin:0 0 .5rem; min-height:1.5rem; }
+  .rbtn { min-height:5.5rem; border:0; border-radius:1.5rem; background:var(--bg2); font-size:1.35rem; font-weight:800; display:flex; align-items:center; justify-content:center; gap:.9rem; width:100%; }
+  .rbtn:active { filter:brightness(1.2); }
+  .rbtn.main { background:var(--accent); color:var(--on-accent); }
+  .rbtn .i { width:2rem; height:2rem; }
+  .rgroup { font-size:.95rem; color:var(--accent-text); margin:1rem 1rem .2rem; }
+  .rnow { margin:.25rem 1rem .5rem; padding:.2rem 0; border:1px solid var(--accent); border-radius:1rem; background:var(--bg2); }
+  .rcustom { display:flex; align-items:center; }
+  .rcustom .row { flex:1; }
+  .rform { margin:.5rem 1rem 1.5rem; display:flex; flex-direction:column; gap:.5rem; }
+  .rform input { height:2.9rem; border:1px solid var(--line); border-radius:.8rem; background:var(--bg2); color:var(--text); padding:0 1rem; }
+  .chacts { display:flex; gap:.6rem; flex-wrap:wrap; padding:0 1rem .5rem; }
+  .chhead { display:flex; gap:1rem; align-items:center; padding:.75rem 1rem .25rem; }
+  .chav { width:5rem; height:5rem; border-radius:50%; flex:none; background:var(--bg3) center/cover no-repeat; display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:800; color:#fff; }
+  .chname { font-size:1.45rem; font-weight:800; line-height:1.35; }
+  .chmeta { color:var(--muted); font-size:.88rem; }
+  .chtabs { display:flex; overflow-x:auto; border-bottom:1px solid var(--line); margin:.75rem 0 0; scrollbar-width:none; }
+  .chtabs::-webkit-scrollbar { display:none; }
+  .chtab { flex:none; min-height:3rem; padding:0 1.1rem; border:0; border-bottom:3px solid transparent; background:transparent; font-weight:600; color:var(--muted); font-size:1rem; }
+  .chtab[aria-selected="true"] { color:var(--text); border-bottom-color:var(--text); font-weight:800; }
   .seekrow { padding:.25rem 1.25rem .25rem; }
   .prog { height:.35rem; border-radius:.2rem; background:var(--bg3); overflow:hidden; margin-top:.25rem; }
   .prog i { display:block; height:100%; width:0; background:var(--accent); }
@@ -265,7 +289,7 @@
   <h2 class="sr" id="homeH" tabindex="-1">হোম</h2>
   <div id="welcome"></div>
   <div class="chips" id="chips" role="group" aria-label="ক্যাটাগরি"></div>
-  <div id="feed" aria-live="polite"></div>
+  <div id="feed"></div>
 </main>
 
 <!-- ============ SEARCH ============ -->
@@ -278,7 +302,7 @@
     <button type="button" class="ibtn" aria-label="ভয়েস সার্চ" onclick="voiceSearch()"><span class="i" data-i="mic"></span></button>
   </form>
   <div id="recent"></div>
-  <div id="sresults" aria-live="polite"></div>
+  <div id="sresults"></div>
 </section>
 
 <!-- ============ SUBSCRIPTIONS ============ -->
@@ -305,6 +329,30 @@
     <button type="button" class="btn" onclick="clearList()">খালি করুন</button>
   </div>
   <div id="listBody"></div>
+</section>
+
+<!-- ============ RADIO ============ -->
+<section id="radio" class="screen" aria-label="রেডিও">
+  <h2 class="title" id="radioH" tabindex="-1">রেডিও</h2>
+  <div id="radioBody"></div>
+</section>
+
+<!-- ============ RADIO PLAYER (only 3 buttons) ============ -->
+<section id="radioPlayer" class="screen rp" aria-label="রেডিও প্লেয়ার">
+  <h1 class="rpname" id="rpName" tabindex="-1">রেডিও</h1>
+  <p class="rpstat" id="rpStat"></p>
+  <button type="button" class="rbtn main" id="rpPlay"><span class="i fill" id="rpPlayIc"></span><span id="rpPlayLb">চালান</span></button>
+  <button type="button" class="rbtn" id="rpPrev"><span class="i fill" data-i="prev"></span>আগের স্টেশন</button>
+  <button type="button" class="rbtn" id="rpNext"><span class="i fill" data-i="next"></span>পরের স্টেশন</button>
+</section>
+
+<!-- ============ CHANNEL ============ -->
+<section id="channel" class="screen" aria-label="চ্যানেল">
+  <div class="subbar">
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()"><span class="i" data-i="back"></span></button>
+    <h2 id="chH" tabindex="-1">চ্যানেল</h2>
+  </div>
+  <div id="chBody"></div>
 </section>
 
 <!-- ============ PLAYER ============ -->
@@ -344,6 +392,9 @@
   <div class="chrow">
     <div class="vav" id="pAv" aria-hidden="true"></div>
     <div class="info"><strong id="pChannel">চ্যানেল</strong><span>ইউটিউব চ্যানেল</span></div>
+  </div>
+  <div class="chacts">
+    <button type="button" class="btn" id="bChan" onclick="openChannelFromVideo()"><span class="i" data-i="user"></span>চ্যানেল দেখুন</button>
     <button type="button" class="subbtn" id="bSub" aria-pressed="false" onclick="toggleSub()">সাবস্ক্রাইব</button>
   </div>
 
@@ -354,12 +405,13 @@
     <button type="button" class="aibtn" onclick="runAI('sum')"><span class="i" data-i="list"></span><span><b>সারাংশ</b><small>মূল কথাগুলো ছোট ছোট পয়েন্টে</small></span></button>
     <button type="button" class="aibtn" onclick="runAI('fact')"><span class="i" data-i="alert"></span><span><b>ক্লিকবেইট পরীক্ষা</b><small>শিরোনাম কতটা বিশ্বাসযোগ্য, স্কোর সহ</small></span></button>
     <button type="button" class="aibtn" onclick="runAI('tr')"><span class="i" data-i="translate"></span><span><b>অনুবাদ</b><small id="trSub">শিরোনাম, বিবরণ ও সাবটাইটেল বাংলায়</small></span></button>
-    <button type="button" class="aibtn" onclick="runAI('scene')"><span class="i" data-i="eye"></span><span><b>দৃশ্যের বর্ণনা</b><small>Gemini ভিডিও দেখে বলে কী ঘটছে, কে আছে, পর্দায় কী লেখা</small></span></button>
+    <button type="button" class="aibtn" onclick="runAI('scene')"><span class="i" data-i="eye"></span><span><b>দৃশ্যের বর্ণনা</b><small>এখন যেখানে আছেন সেখান থেকে পরের কয়েক মিনিট (AI সেটিংসে ঠিক করা): কী ঘটছে, কে আছে, পর্দায় কী লেখা</small></span></button>
     <form class="askrow" action="javascript:void(0)" onsubmit="event.preventDefault();runAI('ask');return false">
       <input type="text" id="aiQ" placeholder="এই ভিডিও নিয়ে প্রশ্ন করুন" aria-label="AI-কে প্রশ্ন লিখুন" enterkeyhint="send" autocomplete="off" />
       <button type="submit" class="btn primary">পাঠান</button>
     </form>
     <div class="aiout" id="aiOut" aria-live="polite"></div>
+    <button type="button" class="aibtn" onclick="go('aiSettings')"><span class="i" data-i="sliders"></span><span><b>AI সেটিংস</b><small>API key, মডেল, দৃশ্য বর্ণনার সময়</small></span></button>
     <p class="aifoot">AI ভুল করতে পারে। ভিডিও না দেখলে সে শুধু শিরোনাম, বিবরণ ও সাবটাইটেল থেকে বলে।</p>
   </section>
 
@@ -375,7 +427,93 @@
   </div>
 
   <div class="group">
-    <h2>AI — আপনার নিজের API key</h2>
+    <h2>AI</h2>
+    <button type="button" class="sbtn" onclick="go('aiSettings')"><span class="i" data-i="sparkle"></span><span>AI সেটিংস<small style="display:block;color:var(--muted);font-weight:400">API key, মডেল, কোন কাজ কোন AI করবে, দৃশ্য বর্ণনার সময়</small></span></button>
+  </div>
+
+  <div class="group">
+    <h2>ভিডিওর সোর্স</h2>
+    <div class="srow"><div class="lb"><strong>প্রথমে কোনটা চেষ্টা হবে</strong></div>
+      <select id="primary" class="sv" aria-label="প্রথম সোর্স"><option value="newpipe">NewPipe</option><option value="piped">Piped</option><option value="invidious">Invidious</option></select></div>
+    <div class="srow"><div class="lb"><strong>ব্যর্থ হলে অন্যটা চেষ্টা করুক</strong><small>বন্ধ করলে শুধু প্রথম সোর্সই ব্যবহার হবে</small></div>
+      <label class="switch"><input type="checkbox" id="fallback" class="sv" aria-label="স্বয়ংক্রিয় ফলব্যাক" /><span class="sl"></span></label></div>
+  </div>
+
+  <div class="group">
+    <h2>প্লেব্যাক</h2>
+    <div class="srow"><div class="lb"><strong>ভিডিওর মান</strong><small>অটো মানে ৭২০p পর্যন্ত। ডেটা বাঁচাতে কম মান বেছে নিন।</small></div>
+      <select id="quality" class="sv" aria-label="ভিডিওর মান"><option value="auto">অটো</option><option value="max">সর্বোচ্চ</option><option value="720">৭২০p</option><option value="360">৩৬০p</option><option value="low">সর্বনিম্ন</option></select></div>
+    <div class="srow"><div class="lb"><strong>ব্যাকগ্রাউন্ডে চালান</strong><small>স্ক্রিন বন্ধ করলে বা অন্য অ্যাপে গেলেও চলতে থাকবে। নোটিফিকেশনে থামানো-চালানোর বোতাম থাকবে। ব্যাটারি সেভার চালু থাকলে কাজ নাও করতে পারে।</small></div>
+      <label class="switch"><input type="checkbox" id="bgPlay" class="sv" aria-label="ব্যাকগ্রাউন্ডে চালান" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>বাজার সময় ঘোষণা কমান</strong><small>গান বা ভিডিও চলার সময় ছোটখাটো বার্তা (যেমন "পছন্দ করা হয়েছে") টকব্যাক পড়বে না। ত্রুটি ও ডাউনলোডের বার্তা আসবে।</small></div>
+      <label class="switch"><input type="checkbox" id="quietPlay" class="sv" aria-label="বাজার সময় ঘোষণা কমান" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>শুধু অডিও মোড</strong><small>ছবি ছাড়া শুধু শব্দ, ডেটা কম লাগে</small></div>
+      <label class="switch"><input type="checkbox" id="audioOnly" class="sv" aria-label="শুধু অডিও মোড" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>আগের জায়গা থেকে চালু</strong><small>আগে যতদূর দেখেছেন, সেখান থেকে শুরু হবে</small></div>
+      <label class="switch"><input type="checkbox" id="resume" class="sv" aria-label="আগের জায়গা থেকে চালু" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>শেষ হলে পরেরটা চালান</strong></div>
+      <label class="switch"><input type="checkbox" id="autoplay" class="sv" aria-label="অটোপ্লে" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>এগিয়ে / পিছিয়ে (তালিকা)</strong><small>২ মিনিট পর্যন্ত। আরও বেশি চাইলে নিচের স্লাইডার ব্যবহার করুন।</small></div>
+      <select id="skipSel" aria-label="এগিয়ে পিছিয়ে যাওয়ার সময়"></select></div>
+    <div class="srow col"><div class="lb"><strong>এগিয়ে / পিছিয়ে (স্লাইডার)</strong><small>৫ সেকেন্ড থেকে ১০ মিনিট। এখন: <span id="skipVal"></span></small></div>
+      <input type="range" id="skip" class="sv" min="5" max="600" step="5" value="10" aria-label="এগিয়ে পিছিয়ে যাওয়ার সময়, সেকেন্ডে" style="width:100%;min-height:2.75rem;accent-color:var(--accent)" /></div>
+    <div class="srow"><div class="lb"><strong>গতি</strong></div>
+      <select id="speed" class="sv" aria-label="প্লেব্যাক গতি"><option value="0.75">০.৭৫×</option><option value="1">১×</option><option value="1.25">১.২৫×</option><option value="1.5">১.৫×</option><option value="2">২×</option></select></div>
+  </div>
+
+  <div class="group">
+    <h2>সার্চ ও ভয়েস</h2>
+    <div class="srow"><div class="lb"><strong>ভয়েস সার্চের ভাষা</strong><small>ফোনে Google ভয়েস টাইপিং চালু থাকতে হবে</small></div>
+      <select id="voiceLang" class="sv" aria-label="ভয়েস সার্চের ভাষা"><option value="bn-IN">বাংলা (ভারত)</option><option value="bn-BD">বাংলা (বাংলাদেশ)</option><option value="en-IN">English (India)</option><option value="hi-IN">हिन्दी</option></select></div>
+  </div>
+
+  <div class="group">
+    <h2>ডাউনলোড</h2>
+    <p class="note">অডিও M4A ফাইল হয়ে ফোনের Music ফোল্ডারের AISmartTube-এর ভেতরে সেভ হয়। ডাউনলোডের সময় নোটিফিকেশনে শতাংশ দেখা যায়, শেষে "ডাউনলোড সম্পূর্ণ" আসে। নোটিফিকেশনের অনুমতি দিতে হবে।</p>
+    <div class="srow"><div class="lb"><strong>শুধু ওয়াইফাইয়ে ডাউনলোড</strong><small>বন্ধ থাকলে মোবাইল ডেটাতেও ডাউনলোড হবে (এখন এটাই ডিফল্ট)। চালু করলে ওয়াইফাই না এলে অপেক্ষা করবে।</small></div>
+      <label class="switch"><input type="checkbox" id="wifiOnly" class="sv" aria-label="শুধু ওয়াইফাইয়ে ডাউনলোড" /><span class="sl"></span></label></div>
+  </div>
+
+  <div class="group">
+    <h2>অ্যাক্সেসিবিলিটি</h2>
+    <p class="note">টকব্যাকে দুই আঙুলে ডবল-ট্যাপ করলে ভিডিও চলবে বা থামবে। কাজ না করলে টকব্যাক সেটিংসে ওই অঙ্গভঙ্গির কাজ "মিডিয়া চালান বা থামান" আছে কিনা দেখুন।</p>
+    <div class="srow"><div class="lb"><strong>লেখার আকার</strong></div>
+      <select id="textSize" class="sv" aria-label="লেখার আকার"><option value="0.9">ছোট</option><option value="1">স্বাভাবিক</option><option value="1.15">বড়</option><option value="1.3">অনেক বড়</option></select></div>
+    <div class="srow"><div class="lb"><strong>উচ্চ কনট্রাস্ট</strong><small>লেখা ও সীমারেখা আরও স্পষ্ট</small></div>
+      <label class="switch"><input type="checkbox" id="contrast" class="sv" aria-label="উচ্চ কনট্রাস্ট" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>কম অ্যানিমেশন</strong></div>
+      <label class="switch"><input type="checkbox" id="reduceMotion" class="sv" aria-label="কম অ্যানিমেশন" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>পাতা বদলালে শিরোনামে ফোকাস</strong><small>টকব্যাক নতুন পাতার শিরোনাম থেকে পড়া শুরু করবে</small></div>
+      <label class="switch"><input type="checkbox" id="focusHeading" class="sv" aria-label="পাতা বদলালে শিরোনামে ফোকাস" /><span class="sl"></span></label></div>
+  </div>
+
+  <div class="group">
+    <h2>থিম</h2>
+    <div class="srow"><div class="lb"><strong>রঙের থিম</strong></div>
+      <select id="theme" class="sv" aria-label="থিম"><option value="auto">ফোনের মতো</option><option value="dark">গাঢ়</option><option value="light">হালকা</option></select></div>
+  </div>
+
+  <div class="group">
+    <h2>গোপনীয়তা ও ডেটা</h2>
+    <div class="srow"><div class="lb"><strong>দেখার ইতিহাস রাখুন</strong></div>
+      <label class="switch"><input type="checkbox" id="keepHistory" class="sv" aria-label="দেখার ইতিহাস রাখুন" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>সার্চের ইতিহাস রাখুন</strong></div>
+      <label class="switch"><input type="checkbox" id="keepSearch" class="sv" aria-label="সার্চের ইতিহাস রাখুন" /><span class="sl"></span></label></div>
+    <button type="button" class="sbtn" onclick="go('privacy')"><span class="i" data-i="shield"></span>কোন তথ্য কোথায় যায়, পড়ুন</button>
+    <button type="button" class="sbtn danger" onclick="clearData('history')"><span class="i" data-i="trash"></span>দেখার ইতিহাস মুছুন</button>
+    <button type="button" class="sbtn danger" onclick="clearData('recent')"><span class="i" data-i="trash"></span>সার্চের ইতিহাস মুছুন</button>
+    <button type="button" class="sbtn danger" onclick="clearData('all')"><span class="i" data-i="trash"></span>সব ডেটা ও API key মুছুন</button>
+  </div>
+</section>
+
+<!-- ============ AI SETTINGS ============ -->
+<section id="aiSettings" class="screen" aria-label="AI সেটিংস">
+  <div class="subbar">
+    <button type="button" class="ibtn" aria-label="পিছনে" onclick="back()"><span class="i" data-i="back"></span></button>
+    <h2 id="aiSetH" tabindex="-1">AI সেটিংস</h2>
+  </div>
+  <div class="group">
+    <h2>API key ও মডেল</h2>
     <p class="note">Key শুধু এই ফোনে সেভ থাকে এবং আপনার বেছে নেওয়া AI সার্ভিসকেই পাঠানো হয়।</p>
     <div class="srow col">
       <div class="lb"><strong>Gemini API key</strong><small>Google AI Studio থেকে নেওয়া</small></div>
@@ -421,83 +559,12 @@
       <label class="switch"><input type="checkbox" id="aiWatch" class="sv" aria-label="Gemini সরাসরি ভিডিও দেখুক" /><span class="sl"></span></label></div>
     <div class="srow"><div class="lb"><strong>সাবটাইটেল পড়ে AI-কে দিন</strong><small>Grok বা অন্য AI ভিডিও দেখতে পায় না, তাই ভিডিওতে সাবটাইটেল থাকলে সেটা পাঠানো হয়।</small></div>
       <label class="switch"><input type="checkbox" id="useTranscript" class="sv" aria-label="সাবটাইটেল পড়ে AI-কে দিন" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>দৃশ্য বর্ণনা: কতটা অংশ</strong><small>যেখানে বোতাম চাপবেন সেখান থেকে এতক্ষণের বর্ণনা হবে। ছোট অংশ মানে Gemini-র ফ্রি সীমা কম খরচ হয়।</small></div>
+      <select id="sceneLen" class="sv" aria-label="দৃশ্য বর্ণনার সময়"><option value="1">১ মিনিট</option><option value="2">২ মিনিট</option><option value="5">৫ মিনিট</option><option value="10">১০ মিনিট</option></select></div>
     <div class="srow"><div class="lb"><strong>উত্তর নিজে থেকে জোরে পড়ুক</strong><small>টকব্যাক চালু থাকলে বন্ধ রাখুন, নইলে দুইবার পড়বে</small></div>
       <label class="switch"><input type="checkbox" id="aiSpeak" class="sv" aria-label="উত্তর জোরে পড়ুক" /><span class="sl"></span></label></div>
   </div>
 
-  <div class="group">
-    <h2>ভিডিওর সোর্স</h2>
-    <div class="srow"><div class="lb"><strong>প্রথমে কোনটা চেষ্টা হবে</strong></div>
-      <select id="primary" class="sv" aria-label="প্রথম সোর্স"><option value="newpipe">NewPipe</option><option value="piped">Piped</option><option value="invidious">Invidious</option></select></div>
-    <div class="srow"><div class="lb"><strong>ব্যর্থ হলে অন্যটা চেষ্টা করুক</strong><small>বন্ধ করলে শুধু প্রথম সোর্সই ব্যবহার হবে</small></div>
-      <label class="switch"><input type="checkbox" id="fallback" class="sv" aria-label="স্বয়ংক্রিয় ফলব্যাক" /><span class="sl"></span></label></div>
-  </div>
-
-  <div class="group">
-    <h2>প্লেব্যাক</h2>
-    <div class="srow"><div class="lb"><strong>ভিডিওর মান</strong><small>অটো মানে ৭২০p পর্যন্ত। ডেটা বাঁচাতে কম মান বেছে নিন।</small></div>
-      <select id="quality" class="sv" aria-label="ভিডিওর মান"><option value="auto">অটো</option><option value="max">সর্বোচ্চ</option><option value="720">৭২০p</option><option value="360">৩৬০p</option><option value="low">সর্বনিম্ন</option></select></div>
-    <div class="srow"><div class="lb"><strong>ব্যাকগ্রাউন্ডে চালান</strong><small>স্ক্রিন বন্ধ করলে বা অন্য অ্যাপে গেলেও চলতে থাকবে। নোটিফিকেশনে থামানো-চালানোর বোতাম থাকবে। ব্যাটারি সেভার চালু থাকলে কাজ নাও করতে পারে।</small></div>
-      <label class="switch"><input type="checkbox" id="bgPlay" class="sv" aria-label="ব্যাকগ্রাউন্ডে চালান" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>বাজার সময় ঘোষণা কমান</strong><small>গান বা ভিডিও চলার সময় ছোটখাটো বার্তা (যেমন "পছন্দ করা হয়েছে") টকব্যাক পড়বে না। ত্রুটি ও ডাউনলোডের বার্তা আসবে।</small></div>
-      <label class="switch"><input type="checkbox" id="quietPlay" class="sv" aria-label="বাজার সময় ঘোষণা কমান" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>শুধু অডিও মোড</strong><small>ছবি ছাড়া শুধু শব্দ, ডেটা কম লাগে</small></div>
-      <label class="switch"><input type="checkbox" id="audioOnly" class="sv" aria-label="শুধু অডিও মোড" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>আগের জায়গা থেকে চালু</strong><small>আগে যতদূর দেখেছেন, সেখান থেকে শুরু হবে</small></div>
-      <label class="switch"><input type="checkbox" id="resume" class="sv" aria-label="আগের জায়গা থেকে চালু" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>শেষ হলে পরেরটা চালান</strong></div>
-      <label class="switch"><input type="checkbox" id="autoplay" class="sv" aria-label="অটোপ্লে" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>এগিয়ে / পিছিয়ে (তালিকা)</strong><small>২ মিনিট পর্যন্ত। আরও বেশি চাইলে নিচের স্লাইডার ব্যবহার করুন।</small></div>
-      <select id="skipSel" aria-label="এগিয়ে পিছিয়ে যাওয়ার সময়"></select></div>
-    <div class="srow col"><div class="lb"><strong>এগিয়ে / পিছিয়ে (স্লাইডার)</strong><small>৫ সেকেন্ড থেকে ১০ মিনিট। এখন: <span id="skipVal"></span></small></div>
-      <input type="range" id="skip" class="sv" min="5" max="600" step="5" value="10" aria-label="এগিয়ে পিছিয়ে যাওয়ার সময়, সেকেন্ডে" style="width:100%;min-height:2.75rem;accent-color:var(--accent)" /></div>
-    <div class="srow"><div class="lb"><strong>গতি</strong></div>
-      <select id="speed" class="sv" aria-label="প্লেব্যাক গতি"><option value="0.75">০.৭৫×</option><option value="1">১×</option><option value="1.25">১.২৫×</option><option value="1.5">১.৫×</option><option value="2">২×</option></select></div>
-  </div>
-
-  <div class="group">
-    <h2>সার্চ ও ভয়েস</h2>
-    <div class="srow"><div class="lb"><strong>ভয়েস সার্চের ভাষা</strong><small>ফোনে Google ভয়েস টাইপিং চালু থাকতে হবে</small></div>
-      <select id="voiceLang" class="sv" aria-label="ভয়েস সার্চের ভাষা"><option value="bn-IN">বাংলা (ভারত)</option><option value="bn-BD">বাংলা (বাংলাদেশ)</option><option value="en-IN">English (India)</option><option value="hi-IN">हिन्दी</option></select></div>
-  </div>
-
-  <div class="group">
-    <h2>ডাউনলোড</h2>
-    <p class="note">অডিও M4A ফাইল হয়ে ফোনের Music ফোল্ডারের AISmartTube-এর ভেতরে সেভ হয়।</p>
-    <div class="srow"><div class="lb"><strong>শুধু ওয়াইফাইয়ে ডাউনলোড</strong><small>মোবাইল ডেটায় ডাউনলোড শুরু হবে না, ওয়াইফাই এলে হবে</small></div>
-      <label class="switch"><input type="checkbox" id="wifiOnly" class="sv" aria-label="শুধু ওয়াইফাইয়ে ডাউনলোড" /><span class="sl"></span></label></div>
-  </div>
-
-  <div class="group">
-    <h2>অ্যাক্সেসিবিলিটি</h2>
-    <p class="note">টকব্যাকে দুই আঙুলে ডবল-ট্যাপ করলে ভিডিও চলবে বা থামবে। কাজ না করলে টকব্যাক সেটিংসে ওই অঙ্গভঙ্গির কাজ "মিডিয়া চালান বা থামান" আছে কিনা দেখুন।</p>
-    <div class="srow"><div class="lb"><strong>লেখার আকার</strong></div>
-      <select id="textSize" class="sv" aria-label="লেখার আকার"><option value="0.9">ছোট</option><option value="1">স্বাভাবিক</option><option value="1.15">বড়</option><option value="1.3">অনেক বড়</option></select></div>
-    <div class="srow"><div class="lb"><strong>উচ্চ কনট্রাস্ট</strong><small>লেখা ও সীমারেখা আরও স্পষ্ট</small></div>
-      <label class="switch"><input type="checkbox" id="contrast" class="sv" aria-label="উচ্চ কনট্রাস্ট" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>কম অ্যানিমেশন</strong></div>
-      <label class="switch"><input type="checkbox" id="reduceMotion" class="sv" aria-label="কম অ্যানিমেশন" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>পাতা বদলালে শিরোনামে ফোকাস</strong><small>টকব্যাক নতুন পাতার শিরোনাম থেকে পড়া শুরু করবে</small></div>
-      <label class="switch"><input type="checkbox" id="focusHeading" class="sv" aria-label="পাতা বদলালে শিরোনামে ফোকাস" /><span class="sl"></span></label></div>
-  </div>
-
-  <div class="group">
-    <h2>থিম</h2>
-    <div class="srow"><div class="lb"><strong>রঙের থিম</strong></div>
-      <select id="theme" class="sv" aria-label="থিম"><option value="auto">ফোনের মতো</option><option value="dark">গাঢ়</option><option value="light">হালকা</option></select></div>
-  </div>
-
-  <div class="group">
-    <h2>গোপনীয়তা ও ডেটা</h2>
-    <div class="srow"><div class="lb"><strong>দেখার ইতিহাস রাখুন</strong></div>
-      <label class="switch"><input type="checkbox" id="keepHistory" class="sv" aria-label="দেখার ইতিহাস রাখুন" /><span class="sl"></span></label></div>
-    <div class="srow"><div class="lb"><strong>সার্চের ইতিহাস রাখুন</strong></div>
-      <label class="switch"><input type="checkbox" id="keepSearch" class="sv" aria-label="সার্চের ইতিহাস রাখুন" /><span class="sl"></span></label></div>
-    <button type="button" class="sbtn" onclick="go('privacy')"><span class="i" data-i="shield"></span>কোন তথ্য কোথায় যায়, পড়ুন</button>
-    <button type="button" class="sbtn danger" onclick="clearData('history')"><span class="i" data-i="trash"></span>দেখার ইতিহাস মুছুন</button>
-    <button type="button" class="sbtn danger" onclick="clearData('recent')"><span class="i" data-i="trash"></span>সার্চের ইতিহাস মুছুন</button>
-    <button type="button" class="sbtn danger" onclick="clearData('all')"><span class="i" data-i="trash"></span>সব ডেটা ও API key মুছুন</button>
-  </div>
 </section>
 
 <!-- ============ PRIVACY ============ -->
@@ -535,6 +602,7 @@
 <nav class="tabs" id="tabs" aria-label="মূল নেভিগেশন">
   <button type="button" class="tab" id="tab-home" onclick="go('home')"><span class="i" data-i="home"></span>হোম</button>
   <button type="button" class="tab" id="tab-subs" onclick="go('subs')"><span class="i" data-i="subs"></span>সাবস্ক্রিপশন</button>
+  <button type="button" class="tab" id="tab-radio" onclick="go('radio')"><span class="i" data-i="radio"></span>রেডিও</button>
   <button type="button" class="tab" id="tab-you" onclick="go('you')"><span class="i" data-i="user"></span>আপনি</button>
 </nav>
 
@@ -628,6 +696,7 @@ const ICONS = {
   alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  radio: '<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 000 7M15.5 8.5a5 5 0 010 7M5.5 5.5a9 9 0 000 13M18.5 5.5a9 9 0 010 13"/>',
   speak: '<path d="M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 010 7"/>'
 };
 function ic(name) { return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (ICONS[name] || '') + '</svg>'; }
@@ -666,7 +735,7 @@ const SET_DEFAULTS = {
   aiLang: 'বাংলা', sumLen: '5', aiWatch: true, useTranscript: true, aiSpeak: false,
   primary: 'newpipe', fallback: true,
   bgPlay: true, quietPlay: true, quality: 'auto', audioOnly: false, resume: true, autoplay: true, skip: '10', speed: '1',
-  voiceLang: 'bn-IN', wifiOnly: true,
+  voiceLang: 'bn-IN', wifiOnly: false, sceneLen: '5',
   textSize: '1', contrast: false, reduceMotion: false, focusHeading: true,
   theme: 'auto', keepHistory: true, keepSearch: true
 };
@@ -694,6 +763,9 @@ function saveSettings() {
   document.querySelectorAll('.sv').forEach(e => { o[e.id] = (e.type === 'checkbox') ? e.checked : e.value; });
   LS.set('settings', o);
   applySettings();
+}
+function migrateSettings() {
+  try { if ((LS.get('setver', 0) || 0) < 2) { const o = LS.get('settings', {}); o.wifiOnly = false; LS.set('settings', o); LS.set('setver', 2); } } catch (e) {}
 }
 function loadSettings() {
   document.querySelectorAll('.sv').forEach(e => {
@@ -736,8 +808,8 @@ function askConfirm(title, msg, okText) {
 /* =====================================================================
    navigation
    ===================================================================== */
-const TABS = ['home', 'subs', 'you'];
-const FOCUS_ID = { home: 'homeH', search: 'qInput', subs: 'subsH', you: 'youH', list: 'listTitle', player: 'pTitle', settings: 'setH', privacy: 'privH' };
+const TABS = ['home', 'subs', 'radio', 'you'];
+const FOCUS_ID = { home: 'homeH', search: 'qInput', subs: 'subsH', you: 'youH', list: 'listTitle', player: 'pTitle', radio: 'radioH', radioPlayer: 'rpName', settings: 'setH', aiSettings: 'aiSetH', channel: 'chH', privacy: 'privH' };
 let stack = ['home'];
 function show(name, noFocus) {
   Object.keys(FOCUS_ID).forEach(id => $(id).classList.toggle('active', id === name));
@@ -747,6 +819,8 @@ function show(name, noFocus) {
   $('tabs').style.display = bars ? 'flex' : 'none';
   window.scrollTo(0, 0);
   if (name === 'subs') renderSubs();
+  if (name === 'radio') renderRadio();
+  if (name === 'radioPlayer') paintRadio();
   if (name === 'you') refreshYou();
   if (name === 'search') renderRecent();
   if (!noFocus && getSet('focusHeading') && name !== 'search') {
@@ -786,6 +860,7 @@ function makeCard(it, idx, list) {
   /* the whole card (picture + text) is ONE labelled button, so touching anywhere on it is announced */
   const main = el('div', 'vmain'); main.setAttribute('role', 'button'); main.tabIndex = 0; main.setAttribute('aria-label', labelFor(it));
   main.onclick = open; main.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+  ['touchstart', 'pointerover', 'focus'].forEach(ev => main.addEventListener(ev, () => prefetchStreams(it.url), { passive: true }));
   const th = el('div', 'vthumb'); setThumb(th, it.thumb);
   if (it.duration) th.appendChild(el('span', 'vdur', fmtDur(it.duration)));
   const info = el('div', 'vinfo');
@@ -797,6 +872,7 @@ function makeCompact(it, idx, list) {
   const c = el('article', 'ccard'); const open = () => openVideo(it, idx, list);
   const main = el('div', 'cmain'); main.setAttribute('role', 'button'); main.tabIndex = 0; main.setAttribute('aria-label', labelFor(it));
   main.onclick = open; main.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+  ['touchstart', 'pointerover', 'focus'].forEach(ev => main.addEventListener(ev, () => prefetchStreams(it.url), { passive: true }));
   const th = el('div', 'cthumb'); setThumb(th, it.thumb);
   if (it.duration) th.appendChild(el('span', 'vdur', fmtDur(it.duration)));
   const tx = el('div', 'vtext'); tx.appendChild(el('div', 'vtitle', it.title || 'ভিডিও')); tx.appendChild(el('div', 'vmeta', metaText(it)));
@@ -816,8 +892,8 @@ function skeletons(box, n) {
 /* =====================================================================
    home feed + welcome card
    ===================================================================== */
-const CHIPS = [['সব', 'বাংলা ট্রেন্ডিং ভিডিও'], ['সঙ্গীত', 'বাংলা গান'], ['লাইভ', 'বাংলা লাইভ'], ['গেমস', 'গেমিং বাংলা'], ['সংবাদ', 'বাংলা খবর'], ['শেখা', 'বাংলা টিউটোরিয়াল']];
-const feedCache = {}; let chipIdx = 0;
+const CHIPS = [['আপনার জন্য', ''], ['সঙ্গীত', 'বাংলা গান'], ['লাইভ', 'বাংলা লাইভ'], ['গেমস', 'গেমিং বাংলা'], ['সংবাদ', 'বাংলা খবর'], ['শেখা', 'বাংলা টিউটোরিয়াল']];
+const feedCache = {}; let chipIdx = 0, feedSeq = 0;
 function buildChips() {
   const box = $('chips'); box.textContent = '';
   CHIPS.forEach((c, i) => {
@@ -830,26 +906,58 @@ function buildWelcome() {
   if (LS.get('welcomed', false)) return;
   const c = el('section', 'welcome'); c.setAttribute('aria-labelledby', 'wlT');
   const h = el('h2', '', 'বিজ্ঞাপন নেই, অ্যাকাউন্ট লাগে না'); h.id = 'wlT';
-  const p = el('p', '', 'আপনার ইতিহাস ও সেটিংস শুধু এই ফোনে থাকে। AI চালু করতে সেটিংসে নিজের API key দিন।');
+  const p = el('p', '', 'আপনার ইতিহাস ও সেটিংস শুধু এই ফোনে থাকে। AI চালু করতে AI সেটিংসে নিজের API key দিন।');
   const row = el('div', 'btnrow');
   const a = el('button', 'btn primary', 'বুঝেছি'); a.type = 'button'; a.onclick = () => { LS.set('welcomed', true); buildWelcome(); };
   const b = el('button', 'btn', 'গোপনীয়তা পড়ুন'); b.type = 'button'; b.onclick = () => { LS.set('welcomed', true); buildWelcome(); go('privacy'); };
   row.append(a, b); c.append(h, p, row); box.appendChild(c);
 }
 function renderList(box, items) { box.textContent = ''; box.removeAttribute('aria-busy'); items.forEach((it, i) => box.appendChild(makeCard(it, i, items))); }
-function loadFeed() {
-  const box = $('feed'); const q = CHIPS[chipIdx][1];
+
+/* "আপনার জন্য": built from what you watched (channels you watched most recently) + a few popular Bengali topics */
+function homeQueries() {
+  const names = []; LS.get('history', []).forEach(h => { if (h.uploader && names.indexOf(h.uploader) < 0) names.push(h.uploader); });
+  const subs = LS.get('subs', []).slice(0, 2);
+  const q = []; subs.concat(names.slice(0, 2)).forEach(n => { if (q.indexOf(n) < 0) q.push(n); });
+  ['বাংলা জনপ্রিয় ভিডিও', 'বাংলা গান', 'বাংলা খবর'].forEach(n => { if (q.length < 4 && q.indexOf(n) < 0) q.push(n); });
+  return q.slice(0, 4);
+}
+function mergeFeeds(lists) {
+  const seen = {}, out = [], watched = {}; LS.get('history', []).forEach(h => { watched[h.url] = 1; });
+  const max = Math.max.apply(null, lists.map(l => l.length).concat([0]));
+  for (let i = 0; i < max; i++) lists.forEach(l => { const it = l[i]; if (it && it.url && !seen[it.url]) { seen[it.url] = 1; out.push(it); } });
+  const fresh = out.filter(x => !watched[x.url]); return (fresh.length >= 8 ? fresh : out).slice(0, 36);
+}
+function feedError(box, msg) {
+  box.textContent = ''; box.removeAttribute('aria-busy');
+  box.appendChild(el('p', 'hint', (msg || 'লোড হয়নি') + '\nইন্টারনেট ঠিক আছে কিনা দেখুন। সেটিংসে "ভিডিওর সোর্স" বদলে দেখতেও পারেন।'));
+  const r = el('button', 'btn primary', 'আবার চেষ্টা করুন'); r.type = 'button'; r.style.margin = '0 auto'; r.style.display = 'flex'; r.onclick = () => loadFeed(true); box.appendChild(r);
+}
+function loadFeed(force, retried) {
+  const box = $('feed'); const my = ++feedSeq; const chip = CHIPS[chipIdx]; const isHome = chipIdx === 0;
   if (!hasAndroid()) { hint(box, 'এই পাতা ব্রাউজারে খুলেছেন। আসল ভিডিও শুধু অ্যাপের ভেতরে আসবে।'); return; }
-  if (feedCache[q]) { renderList(box, feedCache[q]); return; }
-  skeletons(box, 3);
-  callNative('search', q).then(data => {
-    if (CHIPS[chipIdx][1] !== q) return;
-    box.removeAttribute('aria-busy');
-    if (!data.ok) { hint(box, (data.error || 'লোড হয়নি') + '। সেটিংসে সোর্স বদলে দেখুন।'); return; }
-    feedCache[q] = data.items || [];
-    if (!feedCache[q].length) { hint(box, 'কিছু পাওয়া যায়নি'); return; }
-    renderList(box, feedCache[q]);
-  }).catch(e => { box.removeAttribute('aria-busy'); hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)); });
+  const key = isHome ? 'home' : chip[1];
+  const stored = isHome ? LS.get('feedHome', null) : null;
+  if (!force && feedCache[key] && feedCache[key].length) { renderList(box, feedCache[key]); return; }
+  let shown = false;
+  if (!force && stored && stored.items && stored.items.length) {            // show last time's videos at once, refresh behind
+    renderList(box, stored.items); shown = true; feedCache[key] = stored.items;
+    if (Date.now() - (stored.t || 0) < 20 * 60 * 1000) return;
+  }
+  if (!shown) skeletons(box, 3);
+  const queries = isHome ? homeQueries() : [chip[1]];
+  Promise.all(queries.map(q => callNative('search', q).then(d => (d && d.ok) ? (d.items || []) : { err: (d && d.error) || 'লোড হয়নি' }).catch(e => ({ err: e && e.message ? e.message : String(e) }))))
+    .then(res => {
+      if (my !== feedSeq) return;
+      const lists = res.filter(r => Array.isArray(r)); const errs = res.filter(r => !Array.isArray(r));
+      const items = isHome ? mergeFeeds(lists) : (lists[0] || []);
+      if (!items.length) {
+        if (!retried) { setTimeout(() => { if (my === feedSeq) loadFeed(true, true); }, 2500); if (!shown) skeletons(box, 3); return; }   // NewPipe may still be starting: one quiet retry
+        if (!shown) feedError(box, errs.length ? errs[0].err : 'কিছু পাওয়া যায়নি'); return;
+      }
+      feedCache[key] = items; if (isHome) LS.set('feedHome', { t: Date.now(), items: items.map(slim) });
+      renderList(box, items);
+    });
 }
 
 /* =====================================================================
@@ -895,7 +1003,7 @@ window.__voiceResult = function (text) {
 /* =====================================================================
    library: history / later / liked / subscriptions / resume positions
    ===================================================================== */
-function slim(it) { return { title: it.title, url: it.url, uploader: it.uploader, duration: it.duration, views: it.views, thumb: it.thumb }; }
+function slim(it) { return { title: it.title, url: it.url, uploader: it.uploader, uploaderUrl: it.uploaderUrl, duration: it.duration, views: it.views, thumb: it.thumb }; }
 function listHas(key, url) { return LS.get(key, []).some(x => x.url === url); }
 function listToggle(key, it) {
   let l = LS.get(key, []);
@@ -929,11 +1037,11 @@ function renderSubs() {
   if (!subs.length) { hint(box, 'কোনো চ্যানেল সাবস্ক্রাইব করা নেই। ভিডিও দেখার সময় "সাবস্ক্রাইব" চাপুন। এগুলো শুধু এই ফোনে থাকে, ইউটিউব অ্যাকাউন্টের সাথে যুক্ত নয়।'); return; }
   const row = el('div', 'avrow');
   subs.forEach(name => {
-    const b = el('button', 'avitem'); b.type = 'button'; b.setAttribute('aria-label', name + ' চ্যানেলের ভিডিও খুঁজুন');
+    const b = el('button', 'avitem'); b.type = 'button'; b.setAttribute('aria-label', name + ' চ্যানেল খুলুন');
     const av = el('div', 'vav', initial(name)); av.style.background = colorFor(name); av.setAttribute('aria-hidden', 'true');
-    b.append(av, el('span', 'nm', name)); b.onclick = () => { go('search'); doSearch(name); }; row.appendChild(b);
+    b.append(av, el('span', 'nm', name)); b.onclick = () => openChannel((LS.get('suburl', {}) || {})[name] || '', name); row.appendChild(b);
   });
-  box.appendChild(row); box.appendChild(el('p', 'hint', 'চ্যানেলের নামে চাপলে সেই নামে সার্চ হবে।'));
+  box.appendChild(row); box.appendChild(el('p', 'hint', 'চ্যানেলের নামে চাপলে চ্যানেলের পাতা খুলবে।'));
 }
 async function clearData(what) {
   const msg = { history: ['দেখার ইতিহাস মুছবেন?', 'দেখা ভিডিওর তালিকা ও কোথায় থেমেছিলেন, সব মুছে যাবে।'],
@@ -988,7 +1096,7 @@ function setPlayIcon(playing) {
   b.setAttribute('aria-label', playing ? 'থামান' : 'চালান');
 }
 function paintSub() {
-  const on = LS.get('subs', []).indexOf(curVideo.uploader) >= 0; const b = $('bSub');
+  const on = LS.get('subs', []).indexOf(curVideo.uploader) >= 0; const b = $('bSub'); b.style.display = curVideo.uploader ? '' : 'none';
   b.textContent = on ? 'সাবস্ক্রাইবড' : 'সাবস্ক্রাইব'; b.setAttribute('aria-pressed', on ? 'true' : 'false');
   b.setAttribute('aria-label', (on ? 'সাবস্ক্রাইবড, বাতিল করতে চাপুন: ' : 'সাবস্ক্রাইব করুন: ') + (curVideo.uploader || 'চ্যানেল'));
 }
@@ -1008,6 +1116,14 @@ function renderUpNext() {
 }
 function toggleDesc() { const d = $('pDesc'); const c = d.classList.toggle('clamp'); d.setAttribute('aria-expanded', c ? 'false' : 'true'); }
 
+const PRE = {};
+function prefetchStreams(url) {
+  if (!url || !hasAndroid() || !getSet('fallback')) return;
+  const hit = PRE[url]; if (hit && Date.now() - hit.t < 90000) return;
+  const keys = Object.keys(PRE); if (keys.length > 4) delete PRE[keys[0]];
+  PRE[url] = { t: Date.now(), p: callNative('getStreams', url) };
+}
+function takePrefetch(url) { const h = PRE[url]; if (h && Date.now() - h.t < 90000) { delete PRE[url]; return h.p; } return null; }
 function playItem(it) {
   curVideo = Object.assign({}, it, { desc: '', streams: null, tr: undefined });
   const token = ++playToken; triedSrc = [];
@@ -1025,13 +1141,13 @@ function playItem(it) {
 }
 function loadStream(token, src) {
   setBuffering(true);
-  const p = (src === 'auto') ? callNative('getStreams', curVideo.url || '') : callNative('getStreamsSrc', curVideo.url || '', src);
+  const p = (src === 'auto') ? (takePrefetch(curVideo.url || '') || callNative('getStreams', curVideo.url || '')) : callNative('getStreamsSrc', curVideo.url || '', src);
   p.then(data => {
     if (token !== playToken) return;
     if (!data.ok) { setBuffering(false); toast(data.error || 'স্ট্রিম পাওয়া যায়নি'); $('pDesc').textContent = '(বিবরণ পাওয়া যায়নি)'; return; }
     const used = data.source || src; if (triedSrc.indexOf(used) < 0) triedSrc.push(used);
     curVideo.streams = { video: data.videoStreams || [], audio: data.audioStreams || [], playUrl: data.playUrl || '', audioOnlyFlag: !!data.audioOnly };
-    curVideo.desc = stripHtml(data.description || '');
+    curVideo.desc = stripHtml(data.description || ''); if (data.uploaderUrl && !curVideo.uploaderUrl) { curVideo.uploaderUrl = data.uploaderUrl; }
     if (data.views) curVideo.views = data.views; if (data.duration && !curVideo.duration) curVideo.duration = data.duration;
     paintMeta(); $('pDesc').textContent = curVideo.desc || '(বিবরণ নেই)';
     $('srcBadge').textContent = 'সোর্স: ' + (SRC_NAME[used] || used);
@@ -1083,7 +1199,7 @@ function toggleAudioMode() {
 }
 function wirePlayer() {
   const v = $('mainVideo');
-  const report = playing => { setPlayIcon(playing); try { if (window.Android && Android.setPlayback) Android.setPlayback(playing, curVideo ? (curVideo.title || '') : ''); } catch (e) {} };
+  const report = playing => { if (playing && radioActive()) radioStopAll(); if (radioActive()) return; setPlayIcon(playing); try { if (window.Android && Android.setPlayback) Android.setPlayback(playing, curVideo ? (curVideo.title || '') : ''); } catch (e) {} };
   v.addEventListener('waiting', () => setBuffering(true));
   v.addEventListener('playing', () => { setBuffering(false); report(true); });
   v.addEventListener('play', () => report(true));
@@ -1111,12 +1227,24 @@ function wirePlayer() {
   const sk = $('seek');
   ['focus', 'pointerdown', 'touchstart'].forEach(ev => sk.addEventListener(ev, syncSeek));
   sk.addEventListener('input', () => { if (v.duration) { v.currentTime = Math.min(v.duration - 0.5, parseFloat(sk.value) || 0); sk.setAttribute('aria-valuetext', fmtSpoken(v.currentTime) + ', মোট ' + fmtSpoken(v.duration)); paintProgress(); } });
+  $('rpPlay').onclick = radioToggle; $('rpPrev').onclick = () => radioStep(-1); $('rpNext').onclick = () => radioStep(1);
   $('bPrev').onclick = playPrev; $('bNext').onclick = () => playNext(false);
   $('bFwd').onclick = () => skipBy(1); $('bRew').onclick = () => skipBy(-1);
   $('bPlay').onclick = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
 }
 /* media buttons: TalkBack two-finger double-tap, headset, lock screen — all arrive here */
 window.__remote = function (cmd) {
+  if (radioActive()) {
+    switch (cmd) {
+      case 'toggle': radioToggle(); break;
+      case 'play': radioPlayPress(true); break;
+      case 'pause': radioPlayPress(false); break;
+      case 'next': case 'ff': radioStep(1); break;
+      case 'prev': case 'rew': radioStep(-1); break;
+      default: return false;
+    }
+    return true;
+  }
   const v = $('mainVideo'); if (!curVideo || !v.getAttribute('src')) return false;
   switch (cmd) {
     case 'toggle': if (v.paused) v.play().catch(() => {}); else v.pause(); break;
@@ -1178,6 +1306,7 @@ function toggleLater() { if (!curVideo) return; toast(listToggle('later', curVid
 function toggleSub() {
   if (!curVideo || !curVideo.uploader) return;
   const s = LS.get('subs', []); const i = s.indexOf(curVideo.uploader); if (i >= 0) s.splice(i, 1); else s.unshift(curVideo.uploader);
+  if (curVideo.uploaderUrl) { const m = LS.get('suburl', {}); m[curVideo.uploader] = curVideo.uploaderUrl; LS.set('suburl', m); }
   LS.set('subs', s); paintSub(); toast(i >= 0 ? 'সাবস্ক্রিপশন বাতিল' : 'সাবস্ক্রাইব করা হয়েছে');
 }
 function shareItem(it) {
@@ -1212,6 +1341,215 @@ function downloadItem(it) {
 }
 
 /* =====================================================================
+   channel page  (header, tabs, sort chips, list)
+   ===================================================================== */
+const ch = { url: '', name: '', info: null, tab: 0, items: [], next: '', sort: 'new', view: 'tab', seq: 0 };
+const TAB_BN = { videos: 'ভিডিও', shorts: 'Shorts', livestreams: 'লাইভ', playlists: 'প্লেলিস্ট', albums: 'অ্যালবাম', podcasts: 'পডকাস্ট' };
+function fmtCount(n) {
+  n = Number(n) || 0; if (n <= 0) return '';
+  let v, u;
+  if (n >= 1e7) { v = n / 1e7; u = ' কোটি'; } else if (n >= 1e5) { v = n / 1e5; u = ' লাখ'; }
+  else if (n >= 1e3) { v = n / 1e3; u = ' হাজার'; } else return bn(n);
+  return bn(Math.round(v * 100) / 100) + u;
+}
+function openChannelFromVideo() {
+  if (!curVideo) return;
+  openChannel(curVideo.uploaderUrl || '', curVideo.uploader || '');
+}
+function openChannel(url, name) {
+  if (!url) { if (name) { toast('চ্যানেলের লিংক পাওয়া যায়নি, নাম দিয়ে খোঁজা হচ্ছে'); go('search'); doSearch(name); } return; }
+  if (!hasAndroid()) { toast('চ্যানেল শুধু অ্যাপের ভেতরে খুলবে'); return; }
+  ch.url = url; ch.name = name || ''; ch.info = null; ch.tab = 0; ch.items = []; ch.next = ''; ch.sort = 'new'; ch.view = 'tab'; const my = ++ch.seq;
+  go('channel');
+  const box = $('chBody'); box.textContent = ''; $('chH').textContent = name || 'চ্যানেল'; skeletons(box, 2);
+  callNative('getChannel', url).then(d => {
+    if (my !== ch.seq) return; box.removeAttribute('aria-busy');
+    if (!d.ok) { hint(box, d.error || 'চ্যানেল খোলা যায়নি'); return; }
+    ch.info = d; ch.name = d.name || ch.name; $('chH').textContent = ch.name;
+    renderChannelFrame(); if (ch.info.tabs.length) loadChannelTab(0); else hint($('chList'), 'এই চ্যানেলে দেখানোর মতো ট্যাব নেই');
+  }).catch(e => { box.removeAttribute('aria-busy'); hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)); });
+}
+function isSubbed(name) { return LS.get('subs', []).indexOf(name) >= 0; }
+function renderChannelFrame() {
+  const d = ch.info, box = $('chBody'); box.textContent = '';
+  const head = el('div', 'chhead');
+  const av = el('div', 'chav', d.avatar ? '' : initial(ch.name)); av.setAttribute('aria-hidden', 'true');
+  if (d.avatar) setThumb(av, d.avatar); else av.style.background = colorFor(ch.name);
+  const tx = el('div', ''); const nm = el('h2', 'chname', ch.name); const meta = [];
+  const sc = fmtCount(d.subscribers); if (sc) meta.push(sc + ' জন সাবস্ক্রাইবার');
+  tx.append(nm, el('div', 'chmeta', meta.join(' · '))); head.append(av, tx); box.appendChild(head);
+  const desc = String(d.description || '').trim();
+  if (desc) { const b = el('button', 'descbox clamp', desc); b.type = 'button'; b.setAttribute('aria-expanded', 'false'); b.onclick = () => { const c = b.classList.toggle('clamp'); b.setAttribute('aria-expanded', c ? 'false' : 'true'); }; box.appendChild(b); }
+  const acts = el('div', 'chacts'); const sub = el('button', 'subbtn'); sub.type = 'button';
+  const paint = () => { const on = isSubbed(ch.name); sub.textContent = on ? 'সদস্যতা নেওয়া হয়েছে' : 'সাবস্ক্রাইব'; sub.setAttribute('aria-pressed', on ? 'true' : 'false'); sub.setAttribute('aria-label', (on ? 'সদস্যতা নেওয়া হয়েছে, বাতিল করতে চাপুন: ' : 'সাবস্ক্রাইব করুন: ') + ch.name); };
+  sub.onclick = () => { const s = LS.get('subs', []); const i = s.indexOf(ch.name); if (i >= 0) s.splice(i, 1); else s.unshift(ch.name); LS.set('subs', s);
+    const m = LS.get('suburl', {}); m[ch.name] = ch.url; LS.set('suburl', m); paint(); toast(i >= 0 ? 'সাবস্ক্রিপশন বাতিল' : 'সাবস্ক্রাইব করা হয়েছে'); };
+  paint(); acts.appendChild(sub); box.appendChild(acts);
+  const tabs = el('div', 'chtabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'চ্যানেলের ট্যাব');
+  d.tabs.forEach((t, i) => { const b = el('button', 'chtab', TAB_BN[t.name] || t.name || 'ট্যাব'); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', i === ch.tab ? 'true' : 'false'); b.onclick = () => { ch.tab = i; ch.sort = 'new'; ch.view = 'tab'; [...tabs.children].forEach((x, j) => x.setAttribute('aria-selected', j === i ? 'true' : 'false')); loadChannelTab(i); }; tabs.appendChild(b); });
+  box.appendChild(tabs);
+  const chips = el('div', 'chips'); chips.id = 'chChips'; chips.style.position = 'static'; box.appendChild(chips);
+  const list = el('div', ''); list.id = 'chList'; box.appendChild(list);
+}
+function paintChannelChips() {
+  const c = $('chChips'); if (!c) return; c.textContent = '';
+  const t = ch.info && ch.info.tabs[ch.tab]; if (!t || t.name === 'playlists' || ch.view !== 'tab') return;
+  [['new', 'লেটেস্ট'], ['pop', 'জনপ্রিয়']].forEach(x => { const b = el('button', 'chip', x[1]); b.type = 'button'; b.setAttribute('aria-pressed', ch.sort === x[0] ? 'true' : 'false'); b.onclick = () => { ch.sort = x[0]; paintChannelChips(); paintChannelList(); announce(x[1] + ' অনুযায়ী সাজানো'); }; c.appendChild(b); });
+}
+function loadChannelTab(i) {
+  const t = ch.info.tabs[i]; const my = ++ch.seq; ch.items = []; ch.next = '';
+  paintChannelChips(); const box = $('chList'); skeletons(box, 2);
+  callNative('getChannelTab', t.id).then(d => {
+    if (my !== ch.seq) return; box.removeAttribute('aria-busy');
+    if (!d.ok) { hint(box, d.error || 'আনা যায়নি'); return; }
+    ch.items = d.items || []; ch.next = d.next || ''; paintChannelList();
+  }).catch(e => { box.removeAttribute('aria-busy'); hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)); });
+}
+function chSorted() {
+  const l = ch.items.slice();
+  if (ch.sort === 'pop' && ch.view === 'tab') l.sort((a, b) => (b.views || 0) - (a.views || 0));
+  return l;
+}
+function paintChannelList() {
+  const box = $('chList'); if (!box) return; box.textContent = ''; box.removeAttribute('aria-busy');
+  if (ch.view === 'playlist') { const bk = el('button', 'btn', 'প্লেলিস্টের তালিকায় ফিরুন'); bk.type = 'button'; bk.style.margin = '.5rem 1rem'; bk.onclick = () => { ch.view = 'tab'; loadChannelTab(ch.tab); }; box.appendChild(bk); }
+  const items = chSorted(); if (!items.length) { box.appendChild(el('p', 'hint', 'এখানে কিছু নেই')); return; }
+  const vids = items.filter(x => x.kind === 'video');
+  items.forEach(it => {
+    if (it.kind === 'playlist') {
+      const c = el('article', 'ccard'); const main = el('div', 'cmain'); main.setAttribute('role', 'button'); main.tabIndex = 0;
+      main.setAttribute('aria-label', 'প্লেলিস্ট: ' + it.title + (it.count ? ', ' + bn(it.count) + 'টি ভিডিও' : ''));
+      const th = el('div', 'cthumb'); setThumb(th, it.thumb); const tx = el('div', 'vtext'); tx.append(el('div', 'vtitle', it.title), el('div', 'vmeta', it.count ? bn(it.count) + 'টি ভিডিও' : 'প্লেলিস্ট'));
+      main.append(th, tx); const open = () => openPlaylistInChannel(it); main.onclick = open; main.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+      c.appendChild(main); box.appendChild(c);
+    } else { const i = vids.indexOf(it); box.appendChild(makeCompact(Object.assign({ uploader: ch.name, uploaderUrl: ch.url }, it), i, vids)); }
+  });
+  if (ch.next) { const m = el('button', 'btn', 'আরও দেখুন'); m.type = 'button'; m.style.margin = '1rem'; m.onclick = () => loadMoreChannel(m); box.appendChild(m); }
+}
+function loadMoreChannel(btn) {
+  const my = ch.seq; btn.disabled = true; btn.textContent = 'লোড হচ্ছে…'; const t = ch.info.tabs[ch.tab];
+  callNative('getChannelMore', t.id, ch.next).then(d => {
+    if (my !== ch.seq) return;
+    if (!d.ok) { btn.disabled = false; btn.textContent = 'আরও দেখুন'; toast(d.error || 'আনা যায়নি'); return; }
+    ch.items = ch.items.concat(d.items || []); ch.next = d.next || ''; paintChannelList(); announce(bn((d.items || []).length) + 'টি নতুন যোগ হয়েছে');
+  }).catch(e => { btn.disabled = false; btn.textContent = 'আরও দেখুন'; toast('ত্রুটি: ' + (e && e.message ? e.message : e)); });
+}
+function openPlaylistInChannel(it) {
+  const my = ++ch.seq; const box = $('chList'); skeletons(box, 2); $('chChips').textContent = '';
+  callNative('getPlaylist', it.url).then(d => {
+    if (my !== ch.seq) return; if (!d.ok) { hint(box, d.error || 'আনা যায়নি'); return; }
+    ch.view = 'playlist'; ch.items = d.items || []; ch.next = ''; ch.sort = 'new'; paintChannelList(); announce(it.title + ', ' + bn(ch.items.length) + 'টি ভিডিও');
+  }).catch(e => hint(box, 'ত্রুটি: ' + (e && e.message ? e.message : e)));
+}
+
+/* =====================================================================
+   radio (All India Radio — Bengali)  — played natively, keeps going with the screen off
+   Main link first, backups after; the phone tries the next one if a link is dead.
+   ===================================================================== */
+const AIR_CF = 'https://d3r9rhourdc02u.cloudfront.net/assets/radio/';
+const AIR_BG = 'https://airhlspush.pc.cdn.bitgravity.com/httppush/';
+const AIR_WV = 'https://radio.wavespb.com/live/';
+const RADIO = [
+  { g: 'কলকাতা', n: 'আকাশবাণী কলকাতা গীতাঞ্জলি', u: [AIR_CF + 'airkol01/air065_Auto.m3u8', AIR_BG + 'hlspbaudio055/hlspbaudio055_Auto.m3u8'] },
+  { g: 'কলকাতা', n: 'আকাশবাণী কলকাতা সঞ্চয়িতা', u: [AIR_CF + 'airkol02/air066_Auto.m3u8', AIR_BG + 'hlspbaudio056/hlspbaudio056_Auto.m3u8'] },
+  { g: 'কলকাতা', n: 'আকাশবাণী মৈত্রী', u: [AIR_CF + 'airkol03/air067_Auto.m3u8'] },
+  { g: 'কলকাতা', n: 'আকাশবাণী বাংলা', u: [AIR_CF + 'airkol07/air071_Auto.m3u8', AIR_BG + 'hlspbaudio137/hlspbaudio137_Auto.m3u8'] },
+  { g: 'কলকাতা', n: 'এফএম গোল্ড কলকাতা', u: [AIR_CF + 'airkol06/air070_Auto.m3u8', AIR_BG + 'hlspbaudio057/hlspbaudio057_Auto.m3u8'] },
+  { g: 'কলকাতা', n: 'এফএম রেইনবো কলকাতা', u: [AIR_CF + 'airkol05/air069_Auto.m3u8', AIR_BG + 'hlspbaudio058/hlspbaudio058_Auto.m3u8'] },
+  { g: 'কলকাতা', n: 'বিবিধ ভারতী কলকাতা', u: [AIR_CF + 'airkol04/air068_Auto.m3u8', AIR_BG + 'hlspbaudio275/hlspbaudio275_Auto.m3u8'] },
+  { g: 'পশ্চিমবঙ্গের অন্যান্য কেন্দ্র', n: 'আকাশবাণী শিলিগুড়ি', u: [AIR_WV + '165856ba98ca031a/165856ba98ca031a.m3u8'] },
+  { g: 'পশ্চিমবঙ্গের অন্যান্য কেন্দ্র', n: 'আকাশবাণী কার্শিয়াং', u: [AIR_WV + '1f781b48497e67d3/1f781b48497e67d3.m3u8'] },
+  { g: 'পশ্চিমবঙ্গের অন্যান্য কেন্দ্র', n: 'আকাশবাণী মুর্শিদাবাদ', u: ['https://air.pc.cdn.bitgravity.com/air/live/pbaudio169/playlist.m3u8'] },
+  { g: 'পশ্চিমবঙ্গের অন্যান্য কেন্দ্র', n: 'আকাশবাণী শান্তিনিকেতন', u: [AIR_WV + '66249dfecaf80241/66249dfecaf80241.m3u8'] },
+  { g: 'ত্রিপুরা ও আসাম (বাংলা অনুষ্ঠান)', n: 'আকাশবাণী আগরতলা', u: [AIR_WV + '8e8696f98500ad60/8e8696f98500ad60.m3u8'] },
+  { g: 'ত্রিপুরা ও আসাম (বাংলা অনুষ্ঠান)', n: 'এফএম উজ্জয়ন্ত আগরতলা', u: [AIR_WV + 'd65912ef9829b8c9/d65912ef9829b8c9.m3u8'] },
+  { g: 'ত্রিপুরা ও আসাম (বাংলা অনুষ্ঠান)', n: 'আকাশবাণী বেলোনিয়া', u: [AIR_WV + '00ff79c493fe8353/00ff79c493fe8353.m3u8'] },
+  { g: 'ত্রিপুরা ও আসাম (বাংলা অনুষ্ঠান)', n: 'আকাশবাণী কৈলাসহর', u: [AIR_WV + 'c84f390b94a07703/c84f390b94a07703.m3u8'] },
+  { g: 'ত্রিপুরা ও আসাম (বাংলা অনুষ্ঠান)', n: 'আকাশবাণী শিলচর', u: [AIR_WV + '389a55127e012f97/389a55127e012f97.m3u8'] }
+];
+const radio = { idx: -1, state: 'stopped' };
+function customRadios() { return LS.get('radios', []); }
+function allRadio() { return RADIO.concat(customRadios().map(r => ({ g: 'আমার রেডিও', n: r.n, u: r.u, custom: true }))); }
+function radioActive() { return radio.idx >= 0 && radio.state !== 'stopped'; }
+function hasRadioNative() { return !!(window.Android && typeof Android.radioPlay === 'function'); }
+const RADIO_STAT = { loading: 'লোড হচ্ছে…', playing: 'চলছে', paused: 'থামানো', error: 'চলছে না। আবার চালান চাপুন, অথবা অন্য স্টেশন বাছুন।', stopped: '' };
+
+function renderRadio() {
+  const box = $('radioBody'); box.textContent = '';
+  const list = allRadio();
+  if (radioActive()) {
+    const now = el('div', 'rnow');
+    const b = el('button', 'row'); b.type = 'button'; b.setAttribute('aria-label', 'এখন চলছে: ' + list[radio.idx].n + '। প্লেয়ার খুলুন');
+    b.append(iconEl('radio'), el('span', '', 'এখন: ' + list[radio.idx].n)); b.onclick = () => go('radioPlayer');
+    const st = el('button', 'row'); st.type = 'button'; st.append(iconEl('close'), el('span', '', 'রেডিও বন্ধ করুন')); st.onclick = () => { radioStopAll(); renderRadio(); };
+    now.append(b, st); box.appendChild(now);
+  }
+  let lastG = '';
+  list.forEach((r, i) => {
+    if (r.g !== lastG) { lastG = r.g; box.appendChild(el('h3', 'rgroup', r.g)); }
+    const b = el('button', 'row'); b.type = 'button'; b.setAttribute('aria-label', r.n);
+    b.append(iconEl('radio'), el('span', '', r.n)); b.onclick = () => radioStart(i, false);
+    if (r.custom) {
+      const w = el('div', 'rcustom'); const d = el('button', 'btn danger', 'মুছুন'); d.type = 'button'; d.setAttribute('aria-label', r.n + ' মুছুন');
+      d.onclick = async () => { if (await askConfirm('স্টেশন মুছবেন?', r.n, 'মুছুন')) { if (radio.idx === i) radioStopAll(); const c = customRadios(); c.splice(i - RADIO.length, 1); LS.set('radios', c); radio.idx = -1; renderRadio(); } };
+      w.append(b, d); box.appendChild(w);
+    } else box.appendChild(b);
+  });
+  const f = el('form', 'rform'); f.action = 'javascript:void(0)';
+  const h = el('h3', 'rgroup', 'নিজের রেডিও যোগ করুন'); h.style.margin = '1rem 0 .2rem';
+  const n = el('input'); n.type = 'text'; n.placeholder = 'স্টেশনের নাম'; n.setAttribute('aria-label', 'স্টেশনের নাম');
+  const u = el('input'); u.type = 'url'; u.placeholder = 'স্ট্রিম লিংক (https://...m3u8 বা .mp3)'; u.setAttribute('aria-label', 'স্ট্রিম লিংক');
+  const add = el('button', 'btn primary', 'যোগ করুন'); add.type = 'submit';
+  f.onsubmit = e => { e.preventDefault(); const nm = n.value.trim(), ur = u.value.trim();
+    if (!nm || !/^https:\/\//.test(ur)) { toast('নাম দিন, আর লিংক https:// দিয়ে শুরু হতে হবে'); return; }
+    const c = customRadios(); c.push({ n: nm, u: [ur] }); LS.set('radios', c); renderRadio(); announce(nm + ' যোগ হয়েছে'); };
+  f.append(h, n, u, add); box.appendChild(f);
+}
+function radioStart(i, silentNav) {
+  const l = allRadio(); const r = l[i]; if (!r) return;
+  if (!hasRadioNative()) { toast('রেডিও শুধু অ্যাপের ভেতরে চলবে'); return; }
+  radio.idx = i; radio.state = 'loading';
+  try { $('mainVideo').pause(); } catch (e) {}
+  Android.radioPlay(JSON.stringify(r.u), r.n);
+  if (!silentNav) go('radioPlayer'); else paintRadio();
+}
+function radioPlayPress(wantPlay) {
+  if (!radioActive()) return;
+  const playing = radio.state === 'playing' || radio.state === 'loading';
+  if (wantPlay && !playing) { radio.state = 'loading'; Android.radioResume(); }
+  else if (!wantPlay && playing) { radio.state = 'paused'; Android.radioPause(); }
+  paintRadio();
+}
+function radioToggle() { radioPlayPress(!(radio.state === 'playing' || radio.state === 'loading')); }
+function radioStep(d) {
+  const l = allRadio(); if (!l.length) return;
+  const i = (radio.idx + d + l.length) % l.length;
+  radioStart(i, true); announce(l[i].n);
+}
+function radioStopAll() {
+  try { if (window.Android && Android.radioStop) Android.radioStop(); } catch (e) {}
+  radio.idx = -1; radio.state = 'stopped'; paintRadio();
+}
+function paintRadio() {
+  const l = allRadio(); const r = l[radio.idx];
+  $('rpName').textContent = r ? r.n : 'রেডিও';
+  $('rpStat').textContent = RADIO_STAT[radio.state] || '';
+  const playing = radio.state === 'playing' || radio.state === 'loading';
+  $('rpPlayIc').innerHTML = ic(playing ? 'pause' : 'play');
+  $('rpPlayLb').textContent = playing ? 'থামান' : 'চালান';
+}
+window.__radioState = function (st) {
+  if (radio.idx < 0 && st !== 'stopped') return;
+  radio.state = st;
+  if (st === 'stopped') radio.idx = -1;
+  paintRadio();
+  const r = allRadio()[radio.idx];
+  if (st === 'playing' && r) announce('চলছে: ' + r.n);
+  if (st === 'error') announce('এই স্টেশন এখন চলছে না');
+  if ($('radio').classList.contains('active')) renderRadio();
+};
+
+/* =====================================================================
    AI
    ===================================================================== */
 function provCfg(name) {
@@ -1222,9 +1560,9 @@ function provCfg(name) {
 const PROV_LABEL = { gemini: 'Gemini', grok: 'Grok', custom: 'অন্য AI' };
 const PROV_KEY = { sum: 'provSum', fact: 'provFact', tr: 'provTr', ask: 'provAsk' };
 const KIND_LABEL = { sum: 'সারাংশ', fact: 'ক্লিকবেইট পরীক্ষা', tr: 'অনুবাদ', scene: 'দৃশ্যের বর্ণনা', ask: 'উত্তর' };
-function aiCall(provName, system, user, videoUrl) {
+function aiCall(provName, system, user, videoUrl, startSec, endSec) {
   const c = provCfg(provName);
-  return callNative('ai', c.p, c.base, c.model, c.key, system, user, videoUrl || '');
+  return callNative('ai', c.p, c.base, c.model, c.key, system, user, videoUrl || '', (startSec == null ? -1 : startSec), (endSec == null ? -1 : endSec));
 }
 function systemPrompt() {
   return 'তুমি AI Smart Tube অ্যাপের সহায়ক। সবসময় ' + (getSet('aiLang') || 'বাংলা') + ' ভাষায় উত্তর দাও। ' +
@@ -1237,7 +1575,7 @@ function videoContext(transcript) {
   if (transcript) s += '\n\nসাবটাইটেল (ভিডিওতে যা বলা হয়েছে):\n' + transcript;
   return s;
 }
-function buildPrompt(kind, q, transcript, watch) {
+function buildPrompt(kind, q, transcript, watch, win) {
   const ctx = videoContext(transcript);
   const note = watch ? 'তুমি ভিডিওটি নিজে দেখতে ও শুনতে পাচ্ছ। ' : ('তুমি ভিডিওটি দেখোনি; শুধু নিচের তথ্য জানো' + (transcript ? ' (সাবটাইটেলসহ)' : '') + '। ');
   const lang = getSet('aiLang') || 'বাংলা';
@@ -1247,7 +1585,8 @@ function buildPrompt(kind, q, transcript, watch) {
     '"reasons": [সর্বোচ্চ ৩টি ছোট কারণ], "check": [আলাদা করে যাচাই করা দরকার এমন দাবি, সর্বোচ্চ ৩টি, না থাকলে ফাঁকা], "better_title": "আরও সৎ বিকল্প শিরোনাম"}. ' +
     'score ইংরেজি সংখ্যায় দাও, বাকি লেখা ' + lang + ' ভাষায়। তুমি ইন্টারনেটে যাচাই করতে পারছ না, তাই কোনো দাবি নিশ্চিত সত্য বা মিথ্যা বোলো না।\n\n' + ctx;
   if (kind === 'tr') return 'নিচের শিরোনাম ও বিবরণ' + (transcript ? ' এবং সাবটাইটেলের মূল অংশ' : '') + ' ' + lang + ' ভাষায় অনুবাদ করো। প্রথমে "শিরোনাম:", তারপর "বিবরণ:"' + (transcript ? ', তারপর "সাবটাইটেল:"' : '') + ' শিরোনাম দিয়ে আলাদা করো। শুধু অনুবাদ দাও।\n\n' + ctx;
-  if (kind === 'scene') return note + 'ভিডিওটির দৃশ্যগুলো সময় অনুসারে বর্ণনা করো, এমনভাবে যেন যিনি দেখতে পান না তিনি বুঝতে পারেন। প্রতিটি দৃশ্যের শুরুতে আনুমানিক সময় (মিনিট:সেকেন্ড) লেখো। ' +
+  if (kind === 'scene') return 'তুমি ভিডিওর একটি ছোট অংশ দেখতে ও শুনতে পাচ্ছ। এই অংশটি মূল ভিডিওর ' + fmtDur(win.s) + ' থেকে ' + fmtDur(win.e) + ' পর্যন্ত। শুধু এই অংশের দৃশ্যগুলো সময় অনুসারে বর্ণনা করো, এমনভাবে যেন যিনি দেখতে পান না তিনি বুঝতে পারেন। ' +
+    'প্রতিটি দৃশ্যের শুরুতে এই অংশের শুরু (০০:০০) থেকে হিসাব করে সময় লেখো, যেমন ০০:৪৫। ' +
     'বলো: কে বা কী দেখা যাচ্ছে, জায়গা, পোশাক ও রং, নড়াচড়া, পর্দায় যা লেখা আছে। কথাবার্তা আলাদা করে লেখার দরকার নেই। যা স্পষ্ট বোঝা যায় না, তা অনুমান করে বলবে না।\n\n' + ctx;
   return note + 'ভিডিওটি সম্পর্কে প্রশ্নের উত্তর দাও। উত্তর ভিডিওর তথ্যে না পেলে সেটা পরিষ্কার জানাও।\n\n' + ctx + '\n\nপ্রশ্ন: ' + q;
 }
@@ -1261,9 +1600,9 @@ function parseJsonLoose(text) {
 }
 function toList(x) { return Array.isArray(x) ? x.map(v => String(v).trim()).filter(Boolean) : (x ? [String(x)] : []); }
 let aiBusy = false, aiCache = {}, lastAiText = '';
-function aiOutStart(kind) {
+function aiOutStart(kind, win) {
   const out = $('aiOut'); out.className = 'aiout busy'; out.textContent = '';
-  const h = el('h3', '', KIND_LABEL[kind]); h.id = 'aiOutH'; h.tabIndex = -1;
+  const h = el('h3', '', KIND_LABEL[kind] + (win ? ' — ' + fmtDur(win.s) + ' থেকে ' + fmtDur(win.e) : '')); h.id = 'aiOutH'; h.tabIndex = -1;
   const t = el('div', 'aitext', 'ভাবছে…'); t.id = 'aiOutT'; out.append(h, t); return out;
 }
 function renderFact(box, text) {
@@ -1281,44 +1620,57 @@ function renderFact(box, text) {
   if (j.better_title) { box.appendChild(el('h4', '', 'আরও সৎ শিরোনাম')); box.appendChild(el('div', '', String(j.better_title))); }
   lastAiText = 'ক্লিকবেইট স্কোর ' + bn(sc) + ', রায়: ' + verdict + '. ' + toList(j.reasons).join('. ');
 }
-function aiOutDone(kind, text) {
+function aiOutDone(kind, text, win) {
   const out = $('aiOut'); out.className = 'aiout'; const t = $('aiOutT'); t.textContent = '';
   lastAiText = text;
   if (kind === 'fact') renderFact(t, text); else t.textContent = text;
   const acts = el('div', 'aiacts');
   const sp = el('button', 'btn'); sp.type = 'button'; sp.append(iconEl('speak'), el('span', '', 'জোরে পড়ুন')); sp.onclick = () => speak(lastAiText);
   const sh = el('button', 'btn'); sh.type = 'button'; sh.append(iconEl('share'), el('span', '', 'শেয়ার')); sh.onclick = () => { if (window.Android && Android.share) Android.share(lastAiText); else toast('শেয়ার শুধু অ্যাপে কাজ করবে'); };
-  acts.append(sp, sh); out.appendChild(acts);
+  acts.append(sp, sh);
+  if (kind === 'scene' && win && win.dur && win.e < win.dur - 3) {
+    const nx = el('button', 'btn primary'); nx.type = 'button'; nx.textContent = 'পরের অংশ (' + fmtDur(win.e) + ' থেকে)'; nx.onclick = () => runAI('scene', win.e); acts.appendChild(nx);
+  }
+  out.appendChild(acts);
   if (getSet('focusHeading')) setTimeout(() => { try { $('aiOutH').focus({ preventScroll: false }); } catch (e) {} }, 100);
 }
 function aiOutFail(msg) {
   const out = $('aiOut'); out.className = 'aiout'; const t = $('aiOutT'); if (t) t.textContent = 'ত্রুটি: ' + msg;
 }
-async function runAI(kind) {
+async function runAI(kind, startOverride) {
   if (!curVideo) { toast('আগে একটা ভিডিও খুলুন'); return; }
   if (!hasAndroid()) { toast('AI অ্যাপের ভেতরে কাজ করবে'); return; }
   let q = '';
   if (kind === 'ask') { q = $('aiQ').value.trim(); if (!q) { toast('প্রশ্ন লিখুন'); $('aiQ').focus(); return; } }
   const pname = kind === 'scene' ? 'gemini' : (getSet(PROV_KEY[kind]) || 'gemini');
   const cfg = provCfg(pname);
-  if (!String(cfg.key).trim()) { toast(PROV_LABEL[pname] + '-এর API key নেই। সেটিংসে দিন।'); go('settings'); return; }
+  if (!String(cfg.key).trim()) { toast(PROV_LABEL[pname] + '-এর API key নেই। AI সেটিংসে দিন।'); go('aiSettings'); return; }
   const watch = pname === 'gemini' && isYoutube(curVideo.url) && (kind === 'scene' || (getSet('aiWatch') && (kind === 'sum' || kind === 'fact' || kind === 'ask')));
   if (kind === 'scene' && !isYoutube(curVideo.url)) { toast('দৃশ্যের বর্ণনা শুধু ইউটিউব ভিডিওতে চলে'); return; }
-  const ck = [curVideo.url, kind, q, cfg.model, getSet('aiLang'), getSet('sumLen'), watch].join('|');
-  if (aiCache[ck]) { aiOutStart(kind); aiOutDone(kind, aiCache[ck]); return; }
+  let win = null;
+  if (kind === 'scene') {
+    const v = $('mainVideo'); const dur = Math.floor(v.duration || curVideo.duration || 0);
+    const s0 = Math.max(0, Math.floor(startOverride != null ? startOverride : (v.currentTime || 0)));
+    const len = Math.max(1, parseInt(getSet('sceneLen'), 10) || 5) * 60;
+    const e0 = dur ? Math.min(dur, s0 + len) : s0 + len;
+    if (dur && s0 >= dur - 3) { toast('ভিডিও প্রায় শেষ, বর্ণনা করার মতো অংশ নেই'); return; }
+    win = { s: s0, e: e0, dur: dur };
+  }
+  const ck = [curVideo.url, kind, q, cfg.model, getSet('aiLang'), getSet('sumLen'), watch, win ? win.s + '-' + win.e : ''].join('|');
+  if (aiCache[ck]) { aiOutStart(kind, win); aiOutDone(kind, aiCache[ck], win); return; }
   if (aiBusy) { toast('আগের অনুরোধ চলছে, একটু অপেক্ষা করুন'); return; }
-  if (watch && curVideo.duration > 1800 && !(await askConfirm('ভিডিওটি বড়', 'ভিডিও ৩০ মিনিটের বেশি লম্বা। Gemini-র দেখতে সময় ও আপনার ফ্রি সীমা বেশি লাগতে পারে। চালাবেন?', 'চালান'))) return;
-  aiBusy = true; aiOutStart(kind);
-  $('aiOutT').textContent = PROV_LABEL[pname] + (watch ? ' ভিডিও দেখছে' : ' ভাবছে') + '…';
+  if (watch && kind !== 'scene' && curVideo.duration > 1800 && !(await askConfirm('ভিডিওটি বড়', 'ভিডিও ৩০ মিনিটের বেশি লম্বা। Gemini-র দেখতে সময় ও আপনার ফ্রি সীমা বেশি লাগতে পারে। চালাবেন?', 'চালান'))) return;
+  aiBusy = true; aiOutStart(kind, win);
+  $('aiOutT').textContent = PROV_LABEL[pname] + (watch ? (win ? ' ভিডিওর ' + fmtDur(win.s) + ' থেকে ' + fmtDur(win.e) + ' অংশ দেখছে' : ' ভিডিও দেখছে') : ' ভাবছে') + '…';
   const token = playToken;
   try {
     let transcript = '';
     if (!watch && getSet('useTranscript') && kind !== 'scene') { $('aiOutT').textContent = 'সাবটাইটেল খোঁজা হচ্ছে…'; transcript = await ensureTranscript(); $('aiOutT').textContent = PROV_LABEL[pname] + ' ভাবছে…'; }
-    const d = await aiCall(pname, systemPrompt(), buildPrompt(kind, q, transcript, watch), watch ? curVideo.url : '');
+    const d = await aiCall(pname, systemPrompt(), buildPrompt(kind, q, transcript, watch, win), watch ? curVideo.url : '', win ? win.s : -1, win ? win.e : -1);
     if (token !== playToken) { aiBusy = false; return; }
     aiBusy = false;
     if (!d.ok) { aiOutFail(d.error || 'AI উত্তর দেয়নি'); return; }
-    aiCache[ck] = d.text; aiOutDone(kind, d.text);
+    aiCache[ck] = d.text; aiOutDone(kind, d.text, win);
     if (getSet('aiSpeak')) speak(lastAiText);
   } catch (e) { aiBusy = false; aiOutFail(e && e.message ? e.message : String(e)); }
 }
@@ -1340,7 +1692,7 @@ function testAI(name) {
    start
    ===================================================================== */
 window.addEventListener('DOMContentLoaded', function () {
-  hydrateIcons(); buildSkipSel(); loadSettings(); wirePlayer(); buildChips(); buildWelcome(); setPlayIcon(false);
+  migrateSettings(); hydrateIcons(); buildSkipSel(); loadSettings(); wirePlayer(); buildChips(); buildWelcome(); setPlayIcon(false);
   show('home', true); loadFeed(); refreshYou();
   try { if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', applySettings); } catch (e) {}
 });
