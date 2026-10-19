@@ -32,6 +32,12 @@ public class AiClient {
      */
     public static String call(String provider, String baseUrl, String model, String key,
                               String system, String user, String videoUrl) {
+        return call(provider, baseUrl, model, key, system, user, videoUrl, -1, -1);
+    }
+
+    /** startSec/endSec (>=0): Gemini looks at only that part of the video — saves the free quota. */
+    public static String call(String provider, String baseUrl, String model, String key,
+                              String system, String user, String videoUrl, int startSec, int endSec) {
         try {
             if (key == null || key.trim().isEmpty()) {
                 return err("API key দেওয়া হয়নি — সেটিংসে AI অংশে দিন");
@@ -41,7 +47,7 @@ public class AiClient {
             }
             String text;
             if ("gemini".equals(provider)) {
-                text = gemini(model.trim(), key.trim(), system, user, videoUrl);
+                text = gemini(model.trim(), key.trim(), system, user, videoUrl, startSec, endSec);
             } else {
                 text = openAiCompatible(baseUrl, model.trim(), key.trim(), system, user);
             }
@@ -58,7 +64,7 @@ public class AiClient {
     }
 
     private static String gemini(String model, String key, String system, String user,
-                                 String videoUrl) throws Exception {
+                                 String videoUrl, int startSec, int endSec) throws Exception {
         JSONObject body = new JSONObject();
         if (system != null && !system.isEmpty()) {
             body.put("systemInstruction", new JSONObject().put("parts",
@@ -67,8 +73,14 @@ public class AiClient {
         JSONArray parts = new JSONArray();
         if (videoUrl != null && videoUrl.startsWith("https://")) {
             // Gemini fetches and watches the public YouTube video itself (picture + sound)
-            parts.put(new JSONObject().put("file_data",
-                    new JSONObject().put("file_uri", videoUrl)));
+            JSONObject vp = new JSONObject().put("file_data",
+                    new JSONObject().put("file_uri", videoUrl));
+            if (startSec >= 0 && endSec > startSec) {
+                vp.put("video_metadata", new JSONObject()
+                        .put("start_offset", startSec + "s")
+                        .put("end_offset", endSec + "s"));
+            }
+            parts.put(vp);
         }
         parts.put(new JSONObject().put("text", user));
         body.put("contents", new JSONArray().put(new JSONObject()

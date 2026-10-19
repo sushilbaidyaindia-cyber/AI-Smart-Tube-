@@ -344,7 +344,7 @@ public class MainActivity extends AppCompatActivity {
             r.setDescription("AI Smart Tube — M4A");
             r.setMimeType("audio/mp4");
             r.addRequestHeader("User-Agent", UA);
-            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN);   // our own notification shows the percent
             r.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "AISmartTube/" + name);
             if (wifiOnly) r.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
             DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
@@ -352,10 +352,22 @@ public class MainActivity extends AppCompatActivity {
                 toast("ডাউনলোড ম্যানেজার পাওয়া যায়নি");
                 return;
             }
-            dm.enqueue(r);
+            long dlId = dm.enqueue(r);
+            if (Build.VERSION.SDK_INT >= 33
+                    && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY);
+            }
+            try {
+                Intent si = new Intent(this, DownloadService.class)
+                        .putExtra(DownloadService.EXTRA_ID, dlId)
+                        .putExtra(DownloadService.EXTRA_TITLE, base);
+                if (Build.VERSION.SDK_INT >= 26) startForegroundService(si); else startService(si);
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
             toast(wifiOnly
-                    ? "ডাউনলোড শুরু হবে (শুধু ওয়াইফাইয়ে)। ফোল্ডার: Music/AISmartTube"
-                    : "ডাউনলোড শুরু হয়েছে। ফোল্ডার: Music/AISmartTube");
+                    ? "ডাউনলোড শুরু হবে (শুধু ওয়াইফাইয়ে)। নোটিফিকেশনে শতাংশ দেখা যাবে"
+                    : "ডাউনলোড শুরু হয়েছে। নোটিফিকেশনে শতাংশ দেখা যাবে। ফোল্ডার: Music/AISmartTube");
         } catch (Throwable t) {
             t.printStackTrace();
             toast("ডাউনলোড শুরু করা যায়নি: " + t.getMessage());
@@ -429,9 +441,31 @@ public class MainActivity extends AppCompatActivity {
          */
         @JavascriptInterface
         public void aiAsync(String id, String provider, String baseUrl, String model,
-                            String key, String system, String user, String videoUrl) {
+                            String key, String system, String user, String videoUrl,
+                            int startSec, int endSec) {
             pool.execute(() -> deliver(id,
-                    AiClient.call(provider, baseUrl, model, key, system, user, videoUrl)));
+                    AiClient.call(provider, baseUrl, model, key, system, user, videoUrl, startSec, endSec)));
+        }
+
+        // ---- channel page ----
+        @JavascriptInterface
+        public void getChannelAsync(String id, String channelUrl) {
+            pool.execute(() -> deliver(id, NewPipeHelper.getChannel(channelUrl)));
+        }
+
+        @JavascriptInterface
+        public void getChannelTabAsync(String id, String tabId) {
+            pool.execute(() -> deliver(id, NewPipeHelper.getChannelTab(tabId)));
+        }
+
+        @JavascriptInterface
+        public void getChannelMoreAsync(String id, String tabId, String token) {
+            pool.execute(() -> deliver(id, NewPipeHelper.getChannelMore(tabId, token)));
+        }
+
+        @JavascriptInterface
+        public void getPlaylistAsync(String id, String playlistUrl) {
+            pool.execute(() -> deliver(id, NewPipeHelper.getPlaylist(playlistUrl)));
         }
 
         /** Which source to try first: newpipe | piped | invidious */

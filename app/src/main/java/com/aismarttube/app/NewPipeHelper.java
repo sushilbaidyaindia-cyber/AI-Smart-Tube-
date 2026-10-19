@@ -3,6 +3,14 @@ package com.aismarttube.app;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.schabi.newpipe.extractor.InfoItem;
+import org.schabi.newpipe.extractor.ListExtractor;
+import org.schabi.newpipe.extractor.Page;
+import org.schabi.newpipe.extractor.channel.ChannelInfo;
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo;
+import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler;
+import org.schabi.newpipe.extractor.playlist.PlaylistInfo;
+import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem;
+import org.schabi.newpipe.extractor.Image;
 import org.schabi.newpipe.extractor.NewPipe;
 import org.schabi.newpipe.extractor.ServiceList;
 import org.schabi.newpipe.extractor.downloader.Downloader;
@@ -24,6 +32,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -196,6 +205,7 @@ public class NewPipeHelper {
             o.put("title", s.getName() != null ? s.getName() : "");
             o.put("url", s.getUrl() != null ? s.getUrl() : "");
             o.put("uploader", s.getUploaderName() != null ? s.getUploaderName() : "");
+            o.put("uploaderUrl", s.getUploaderUrl() != null ? s.getUploaderUrl() : "");
             o.put("duration", s.getDuration());
             o.put("views", s.getViewCount());
             String thumb = "";
@@ -250,12 +260,13 @@ public class NewPipeHelper {
 
     private static JSONObject streamsNewPipe(String videoUrl) throws Exception {
         ensureInit();
-        StreamInfo streamInfo = StreamInfo.getInfo(videoUrl);
+        StreamInfo streamInfo = cachedInfo(videoUrl);
         JSONObject root = new JSONObject();
         root.put("ok", true);
         root.put("source", "newpipe");
         root.put("title", streamInfo.getName());
         root.put("uploader", streamInfo.getUploaderName());
+        try { root.put("uploaderUrl", streamInfo.getUploaderUrl() != null ? streamInfo.getUploaderUrl() : ""); } catch (Throwable ignored) {}
         root.put("url", streamInfo.getUrl());
         root.put("views", streamInfo.getViewCount());
         root.put("duration", streamInfo.getDuration());
@@ -333,6 +344,168 @@ public class NewPipeHelper {
         return root;
     }
 
+    /** the video page is fetched once; subtitles / re-open within 5 minutes reuse it (faster, fewer requests) */
+    private static final Map<String, Object[]> INFO_CACHE = new HashMap<>();
+
+    private static synchronized StreamInfo cachedInfo(String url) throws Exception {
+        Object[] hit = INFO_CACHE.get(url);
+        long now = System.currentTimeMillis();
+        if (hit != null && now - (Long) hit[0] < 5 * 60 * 1000L) return (StreamInfo) hit[1];
+        StreamInfo si = StreamInfo.getInfo(url);
+        if (INFO_CACHE.size() > 12) INFO_CACHE.clear();
+        INFO_CACHE.put(url, new Object[]{now, si});
+        return si;
+    }
+
+    // ----------------------------------------------------------------- channel
+
+    private static String lastImage(List<Image> imgs) {
+        try {
+            if (imgs != null && !imgs.isEmpty()) {
+                String u = imgs.get(imgs.size() - 1).getUrl();
+                return u != null ? u : "";
+            }
+        } catch (Throwable ignored) {}
+        return "";
+    }
+
+    /** Channel header + the list of its tabs (videos / shorts / livestreams / playlists ...). */
+    public static String getChannel(String channelUrl) {
+        try {
+            if (channelUrl == null || channelUrl.trim().isEmpty()) return err("চ্যানেলের লিংক নেই");
+            ensureInit();
+            ChannelInfo ci = ChannelInfo.getInfo(ServiceList.YouTube, channelUrl.trim());
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("name", ci.getName() != null ? ci.getName() : "");
+            o.put("url", ci.getUrl() != null ? ci.getUrl() : channelUrl);
+            o.put("avatar", lastImage(ci.getAvatars()));
+            o.put("banner", lastImage(ci.getBanners()));
+            o.put("subscribers", ci.getSubscriberCount());
+            o.put("description", ci.getDescription() != null ? ci.getDescription() : "");
+            JSONArray tabs = new JSONArray();
+            List<ListLinkHandler> hs = ci.getTabs();
+            if (hs != null) {
+                for (ListLinkHandler h : hs) {
+                    List<String> f = h.getContentFilters();
+                    String name = (f != null && !f.isEmpty()) ? f.get(0) : "";
+                    JSONObject t = new JSONObject();
+                    t.put("name", name);
+                    t.put("id", h.getUrl());
+                    tabs.put(t);
+                    synchronized (TAB_HANDLERS) { TAB_HANDLERS.put(h.getUrl(), h); }
+                }
+            }
+            o.put("tabs", tabs);
+            return o.toString();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return err("চ্যানেল আনা যায়নি: " + e.getMessage());
+        }
+    }
+
+    private static final Map<String, ListLinkHandler> TAB_HANDLERS = new HashMap<>();
+    private static final Map<String, Page> NEXT_PAGES = new HashMap<>();
+    private static int tokenSeq = 0;
+
+    private static JSONObject itemJson(InfoItem item) throws Exception {
+        JSONObject o = new JSONObject();
+        o.put("title", item.getName() != null ? item.getName() : "");
+        o.put("url", item.getUrl() != null ? item.getUrl() : "");
+        o.put("thumb", lastImage(item.getThumbnails()));
+        if (item instanceof StreamInfoItem) {
+            StreamInfoItem s = (StreamInfoItem) item;
+            o.put("kind", "video");
+            o.put("uploader", s.getUploaderName() != null ? s.getUploaderName() : "");
+            o.put("uploaderUrl", s.getUploaderUrl() != null ? s.getUploaderUrl() : "");
+            o.put("duration", s.getDuration());
+            o.put("views", s.getViewCount());
+        } else if (item instanceof PlaylistInfoItem) {
+            o.put("kind", "playlist");
+            o.put("count", ((PlaylistInfoItem) item).getStreamCount());
+        } else {
+            o.put("kind", "other");
+        }
+        return o;
+    }
+
+    private static JSONArray itemsJson(List<? extends InfoItem> list) throws Exception {
+        JSONArray a = new JSONArray();
+        if (list != null) {
+            for (InfoItem it : list) {
+                JSONObject j = itemJson(it);
+                if (!"other".equals(j.getString("kind"))) a.put(j);
+            }
+        }
+        return a;
+    }
+
+    private static String remember(Page next) {
+        if (next == null) return "";
+        synchronized (NEXT_PAGES) {
+            if (NEXT_PAGES.size() > 40) NEXT_PAGES.clear();
+            String tok = "p" + (++tokenSeq);
+            NEXT_PAGES.put(tok, next);
+            return tok;
+        }
+    }
+
+    /** First page of one channel tab. tabId comes from getChannel(). */
+    public static String getChannelTab(String tabId) {
+        try {
+            ListLinkHandler h;
+            synchronized (TAB_HANDLERS) { h = TAB_HANDLERS.get(tabId); }
+            if (h == null) return err("ট্যাব পাওয়া যায়নি, চ্যানেলটা আবার খুলুন");
+            ensureInit();
+            ChannelTabInfo ti = ChannelTabInfo.getInfo(ServiceList.YouTube, h);
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("items", itemsJson(ti.getRelatedItems()));
+            o.put("next", ti.hasNextPage() ? remember(ti.getNextPage()) : "");
+            return o.toString();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return err("এই ট্যাব আনা যায়নি: " + e.getMessage());
+        }
+    }
+
+    /** Next page of a channel tab (token from a previous result). */
+    public static String getChannelMore(String tabId, String token) {
+        try {
+            ListLinkHandler h;
+            Page pg;
+            synchronized (TAB_HANDLERS) { h = TAB_HANDLERS.get(tabId); }
+            synchronized (NEXT_PAGES) { pg = NEXT_PAGES.get(token); }
+            if (h == null || pg == null) return err("আর পাওয়া যায়নি");
+            ensureInit();
+            ListExtractor.InfoItemsPage<InfoItem> page = ChannelTabInfo.getMoreItems(ServiceList.YouTube, h, pg);
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("items", itemsJson(page.getItems()));
+            o.put("next", page.hasNextPage() ? remember(page.getNextPage()) : "");
+            return o.toString();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return err("আরও আনা যায়নি: " + e.getMessage());
+        }
+    }
+
+    /** Videos of a playlist (first page). */
+    public static String getPlaylist(String playlistUrl) {
+        try {
+            ensureInit();
+            PlaylistInfo pi = PlaylistInfo.getInfo(ServiceList.YouTube, playlistUrl);
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("name", pi.getName() != null ? pi.getName() : "");
+            o.put("items", itemsJson(pi.getRelatedItems()));
+            return o.toString();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return err("প্লেলিস্ট আনা যায়নি: " + e.getMessage());
+        }
+    }
+
     // -------------------------------------------------------------- transcript
 
     /** Subtitle text of a video (so Grok / other AIs can "read" what is said). Bangla > English > Hindi > any. */
@@ -340,7 +513,7 @@ public class NewPipeHelper {
         try {
             if (videoUrl == null || videoUrl.trim().isEmpty()) return err("লিংক নেই");
             ensureInit();
-            StreamInfo info = StreamInfo.getInfo(videoUrl.trim());
+            StreamInfo info = cachedInfo(videoUrl.trim());
             List<SubtitlesStream> subs = info.getSubtitles();
             if (subs == null || subs.isEmpty()) return err("এই ভিডিওতে সাবটাইটেল নেই");
             SubtitlesStream pick = null;
