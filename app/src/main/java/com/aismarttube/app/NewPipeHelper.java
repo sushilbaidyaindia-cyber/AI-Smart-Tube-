@@ -347,6 +347,11 @@ public class NewPipeHelper {
     /** the video page is fetched once; subtitles / re-open within 5 minutes reuse it (faster, fewer requests) */
     private static final Map<String, Object[]> INFO_CACHE = new HashMap<>();
 
+    /** warm the cache so the player opens faster (called when a card is focused / tapped) */
+    public static void prefetch(String url) {
+        try { if (url != null && !url.isEmpty()) cachedInfo(url.trim()); } catch (Throwable ignored) {}
+    }
+
     private static synchronized StreamInfo cachedInfo(String url) throws Exception {
         Object[] hit = INFO_CACHE.get(url);
         long now = System.currentTimeMillis();

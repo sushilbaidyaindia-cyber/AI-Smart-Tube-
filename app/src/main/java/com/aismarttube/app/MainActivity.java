@@ -52,6 +52,11 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_STORAGE = 4402;
     private static final int REQ_NOTIFY = 4403;
 
+    /** BrowseActivity / SearchNativeActivity থেকে ভিডিও খুলতে */
+    public static final String EXTRA_OPEN_URL = "open_url";
+    public static final String EXTRA_OPEN_TITLE = "open_title";
+    public static final String EXTRA_OPEN_UPLOADER = "open_uploader";
+
     /** the running activity, so the notification buttons can reach the page */
     static volatile MainActivity current;
     /** true = keep playing with the screen off (setting "ব্যাকগ্রাউন্ডে চালান") */
@@ -66,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
     private MediaSession mediaSession;
     private RadioPlayer radio;
     private String radioTitle = "";
+    private boolean pageLoaded = false;
     private String[] pendingDownload; // url, title, wifiOnly("1"/"0")
     private final ExecutorService pool = Executors.newFixedThreadPool(4);
 
@@ -105,7 +111,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         webView.addJavascriptInterface(new WebAppInterface(), "Android");
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                pageLoaded = true;
+                openFromIntentIfNeeded();
+            }
+        });
 
         // full-screen video support (the ⛶ button on the video)
         webView.setWebChromeClient(new WebChromeClient() {
@@ -594,6 +607,35 @@ public class MainActivity extends AppCompatActivity {
             mediaSession = null;
         }
         super.onDestroy();
+    }
+
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (pageLoaded) openFromIntentIfNeeded();
+    }
+
+    /** নেটিভ হোম/সার্চ থেকে আসা ভিডিও — WebView প্লেয়ারে খোলে */
+    private void openFromIntentIfNeeded() {
+        Intent in = getIntent();
+        if (in == null) return;
+        String u = in.getStringExtra(EXTRA_OPEN_URL);
+        if (u == null || u.isEmpty()) return;
+        in.removeExtra(EXTRA_OPEN_URL);
+        String title = in.getStringExtra(EXTRA_OPEN_TITLE);
+        String uploader = in.getStringExtra(EXTRA_OPEN_UPLOADER);
+        if (title == null) title = "";
+        if (uploader == null) uploader = "";
+        final String js = "(function(){try{"
+                + "var it={title:" + JSONObject.quote(title)
+                + ",url:" + JSONObject.quote(u)
+                + ",uploader:" + JSONObject.quote(uploader)
+                + ",duration:0,views:0,thumb:''};"
+                + "if(typeof openVideo==='function'){openVideo(it,0,[it]);}"
+                + "}catch(e){}})();";
+        if (webView != null) webView.evaluateJavascript(js, null);
     }
 
     @Override
