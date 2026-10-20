@@ -572,8 +572,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     }
 
     private void wireSwipe() {
-        View root = findViewById(android.R.id.content);
-        ViewCompat.setAccessibilityDelegate(root, new AccessibilityDelegateCompat() {
+        AccessibilityDelegateCompat d = new AccessibilityDelegateCompat() {
             @Override
             public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfoCompat info) {
                 super.onInitializeAccessibilityNodeInfo(host, info);
@@ -593,7 +592,14 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
                 }
                 return super.performAccessibilityAction(host, action, args);
             }
-        });
+        };
+        // TalkBack sends the gesture to the NEAREST scrollable parent of the focused item,
+        // so every parent between the controls and the screen edge must know this action
+        int[] ids = {android.R.id.content, R.id.scroll, R.id.panel, R.id.videoBox, R.id.upnext};
+        for (int id : ids) {
+            View v = findViewById(id);
+            if (v != null) ViewCompat.setAccessibilityDelegate(v, d);
+        }
     }
 
     private void wireButtons() {
