@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ast_bg">#09161A</color>
+    <color name="ast_bg2">#102229</color>
+    <color name="ast_text">#EAF5F3</color>
+    <color name="ast_muted">#A4BCC0</color>
+    <color name="ast_accent">#FFB84A</color>
+</resources>
