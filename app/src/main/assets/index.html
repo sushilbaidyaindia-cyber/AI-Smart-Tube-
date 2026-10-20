@@ -620,10 +620,22 @@
    helpers
    ===================================================================== */
 const $ = id => document.getElementById(id);
+/* subscriptions, history, liked, later, resume positions and settings live in the app (shared with the native screens) */
+const NATIVE_KEYS = { subs: 1, suburl: 1, history: 1, later: 1, liked: 1, pos: 1, settings: 1 };
+function nativeStore() { return !!(window.Android && typeof Android.storeGet === 'function' && typeof Android.storeSet === 'function'); }
 const LS = {
-  get(k, d) { try { const v = localStorage.getItem('mt_' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('mt_' + k, JSON.stringify(v)); } catch (e) {} },
-  del(k) { try { localStorage.removeItem('mt_' + k); } catch (e) {} }
+  get(k, d) {
+    try {
+      let v;
+      if (NATIVE_KEYS[k] && nativeStore()) {
+        v = Android.storeGet(k);
+        if (!v) { const old = localStorage.getItem('mt_' + k); if (old) { Android.storeSet(k, old); v = old; } }   /* first run: move old data */
+      } else v = localStorage.getItem('mt_' + k);
+      return v ? JSON.parse(v) : d;
+    } catch (e) { return d; }
+  },
+  set(k, v) { try { const s = JSON.stringify(v); if (NATIVE_KEYS[k] && nativeStore()) Android.storeSet(k, s); else localStorage.setItem('mt_' + k, s); } catch (e) {} },
+  del(k) { try { if (NATIVE_KEYS[k] && nativeStore()) Android.storeSet(k, ''); localStorage.removeItem('mt_' + k); } catch (e) {} }
 };
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 const BN = '০১২৩৪৫৬৭৮৯';
@@ -903,6 +915,7 @@ function buildChips() {
 }
 function buildWelcome() {
   const box = $('welcome'); box.textContent = '';
+  return;   /* the first-run privacy card is switched off; the privacy page is still under আপনি */
   if (LS.get('welcomed', false)) return;
   const c = el('section', 'welcome'); c.setAttribute('aria-labelledby', 'wlT');
   const h = el('h2', '', 'বিজ্ঞাপন নেই, অ্যাকাউন্ট লাগে না'); h.id = 'wlT';
@@ -1050,7 +1063,7 @@ async function clearData(what) {
   if (!(await askConfirm(msg[0], msg[1], 'মুছুন'))) return;
   if (what === 'history') { LS.set('history', []); LS.del('pos'); }
   else if (what === 'recent') LS.set('recent', []);
-  else { try { Object.keys(localStorage).filter(k => k.indexOf('mt_') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  else { try { Object.keys(NATIVE_KEYS).forEach(k => LS.del(k)); } catch (e) {} try { Object.keys(localStorage).filter(k => k.indexOf('mt_') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
     document.querySelectorAll('.sv').forEach(e => { const v = SET_DEFAULTS[e.id]; if (v !== undefined) { if (e.type === 'checkbox') e.checked = !!v; else e.value = v; } else if (e.type !== 'checkbox') e.value = ''; });
     applySettings(); buildWelcome(); }
   refreshYou(); toast('মুছে ফেলা হয়েছে');
