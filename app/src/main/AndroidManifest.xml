@@ -46,6 +46,20 @@
             android:theme="@style/Theme.AppCompat.NoActionBar"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- নেটিভ প্লেয়ার (ExoPlayer) -->
+        <activity
+            android:name=".PlayerActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+        <!-- নেটিভ চ্যানেল পেজ -->
+        <activity
+            android:name=".ChannelActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
         <!-- WebView প্লেয়ার / রেডিও / সেটিংস -->
         <activity
             android:name=".MainActivity"
