@@ -571,35 +571,78 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         say(swipeFlip() ? "এখন দুই আঙুলে বামে সোয়াইপ করলে পরের ভিডিও" : "এখন দুই আঙুলে ডানে সোয়াইপ করলে পরের ভিডিও");
     }
 
+    private static final AccessibilityNodeInfoCompat.AccessibilityActionCompat A_LEFT =
+            AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_LEFT;
+    private static final AccessibilityNodeInfoCompat.AccessibilityActionCompat A_RIGHT =
+            AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_RIGHT;
+    private static final AccessibilityNodeInfoCompat.AccessibilityActionCompat A_FWD =
+            AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_FORWARD;
+    private static final AccessibilityNodeInfoCompat.AccessibilityActionCompat A_BACK =
+            AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_BACKWARD;
+
+    /** gesture -> video. Fingers moving right reach the app as "scroll left". */
+    private boolean swipeTo(boolean fromLeftAction) {
+        boolean goNext = swipeFlip() ? !fromLeftAction : fromLeftAction;
+        if (goNext) next(false); else prev();
+        return true;
+    }
+
+    /**
+     * Works like the file manager's page swipe: TalkBack's two-finger left/right swipe goes to the nearest
+     * parent that says it scrolls sideways, so the whole screen is marked that way.
+     * "pager" views (outer screen, video box) also take forward/backward; the inner list keeps its own
+     * up/down scrolling and only takes left/right.
+     */
     private void wireSwipe() {
-        AccessibilityDelegateCompat d = new AccessibilityDelegateCompat() {
+        AccessibilityDelegateCompat plain = new AccessibilityDelegateCompat() {
             @Override
             public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfoCompat info) {
                 super.onInitializeAccessibilityNodeInfo(host, info);
-                info.addAction(AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_LEFT);
-                info.addAction(AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_RIGHT);
+                info.setScrollable(true);
+                info.addAction(A_LEFT);
+                info.addAction(A_RIGHT);
             }
 
             @Override
             public boolean performAccessibilityAction(View host, int action, Bundle args) {
-                boolean left = action == AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_LEFT.getId();
-                boolean right = action == AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_SCROLL_RIGHT.getId();
-                if (left || right) {
-                    // fingers moving right reach the app as "scroll left"
-                    boolean goNext = swipeFlip() ? right : left;
-                    if (goNext) next(false); else prev();
-                    return true;
-                }
+                if (action == A_LEFT.getId()) return swipeTo(true);
+                if (action == A_RIGHT.getId()) return swipeTo(false);
                 return super.performAccessibilityAction(host, action, args);
             }
         };
-        // TalkBack sends the gesture to the NEAREST scrollable parent of the focused item,
-        // so every parent between the controls and the screen edge must know this action
-        int[] ids = {android.R.id.content, R.id.scroll, R.id.panel, R.id.videoBox, R.id.upnext};
-        for (int id : ids) {
+        AccessibilityDelegateCompat pager = new AccessibilityDelegateCompat() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfoCompat info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                info.setScrollable(true);
+                info.addAction(A_LEFT);
+                info.addAction(A_RIGHT);
+                info.addAction(A_FWD);
+                info.addAction(A_BACK);
+            }
+
+            @Override
+            public boolean performAccessibilityAction(View host, int action, Bundle args) {
+                if (action == A_LEFT.getId()) return swipeTo(true);
+                if (action == A_RIGHT.getId()) return swipeTo(false);
+                if (action == A_FWD.getId()) { next(false); return true; }
+                if (action == A_BACK.getId()) { prev(); return true; }
+                return super.performAccessibilityAction(host, action, args);
+            }
+        };
+        int[] pagerIds = {android.R.id.content, R.id.videoBox};
+        for (int id : pagerIds) {
             View v = findViewById(id);
-            if (v != null) ViewCompat.setAccessibilityDelegate(v, d);
+            if (v != null) ViewCompat.setAccessibilityDelegate(v, pager);
         }
+        // these sit between the controls and the screen edge and would otherwise swallow the gesture
+        View pills = (View) findViewById(R.id.pills).getParent();
+        int[] plainIds = {R.id.scroll, R.id.upnext};
+        for (int id : plainIds) {
+            View v = findViewById(id);
+            if (v != null) ViewCompat.setAccessibilityDelegate(v, plain);
+        }
+        ViewCompat.setAccessibilityDelegate(pills, plain);
     }
 
     private void wireButtons() {
