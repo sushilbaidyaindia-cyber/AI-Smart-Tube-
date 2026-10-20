@@ -155,10 +155,9 @@ public class BrowseActivity extends AppCompatActivity implements VideoAdapter.Li
             return;
         }
         NativeFeedLoader.prefetch(item.url);   // runs while the player screen opens
-        Intent i = new Intent(this, MainActivity.class);
-        i.putExtra(MainActivity.EXTRA_OPEN_URL, item.url);
-        i.putExtra(MainActivity.EXTRA_OPEN_TITLE, item.title);
-        i.putExtra(MainActivity.EXTRA_OPEN_UPLOADER, item.uploader);
-        startActivity(i);
+        List<VideoItem> all = adapter.items();
+        int idx = 0;
+        for (int k = 0; k < all.size(); k++) if (all.get(k).url.equals(item.url)) { idx = k; break; }
+        startActivity(PlayerActivity.intent(this, all, idx));
     }
 }

@@ -11,6 +11,9 @@ public class VideoItem {
     public final long duration; // seconds, may be 0
     public final long views;
     public final String thumb;
+    /** "video" or "playlist" (channel pages) */
+    public String kind = "video";
+    public long count = 0;
 
     public VideoItem(String title, String url, String uploader, String uploaderUrl,
                      long duration, long views, String thumb) {
@@ -23,8 +26,29 @@ public class VideoItem {
         this.thumb = thumb != null ? thumb : "";
     }
 
+    public JSONObject toJson() {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("title", title);
+            o.put("url", url);
+            o.put("uploader", uploader);
+            o.put("uploaderUrl", uploaderUrl);
+            o.put("duration", duration);
+            o.put("views", views);
+            o.put("thumb", thumb);
+        } catch (Exception ignored) {}
+        return o;
+    }
+
     public static VideoItem fromJson(JSONObject o) {
         if (o == null) return null;
+        VideoItem v = build(o);
+        v.kind = o.optString("kind", "video");
+        v.count = o.optLong("count", 0);
+        return v;
+    }
+
+    private static VideoItem build(JSONObject o) {
         return new VideoItem(
                 o.optString("title", ""),
                 o.optString("url", ""),
@@ -38,6 +62,9 @@ public class VideoItem {
 
     /** Spoken / content-description for TalkBack — one clear label per row. */
     public String talkBackLabel() {
+        if ("playlist".equals(kind)) {
+            return "প্লেলিস্ট: " + title + (count > 0 ? ", " + formatCountBn(count) + "টি ভিডিও" : "");
+        }
         StringBuilder sb = new StringBuilder();
         if (!title.isEmpty()) sb.append(title);
         if (!uploader.isEmpty()) {
@@ -88,5 +115,16 @@ public class VideoItem {
         if (n >= 100_000) return toBn.apply(String.format("%.1f", n / 100_000.0)) + " লাখ ভিউ";
         if (n >= 1000) return toBn.apply(String.format("%.1f", n / 1000.0)) + " হাজার ভিউ";
         return toBn.apply(String.valueOf(n)) + " ভিউ";
+    }
+
+    public static String formatCountBn(long n) {
+        String bn = "০১২৩৪৫৬৭৮৯";
+        String t = String.valueOf(n);
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            b.append(c >= '0' && c <= '9' ? bn.charAt(c - '0') : c);
+        }
+        return b.toString();
     }
 }

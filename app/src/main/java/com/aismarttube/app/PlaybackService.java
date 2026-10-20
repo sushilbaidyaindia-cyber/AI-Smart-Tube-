@@ -100,7 +100,8 @@ public class PlaybackService extends Service {
         } else {
             b = new Notification.Builder(this);
         }
-        Intent open = new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        Class<?> target = (PlayerActivity.current != null && PlayerActivity.owner) ? PlayerActivity.class : MainActivity.class;
+        Intent open = new Intent(this, target).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         int fl = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
         b.setContentIntent(PendingIntent.getActivity(this, 0, open, fl))
                 .setContentTitle(title)

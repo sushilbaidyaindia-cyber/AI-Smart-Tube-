@@ -41,6 +41,10 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VH> {
         notifyDataSetChanged();
     }
 
+    public List<VideoItem> items() {
+        return new ArrayList<>(data);
+    }
+
     public void append(List<VideoItem> items) {
         if (items == null || items.isEmpty()) return;
         int start = data.size();
@@ -64,6 +68,9 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VH> {
         String meta = it.uploader;
         if (it.duration > 0) {
             meta = (meta.isEmpty() ? "" : meta + " · ") + formatDur(it.duration);
+        }
+        if ("playlist".equals(it.kind)) {
+            meta = "প্লেলিস্ট" + (it.count > 0 ? " · " + VideoItem.formatCountBn(it.count) + "টি ভিডিও" : "");
         }
         h.meta.setText(meta);
         h.itemView.setContentDescription(it.talkBackLabel());

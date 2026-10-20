@@ -206,8 +206,17 @@ public class MainActivity extends AppCompatActivity {
 
     /** called by PlaybackService (notification buttons) */
     static void dispatch(String cmd) {
+        if (PlayerActivity.handleRemote(cmd)) return;   // the native player is the one playing
         MainActivity a = current;
         if (a != null && cmd != null) a.remote(cmd);
+    }
+
+    /** the native player closed: the media notification should use this screen's session again */
+    static void reclaimSession() {
+        MainActivity a = current;
+        if (a != null && a.mediaSession != null) {
+            try { PlaybackService.sessionToken = a.mediaSession.getSessionToken(); } catch (Throwable ignored) {}
+        }
     }
 
     /** A WebView that is not told "you are invisible" when the screen turns off, so audio keeps going. */
@@ -416,9 +425,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private static boolean storeKeyOk(String k) {
+        return "subs".equals(k) || "suburl".equals(k) || "history".equals(k) || "later".equals(k)
+                || "liked".equals(k) || "pos".equals(k) || "settings".equals(k);
+    }
+
     // ------------------------------------------------------------ JS interface
 
     public class WebAppInterface {
+
+        /** shared data (subscriptions, history, liked, later, positions, settings) lives natively */
+        @JavascriptInterface
+        public String storeGet(String key) {
+            return storeKeyOk(key) ? Store.get(MainActivity.this, key) : "";
+        }
+
+        @JavascriptInterface
+        public void storeSet(String key, String json) {
+            if (storeKeyOk(key)) Store.set(MainActivity.this, key, json);
+        }
 
         @JavascriptInterface
         public void showToast(String message) {
@@ -531,6 +556,7 @@ public class MainActivity extends AppCompatActivity {
         /** The page tells us whether the video is playing, so media buttons and TalkBack toggle correctly. */
         @JavascriptInterface
         public void setPlayback(boolean playing, String title) {
+            if (playing) PlayerActivity.yieldToOthers();
             runOnUiThread(() -> {
                 applyPlaybackState(playing, title);
                 updateService(playing, title);
@@ -544,6 +570,7 @@ public class MainActivity extends AppCompatActivity {
         /** urlsJson = ["main link", "backup link", ...] */
         @JavascriptInterface
         public void radioPlay(String urlsJson, String title) {
+            PlayerActivity.yieldToOthers();
             runOnUiThread(() -> {
                 try {
                     org.json.JSONArray a = new org.json.JSONArray(urlsJson);
@@ -597,8 +624,10 @@ public class MainActivity extends AppCompatActivity {
         pool.shutdownNow();
         current = null;
         try { if (radio != null) radio.stop(); } catch (Throwable ignored) {}
-        try { stopService(new Intent(this, PlaybackService.class)); } catch (Throwable ignored) {}
-        PlaybackService.sessionToken = null;
+        if (!PlayerActivity.owner) {
+            try { stopService(new Intent(this, PlaybackService.class)); } catch (Throwable ignored) {}
+            PlaybackService.sessionToken = null;
+        }
         if (mediaSession != null) {
             try {
                 mediaSession.setActive(false);
