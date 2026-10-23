@@ -55,6 +55,11 @@
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
         <activity
+            android:name=".RadioActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+        <activity
             android:name=".SubsActivity"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
