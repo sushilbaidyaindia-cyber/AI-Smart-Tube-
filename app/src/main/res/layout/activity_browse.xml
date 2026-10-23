@@ -33,6 +33,15 @@
             android:tint="#EAF5F3" />
 
         <ImageButton
+            android:id="@+id/btnHistory"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="ইতিহাস"
+            android:src="@android:drawable/ic_menu_recent_history"
+            android:tint="#EAF5F3" />
+
+        <ImageButton
             android:id="@+id/btnFullApp"
             android:layout_width="48dp"
             android:layout_height="48dp"
@@ -75,5 +84,8 @@
         android:clipToPadding="false"
         android:paddingBottom="16dp"
         android:contentDescription="ভিডিও তালিকা" />
+
+
+    <include layout="@layout/bottom_tabs" />
 
 </LinearLayout>
