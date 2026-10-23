@@ -209,18 +209,23 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
 
     @Override
     protected void onDestroy() {
+        final boolean wasOwner = owner;   // false when the web player or the radio took over: leave their notification alone
         current = null;
         owner = false;
         ui.removeCallbacksAndMessages(null);
         savePos();
         try { if (player != null) { player.release(); player = null; } } catch (Throwable ignored) {}
-        try { stopService(new Intent(this, PlaybackService.class)); } catch (Throwable ignored) {}
+        if (wasOwner) {
+            try { stopService(new Intent(this, PlaybackService.class)); } catch (Throwable ignored) {}
+        }
         if (session != null) {
             try { session.setActive(false); session.release(); } catch (Throwable ignored) {}
             session = null;
         }
-        PlaybackService.sessionToken = null;
-        MainActivity.reclaimSession();
+        if (wasOwner) {
+            PlaybackService.sessionToken = null;
+            MainActivity.reclaimSession();
+        }
         io.shutdownNow();
         super.onDestroy();
     }

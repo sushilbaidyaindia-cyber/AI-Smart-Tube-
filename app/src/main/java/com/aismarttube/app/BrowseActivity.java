@@ -52,11 +52,44 @@ public class BrowseActivity extends AppCompatActivity implements VideoAdapter.Li
 
         findViewById(R.id.btnSearch).setOnClickListener(v ->
                 startActivity(new Intent(this, SearchNativeActivity.class)));
+        findViewById(R.id.btnHistory).setOnClickListener(v ->
+                startActivity(HistoryActivity.open(this, "history")));
         findViewById(R.id.btnFullApp).setOnClickListener(v ->
                 startActivity(new Intent(this, MainActivity.class)));
 
+        TabBar.setup(this, TabBar.HOME);
         buildChips();
         loadCurrent(false);
+        warmWebView(this);
+    }
+
+    // ---- the settings / radio screen is a WebView: starting the browser engine takes a second or two,
+    //      so it is started quietly here while the home list is being read ----
+    private static android.webkit.WebView warm;
+    private static final Handler warmH = new Handler(Looper.getMainLooper());
+    private static final Runnable warmKill = BrowseActivity::dropWarm;
+
+    private static void warmWebView(android.content.Context c) {
+        if (warm != null) return;
+        warmH.postDelayed(() -> {
+            try {
+                if (warm != null) return;
+                warm = new android.webkit.WebView(c.getApplicationContext());
+                warm.loadUrl("about:blank");
+                warmH.postDelayed(warmKill, 25000);
+            } catch (Throwable ignored) {}
+        }, 1500);
+    }
+
+    static void dropWarm() {
+        warmH.removeCallbacks(warmKill);
+        try { if (warm != null) warm.destroy(); } catch (Throwable ignored) {}
+        warm = null;
+    }
+
+    @Override
+    public void onBackPressed() {
+        moveTaskToBack(true);   // home tab: leave the app but keep radio / music going
     }
 
     private final Button[] chipViews = new Button[CHIPS.length];

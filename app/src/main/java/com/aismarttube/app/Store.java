@@ -119,8 +119,10 @@ final class Store {
         if (!settingBool(c, "keepHistory", true)) return;
         JSONArray a = arr(c, "history");
         JSONArray res = new JSONArray();
-        res.put(it.toJson());
-        for (int i = 0; i < a.length() && res.length() < 60; i++) {
+        JSONObject cur = it.toJson();
+        try { cur.put("t", System.currentTimeMillis()); } catch (Throwable ignored) {}   // when it was watched (history is grouped by day)
+        res.put(cur);
+        for (int i = 0; i < a.length() && res.length() < 200; i++) {
             JSONObject o = a.optJSONObject(i);
             if (o != null && !it.url.equals(o.optString("url"))) res.put(o);
         }

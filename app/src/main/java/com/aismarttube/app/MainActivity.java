@@ -53,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_NOTIFY = 4403;
 
     /** BrowseActivity / SearchNativeActivity থেকে ভিডিও খুলতে */
+    public static final String EXTRA_OPEN_TAB = "open_tab";   // radio | settings | privacy
     public static final String EXTRA_OPEN_URL = "open_url";
     public static final String EXTRA_OPEN_TITLE = "open_title";
     public static final String EXTRA_OPEN_UPLOADER = "open_uploader";
@@ -144,9 +145,20 @@ public class MainActivity extends AppCompatActivity {
         });
 
         current = this;
+        webView.setBackgroundColor(0xFF09161A);
+        webView.loadUrl("file:///android_asset/index.html");   // first: the page (and its tabs) should not wait for the rest
         radio = new RadioPlayer(this, this::onRadioState);
         setupMediaSession();
-        webView.loadUrl("file:///android_asset/index.html");
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        BrowseActivity.dropWarm();
+        // the native history / lists may have changed the counts shown under "আপনি"
+        if (pageLoaded && webView != null) {
+            webView.evaluateJavascript("try{refreshYou()}catch(e){}", null);
+        }
     }
 
     // ------------------------------------------------------------ media session
@@ -445,6 +457,19 @@ public class MainActivity extends AppCompatActivity {
             if (storeKeyOk(key)) Store.set(MainActivity.this, key, json);
         }
 
+        /** bottom tabs of the web screens: home / subs / you are native screens */
+        @JavascriptInterface
+        public void openTab(String name) {
+            runOnUiThread(() -> TabBar.open(MainActivity.this, name));
+        }
+
+        /** history / later / liked open as a native list (fast TalkBack) */
+        @JavascriptInterface
+        public void openList(String key) {
+            if (!"history".equals(key) && !"later".equals(key) && !"liked".equals(key)) return;
+            runOnUiThread(() -> startActivity(HistoryActivity.open(MainActivity.this, key)));
+        }
+
         @JavascriptInterface
         public void showToast(String message) {
             runOnUiThread(() -> toast(message));
@@ -650,6 +675,14 @@ public class MainActivity extends AppCompatActivity {
     private void openFromIntentIfNeeded() {
         Intent in = getIntent();
         if (in == null) return;
+        String tab = in.getStringExtra(EXTRA_OPEN_TAB);
+        if (tab != null) {
+            in.removeExtra(EXTRA_OPEN_TAB);
+            String name = "radio".equals(tab) ? "radio" : "privacy".equals(tab) ? "privacy" : "settings";
+            if (webView != null) {
+                webView.evaluateJavascript("(function(){try{stack=['" + name + "'];go('" + name + "',true);}catch(e){}})();", null);
+            }
+        }
         String u = in.getStringExtra(EXTRA_OPEN_URL);
         if (u == null || u.isEmpty()) return;
         in.removeExtra(EXTRA_OPEN_URL);

@@ -62,7 +62,11 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VH> {
 
     @Override
     public void onBindViewHolder(@NonNull VH h, int position) {
-        VideoItem it = data.get(position);
+        bind(h, data.get(position), listener);
+    }
+
+    /** shared with the history list */
+    static void bind(@NonNull VH h, VideoItem it, Listener listener) {
         h.url = it.url;
         h.title.setText(it.title.isEmpty() ? "ভিডিও" : it.title);
         String meta = it.uploader;
@@ -104,12 +108,12 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VH> {
         return data.size();
     }
 
-    static class VH extends RecyclerView.ViewHolder {
+    public static class VH extends RecyclerView.ViewHolder {
         final ImageView thumb;
         final TextView title, meta, avatar;
         String url = "";
 
-        VH(View v) {
+        public VH(View v) {
             super(v);
             thumb = v.findViewById(R.id.thumb);
             title = v.findViewById(R.id.title);
