@@ -38,7 +38,7 @@ final class TabBar {
             case HOME: in = new Intent(c, BrowseActivity.class); break;
             case SUBS: in = new Intent(c, SubsActivity.class); break;
             case YOU: in = new Intent(c, YouActivity.class); break;
-            default: in = new Intent(c, MainActivity.class).putExtra(MainActivity.EXTRA_OPEN_TAB, "radio"); break;
+            default: in = new Intent(c, RadioActivity.class); break;
         }
         return in.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_NO_ANIMATION);
     }

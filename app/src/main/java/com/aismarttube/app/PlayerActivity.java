@@ -269,7 +269,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             @Override
             public void onIsPlayingChanged(boolean playing) {
                 paintPlay(playing);
-                if (playing) { owner = true; askNotify(); }
+                if (playing) { owner = true; RadioHub.stopForVideo(); askNotify(); }
                 applyPlaybackState(playing);
                 updateService(playing);
             }
@@ -1142,6 +1142,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     }
 
     private void updateService(boolean playing) {
+        if (!owner && RadioHub.active()) return;   // the radio owns the notification now
         try {
             if (!Store.settingBool(this, "bgPlay", true)) {
                 stopService(new Intent(this, PlaybackService.class));

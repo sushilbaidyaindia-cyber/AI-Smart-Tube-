@@ -15,8 +15,8 @@ import org.json.JSONArray;
 /** "আপনি" tab: history, watch later, liked, settings, privacy. */
 public class YouActivity extends AppCompatActivity {
 
-    private static final String[] ROWS = {"ইতিহাস", "পরে দেখব", "পছন্দের ভিডিও", "সেটিংস", "গোপনীয়তা"};
-    private static final String[] SUB = {"", "", "", "AI, সোর্স, প্লেব্যাক, অ্যাক্সেসিবিলিটি", "কোন তথ্য কোথায় যায়"};
+    private static final String[] ROWS = {"ইতিহাস", "পরে দেখব", "পছন্দের ভিডিও", "সার্চ ইতিহাস", "সেটিংস", "গোপনীয়তা"};
+    private static final String[] SUB = {"", "", "", "আগের সার্চ দেখুন বা মুছুন", "AI, সোর্স, প্লেব্যাক, অ্যাক্সেসিবিলিটি", "কোন তথ্য কোথায় যায়"};
     private RecyclerView.Adapter<RecyclerView.ViewHolder> adapter;
 
     @Override
@@ -90,7 +90,8 @@ public class YouActivity extends AppCompatActivity {
         if (pos == 0) startActivity(HistoryActivity.open(this, "history"));
         else if (pos == 1) startActivity(HistoryActivity.open(this, "later"));
         else if (pos == 2) startActivity(HistoryActivity.open(this, "liked"));
+        else if (pos == 3) startActivity(new Intent(this, SearchNativeActivity.class));
         else startActivity(new Intent(this, MainActivity.class)
-                .putExtra(MainActivity.EXTRA_OPEN_TAB, pos == 3 ? "settings" : "privacy"));
+                .putExtra(MainActivity.EXTRA_OPEN_TAB, pos == 4 ? "settings" : "privacy"));
     }
 }

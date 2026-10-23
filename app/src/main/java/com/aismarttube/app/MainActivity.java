@@ -219,6 +219,7 @@ public class MainActivity extends AppCompatActivity {
     /** called by PlaybackService (notification buttons) */
     static void dispatch(String cmd) {
         if (PlayerActivity.handleRemote(cmd)) return;   // the native player is the one playing
+        if (RadioHub.handleRemote(cmd)) return;         // the native radio is the one playing
         MainActivity a = current;
         if (a != null && cmd != null) a.remote(cmd);
     }
@@ -226,6 +227,7 @@ public class MainActivity extends AppCompatActivity {
     /** the native player closed: the media notification should use this screen's session again */
     static void reclaimSession() {
         MainActivity a = current;
+        if (RadioHub.active()) return;   // the radio's own session keeps the notification
         if (a != null && a.mediaSession != null) {
             try { PlaybackService.sessionToken = a.mediaSession.getSessionToken(); } catch (Throwable ignored) {}
         }
@@ -439,7 +441,8 @@ public class MainActivity extends AppCompatActivity {
 
     private static boolean storeKeyOk(String k) {
         return "subs".equals(k) || "suburl".equals(k) || "history".equals(k) || "later".equals(k)
-                || "liked".equals(k) || "pos".equals(k) || "settings".equals(k);
+                || "liked".equals(k) || "pos".equals(k) || "settings".equals(k)
+                || "searches".equals(k) || "subfeed".equals(k) || "radios".equals(k);
     }
 
     // ------------------------------------------------------------ JS interface
@@ -581,7 +584,7 @@ public class MainActivity extends AppCompatActivity {
         /** The page tells us whether the video is playing, so media buttons and TalkBack toggle correctly. */
         @JavascriptInterface
         public void setPlayback(boolean playing, String title) {
-            if (playing) PlayerActivity.yieldToOthers();
+            if (playing) { PlayerActivity.yieldToOthers(); RadioHub.stopForVideo(); }
             runOnUiThread(() -> {
                 applyPlaybackState(playing, title);
                 updateService(playing, title);
@@ -649,7 +652,7 @@ public class MainActivity extends AppCompatActivity {
         pool.shutdownNow();
         current = null;
         try { if (radio != null) radio.stop(); } catch (Throwable ignored) {}
-        if (!PlayerActivity.owner) {
+        if (!PlayerActivity.owner && !RadioHub.active()) {
             try { stopService(new Intent(this, PlaybackService.class)); } catch (Throwable ignored) {}
             PlaybackService.sessionToken = null;
         }

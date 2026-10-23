@@ -49,6 +49,7 @@ public class PlaybackService extends Service {
         String action = intent == null ? ACTION_UPDATE : intent.getAction();
         if (ACTION_STOP.equals(action)) {
             MainActivity.dispatch("pause");
+            RadioHub.stop(true);
             shutDown();
             return START_NOT_STICKY;
         }
@@ -100,7 +101,8 @@ public class PlaybackService extends Service {
         } else {
             b = new Notification.Builder(this);
         }
-        Class<?> target = (PlayerActivity.current != null && PlayerActivity.owner) ? PlayerActivity.class : MainActivity.class;
+        Class<?> target = (PlayerActivity.current != null && PlayerActivity.owner) ? PlayerActivity.class
+                : RadioHub.active() ? RadioActivity.class : MainActivity.class;
         Intent open = new Intent(this, target).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         int fl = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
         b.setContentIntent(PendingIntent.getActivity(this, 0, open, fl))
