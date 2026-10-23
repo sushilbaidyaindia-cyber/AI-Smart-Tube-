@@ -600,10 +600,10 @@
 
 <!-- ============ BOTTOM TABS ============ -->
 <nav class="tabs" id="tabs" aria-label="মূল নেভিগেশন">
-  <button type="button" class="tab" id="tab-home" onclick="go('home')"><span class="i" data-i="home"></span>হোম</button>
-  <button type="button" class="tab" id="tab-subs" onclick="go('subs')"><span class="i" data-i="subs"></span>সাবস্ক্রিপশন</button>
+  <button type="button" class="tab" id="tab-home" onclick="goTab('home')"><span class="i" data-i="home"></span>হোম</button>
+  <button type="button" class="tab" id="tab-subs" onclick="goTab('subs')"><span class="i" data-i="subs"></span>সাবস্ক্রিপশন</button>
   <button type="button" class="tab" id="tab-radio" onclick="go('radio')"><span class="i" data-i="radio"></span>রেডিও</button>
-  <button type="button" class="tab" id="tab-you" onclick="go('you')"><span class="i" data-i="user"></span>আপনি</button>
+  <button type="button" class="tab" id="tab-you" onclick="goTab('you')"><span class="i" data-i="user"></span>আপনি</button>
 </nav>
 
 <!-- sheet, dialog, snack -->
@@ -845,6 +845,10 @@ function go(name, noKb) {
   show(name);
   if (name === 'search' && !noKb) setTimeout(() => $('qInput').focus(), 100);
 }
+function goTab(name) {
+  if (window.Android && typeof Android.openTab === 'function') { Android.openTab(name); return; }   /* native screens, same tabs everywhere */
+  go(name);
+}
 function back() {
   if (anyOverlay()) { closeOverlays(); return true; }
   if (stack.length <= 1) return false;
@@ -1025,7 +1029,7 @@ function listToggle(key, it) {
 }
 function addHistory(it) {
   if (!getSet('keepHistory')) return;
-  const l = LS.get('history', []).filter(x => x.url !== it.url); l.unshift(slim(it)); LS.set('history', l.slice(0, 60));
+  const l = LS.get('history', []).filter(x => x.url !== it.url); const e = slim(it); e.t = Date.now(); l.unshift(e); LS.set('history', l.slice(0, 200));
 }
 function refreshYou() {
   $('cntHistory').textContent = bn(LS.get('history', []).length) + 'টি ভিডিও';
@@ -1034,7 +1038,9 @@ function refreshYou() {
 }
 let curListKey = '';
 const LIST_NAMES = { history: 'ইতিহাস', later: 'পরে দেখব', liked: 'পছন্দের ভিডিও' };
-function openList(key) { curListKey = key; $('listTitle').textContent = LIST_NAMES[key]; renderListScreen(); go('list'); }
+function openList(key) {
+  if (window.Android && typeof Android.openList === 'function') { Android.openList(key); return; }   /* native list: fast with TalkBack */
+  curListKey = key; $('listTitle').textContent = LIST_NAMES[key]; renderListScreen(); go('list'); }
 function renderListScreen() {
   const items = LS.get(curListKey, []); const box = $('listBody'); box.textContent = '';
   if (!items.length) { hint(box, 'এখানে এখন কিছু নেই'); return; }
