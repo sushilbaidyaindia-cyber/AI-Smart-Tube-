@@ -116,7 +116,7 @@ public class RadioActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    private void addDialog() {
+    private void addStationDialog() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(20), dp(8), dp(20), 0);
@@ -146,7 +146,7 @@ public class RadioActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void removeDialog(final int stationIndex) {
+    private void deleteStationDialog(final int stationIndex) {
         final RadioStations.Station s = stations.get(stationIndex);
         new AlertDialog.Builder(this)
                 .setTitle("স্টেশন মুছবেন?")
@@ -202,7 +202,7 @@ public class RadioActivity extends AppCompatActivity {
             if (r.type == 2) {
                 v.setText("＋ " + r.text);
                 v.setContentDescription(r.text);
-                v.setOnClickListener(x -> addDialog());
+                v.setOnClickListener(x -> addStationDialog());
                 return;
             }
             boolean cur = RadioHub.idx == r.index && RadioHub.active();
@@ -214,10 +214,10 @@ public class RadioActivity extends AppCompatActivity {
             });
             if (stations.get(r.index).custom) {
                 ViewCompat.addAccessibilityAction(v, "স্টেশন মুছুন", (view, args) -> {
-                    removeDialog(r.index);
+                    deleteStationDialog(r.index);
                     return true;
                 });
-                v.setOnLongClickListener(x -> { removeDialog(r.index); return true; });
+                v.setOnLongClickListener(x -> { deleteStationDialog(r.index); return true; });
             } else {
                 v.setOnLongClickListener(null);
             }
