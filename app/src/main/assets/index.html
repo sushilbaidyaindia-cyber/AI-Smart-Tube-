@@ -602,7 +602,7 @@
 <nav class="tabs" id="tabs" aria-label="মূল নেভিগেশন">
   <button type="button" class="tab" id="tab-home" onclick="goTab('home')"><span class="i" data-i="home"></span>হোম</button>
   <button type="button" class="tab" id="tab-subs" onclick="goTab('subs')"><span class="i" data-i="subs"></span>সাবস্ক্রিপশন</button>
-  <button type="button" class="tab" id="tab-radio" onclick="go('radio')"><span class="i" data-i="radio"></span>রেডিও</button>
+  <button type="button" class="tab" id="tab-radio" onclick="goTab('radio')"><span class="i" data-i="radio"></span>রেডিও</button>
   <button type="button" class="tab" id="tab-you" onclick="goTab('you')"><span class="i" data-i="user"></span>আপনি</button>
 </nav>
 
@@ -621,7 +621,7 @@
    ===================================================================== */
 const $ = id => document.getElementById(id);
 /* subscriptions, history, liked, later, resume positions and settings live in the app (shared with the native screens) */
-const NATIVE_KEYS = { subs: 1, suburl: 1, history: 1, later: 1, liked: 1, pos: 1, settings: 1 };
+const NATIVE_KEYS = { subs: 1, suburl: 1, history: 1, later: 1, liked: 1, pos: 1, settings: 1, searches: 1, subfeed: 1, radios: 1 };
 function nativeStore() { return !!(window.Android && typeof Android.storeGet === 'function' && typeof Android.storeSet === 'function'); }
 const LS = {
   get(k, d) {
@@ -1068,7 +1068,7 @@ async function clearData(what) {
     all: ['সব ডেটা মুছবেন?', 'ইতিহাস, পছন্দ, সাবস্ক্রিপশন, সেটিংস ও API key, সব মুছে যাবে।'] }[what];
   if (!(await askConfirm(msg[0], msg[1], 'মুছুন'))) return;
   if (what === 'history') { LS.set('history', []); LS.del('pos'); }
-  else if (what === 'recent') LS.set('recent', []);
+  else if (what === 'recent') { LS.set('recent', []); LS.set('searches', []); }
   else { try { Object.keys(NATIVE_KEYS).forEach(k => LS.del(k)); } catch (e) {} try { Object.keys(localStorage).filter(k => k.indexOf('mt_') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
     document.querySelectorAll('.sv').forEach(e => { const v = SET_DEFAULTS[e.id]; if (v !== undefined) { if (e.type === 'checkbox') e.checked = !!v; else e.value = v; } else if (e.type !== 'checkbox') e.value = ''; });
     applySettings(); buildWelcome(); }
