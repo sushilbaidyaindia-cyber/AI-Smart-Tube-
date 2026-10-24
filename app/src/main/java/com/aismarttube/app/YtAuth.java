@@ -13,11 +13,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.Scope;
 
-/** Google sign-in + OAuth access token for the YouTube Data API (read-only). */
+/** Google sign-in + OAuth access token for the YouTube Data API (read + like/subscribe). */
 public final class YtAuth {
     public static final int REQ_SIGN_IN = 9201;
     public static final int REQ_RECOVER = 9202;
-    static final String SCOPE_URL = "https://www.googleapis.com/auth/youtube.readonly";
+    static final String SCOPE_URL = "https://www.googleapis.com/auth/youtube";
 
     private static String cachedToken;
 

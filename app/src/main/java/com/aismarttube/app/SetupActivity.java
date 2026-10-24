@@ -2,27 +2,16 @@ package com.aismarttube.app;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.tasks.Task;
 
-/**
- * First launch / settings: skip or save YouTube API Key (+ optional Client ID), then Google login.
- */
+/** First launch: sign in with Google (liked videos, playlists, subscriptions) or continue without an account. */
 public class SetupActivity extends AppCompatActivity {
-
-    private LinearLayout choiceBox, keysBox;
-    private EditText apiKey, clientId;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -35,26 +24,15 @@ public class SetupActivity extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_setup);
-        choiceBox = findViewById(R.id.choiceBox);
-        keysBox = findViewById(R.id.keysBox);
-        apiKey = findViewById(R.id.apiKey);
-        clientId = findViewById(R.id.clientId);
-
-        apiKey.setText(Store.settingStr(this, "ytApiKey", ""));
-        clientId.setText(Store.settingStr(this, "ytClientId", ""));
+        ViewCompat.setAccessibilityHeading(findViewById(R.id.title), true);
 
         Button btnGoogle = findViewById(R.id.btnGoogle);
         Button btnSkip = findViewById(R.id.btnSkip);
-        Button btnSave = findViewById(R.id.btnSave);
-        Button btnBack = findViewById(R.id.btnBack);
-
-        ViewCompat.setAccessibilityHeading(findViewById(R.id.title), true);
 
         btnGoogle.setOnClickListener(v -> {
-            choiceBox.setVisibility(View.GONE);
-            keysBox.setVisibility(View.VISIBLE);
-            apiKey.requestFocus();
-            say("এপিআই কি ও Client ID ঐচ্ছিক। খালি রেখেও সেভ করা যায়।");
+            Store.putSettingBool(this, "useGoogle", true);
+            Store.putSettingBool(this, "setupDone", true);
+            YtAuth.signIn(this);
         });
 
         btnSkip.setOnClickListener(v -> {
@@ -63,23 +41,6 @@ public class SetupActivity extends AppCompatActivity {
             say("লগইন ছাড়া চালু");
             goHome();
         });
-
-        btnBack.setOnClickListener(v -> {
-            keysBox.setVisibility(View.GONE);
-            choiceBox.setVisibility(View.VISIBLE);
-            btnGoogle.requestFocus();
-        });
-
-        btnSave.setOnClickListener(v -> {
-            String key = apiKey.getText() != null ? apiKey.getText().toString().trim() : "";
-            String cid = clientId.getText() != null ? clientId.getText().toString().trim() : "";
-            Store.putSetting(this, "ytApiKey", key);
-            Store.putSetting(this, "ytClientId", cid);
-            Store.putSettingBool(this, "useGoogle", true);
-            Store.putSettingBool(this, "setupDone", true);
-            say("সেভ হয়েছে। এখন Google লগইন…");
-            YtAuth.signIn(this);
-        });
     }
 
     @Override
@@ -87,15 +48,26 @@ public class SetupActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == YtAuth.REQ_SIGN_IN) {
             try {
-                Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
-                task.getResult(ApiException.class);
+                GoogleSignIn.getSignedInAccountFromIntent(data)
+                        .getResult(com.google.android.gms.common.api.ApiException.class);
                 YtAuth.clearToken(this);
-                say("Google লগইন সফল");
-            } catch (ApiException e) {
-                say("লগইন হয়নি — পরে আপনি ট্যাব থেকে চেষ্টা করুন");
+                say("লগইন সফল। সাবস্ক্রিপশন আনা হচ্ছে…");
+                sync();
+            } catch (Exception e) {
+                say("লগইন হয়নি — পরে \"আপনি\" ট্যাব থেকে চেষ্টা করুন");
+                goHome();
             }
-            goHome();
+        } else if (requestCode == YtAuth.REQ_RECOVER) {
+            if (resultCode == RESULT_OK) { YtAuth.clearToken(this); sync(); }
+            else goHome();
         }
+    }
+
+    private void sync() {
+        YtSync.run(this, true, (n, e) -> {
+            if (e == null) say(n == 0 ? "নতুন কোনো চ্যানেল নেই" : n + "টি চ্যানেল যোগ হয়েছে");
+            goHome();
+        });
     }
 
     private void goHome() {

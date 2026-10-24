@@ -82,6 +82,7 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
         super.onResume();
         loadNames();
         if (feedMode) loadFeed(false);
+        YtSync.auto(this, () -> { loadNames(); if (feedMode) loadFeed(true); });
     }
 
     @Override

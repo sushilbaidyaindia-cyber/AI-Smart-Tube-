@@ -107,7 +107,12 @@ final class Store {
             if (it.url.equals(o.optString("url"))) { had = true; continue; }
             out.put(o);
         }
-        if (had) { set(c, key, out.toString()); return false; }
+        if (had) {
+            set(c, key, out.toString());
+            if ("liked".equals(key)) YtPush.like(c, it.url, false);
+            return false;
+        }
+        if ("liked".equals(key)) YtPush.like(c, it.url, true);
         JSONArray res = new JSONArray();
         res.put(it.toJson());
         for (int i = 0; i < out.length() && res.length() < 200; i++) res.put(out.opt(i));
@@ -147,7 +152,8 @@ final class Store {
             if (name.equals(s)) { had = true; continue; }
             out.put(s);
         }
-        if (had) { set(c, "subs", out.toString()); return false; }
+        if (had) { set(c, "subs", out.toString()); YtPush.subscribe(c, name, url, false); return false; }
+        YtPush.subscribe(c, name, url, true);
         JSONArray res = new JSONArray();
         res.put(name);
         for (int i = 0; i < out.length(); i++) res.put(out.opt(i));

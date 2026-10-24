@@ -7,26 +7,17 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONArray;
 
-/** "আপনি" tab: local lists + Google account liked + login. */
+/** "আপনি" tab, laid out like YouTube's: account, history, playlists, watch later, liked videos, settings. */
 public class YouActivity extends AppCompatActivity {
 
-    private static final String[] ROWS = {
-            "ইতিহাস",
-            "পরে দেখব",
-            "পছন্দের ভিডিও",
-            "Google লাইক",
-            "Google লগইন / লগআউট",
-            "API Key সেটআপ",
-            "সার্চ ইতিহাস",
-            "সেটিংস",
-            "গোপনীয়তা"
-    };
+    private static final int ACCOUNT = 0, HISTORY = 1, PLAYLISTS = 2, LATER = 3, LIKED = 4, SETTINGS = 5, COUNT = 6;
 
     private RecyclerView.Adapter<RecyclerView.ViewHolder> adapter;
 
@@ -38,7 +29,7 @@ public class YouActivity extends AppCompatActivity {
         RecyclerView list = findViewById(R.id.list);
         list.setLayoutManager(new LinearLayoutManager(this));
         adapter = new RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-            @Override public int getItemCount() { return ROWS.length; }
+            @Override public int getItemCount() { return COUNT; }
 
             @Override
             public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup p, int t) {
@@ -53,13 +44,13 @@ public class YouActivity extends AppCompatActivity {
                 v.setClickable(true);
                 v.setFocusable(true);
                 v.setBackgroundResource(android.R.drawable.list_selector_background);
-                return new RecyclerView.ViewHolder(v) {};
+                return new RecyclerView.ViewHolder(v) { };
             }
 
             @Override
             public void onBindViewHolder(RecyclerView.ViewHolder h, int pos) {
                 TextView v = (TextView) h.itemView;
-                String t = ROWS[pos];
+                String t = title(pos);
                 String sub = subtitle(pos);
                 v.setText(sub.isEmpty() ? t : t + "\n" + sub);
                 v.setContentDescription(sub.isEmpty() ? t : t + ", " + sub);
@@ -95,49 +86,77 @@ public class YouActivity extends AppCompatActivity {
         return s.toString();
     }
 
+    private String title(int pos) {
+        switch (pos) {
+            case ACCOUNT: return YtAuth.isSignedIn(this)
+                    ? (YtAuth.email(this).isEmpty() ? "Google অ্যাকাউন্ট" : YtAuth.email(this))
+                    : "Google দিয়ে লগইন";
+            case HISTORY: return "ইতিহাস";
+            case PLAYLISTS: return "প্লেলিস্ট";
+            case LATER: return "পরে দেখব";
+            case LIKED: return "পছন্দের ভিডিও";
+            default: return "সেটিংস";
+        }
+    }
+
+    private String count(String key) {
+        try {
+            String s = Store.get(this, key);
+            return bn(s.isEmpty() ? 0 : new JSONArray(s).length()) + "টি ভিডিও";
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
     private String subtitle(int pos) {
-        if (pos <= 2) {
-            String key = pos == 0 ? "history" : pos == 1 ? "later" : "liked";
-            try {
-                String s = Store.get(this, key);
-                return bn(s.isEmpty() ? 0 : new JSONArray(s).length()) + "টি ভিডিও";
-            } catch (Throwable t) {
-                return "";
-            }
+        switch (pos) {
+            case ACCOUNT: return YtAuth.isSignedIn(this) ? "সাবস্ক্রিপশন আনা বা লগআউট করতে চাপুন"
+                    : "সাবস্ক্রিপশন, লাইক ও প্লেলিস্ট পেতে";
+            case HISTORY: return count("history");
+            case PLAYLISTS: return YtAuth.isSignedIn(this) ? "আপনার ইউটিউব প্লেলিস্ট" : "লগইন করলে দেখা যাবে";
+            case LATER: return count("later");
+            case LIKED: return count("liked");
+            default: return "AI, সোর্স, প্লেব্যাক";
         }
-        if (pos == 3) return "ইউটিউব অ্যাকাউন্টের লাইক";
-        if (pos == 4) {
-            if (YtAuth.isSignedIn(this)) {
-                String e = YtAuth.email(this);
-                return e.isEmpty() ? "লগইন আছে — লগআউট করতে চাপুন" : e + " — লগআউট";
-            }
-            return "লগইন করুন";
-        }
-        if (pos == 5) return "API Key ও Client ID";
-        if (pos == 6) return "আগের সার্চ";
-        if (pos == 7) return "AI, সোর্স, প্লেব্যাক";
-        if (pos == 8) return "কোন তথ্য কোথায় যায়";
-        return "";
     }
 
     private void open(int pos) {
-        if (pos == 0) startActivity(HistoryActivity.open(this, "history"));
-        else if (pos == 1) startActivity(HistoryActivity.open(this, "later"));
-        else if (pos == 2) startActivity(HistoryActivity.open(this, "liked"));
-        else if (pos == 3) startActivity(new Intent(this, YtLikedActivity.class));
-        else if (pos == 4) {
-            if (YtAuth.isSignedIn(this)) {
-                YtAuth.signOut(this, () -> {
-                    Toast.makeText(this, "লগআউট হয়েছে", Toast.LENGTH_SHORT).show();
-                    adapter.notifyDataSetChanged();
-                });
-            } else {
-                YtAuth.signIn(this);
-            }
-        } else if (pos == 5) SetupActivity.open(this, true);
-        else if (pos == 6) startActivity(new Intent(this, SearchNativeActivity.class));
-        else startActivity(new Intent(this, MainActivity.class)
-                .putExtra(MainActivity.EXTRA_OPEN_TAB, pos == 7 ? "settings" : "privacy"));
+        switch (pos) {
+            case ACCOUNT:
+                if (YtAuth.isSignedIn(this)) accountMenu(); else YtAuth.signIn(this);
+                break;
+            case HISTORY: startActivity(HistoryActivity.open(this, "history")); break;
+            case PLAYLISTS:
+                if (YtAuth.isSignedIn(this)) startActivity(new Intent(this, YtPlaylistsActivity.class));
+                else Toast.makeText(this, "আগে Google লগইন করুন", Toast.LENGTH_SHORT).show();
+                break;
+            case LATER: startActivity(HistoryActivity.open(this, "later")); break;
+            case LIKED: startActivity(new Intent(this, YtLikedActivity.class)); break;
+            default:
+                startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_OPEN_TAB, "settings"));
+        }
+    }
+
+    private void accountMenu() {
+        new AlertDialog.Builder(this)
+                .setTitle(YtAuth.email(this))
+                .setItems(new String[]{"সাবস্ক্রিপশন আবার আনুন", "লগআউট"}, (d, which) -> {
+                    if (which == 0) syncSubs();
+                    else YtAuth.signOut(this, () -> {
+                        Toast.makeText(this, "লগআউট হয়েছে", Toast.LENGTH_SHORT).show();
+                        adapter.notifyDataSetChanged();
+                    });
+                })
+                .setNegativeButton("থাক", null)
+                .show();
+    }
+
+    private void syncSubs() {
+        Toast.makeText(this, "সাবস্ক্রিপশন আনা হচ্ছে…", Toast.LENGTH_SHORT).show();
+        YtSync.run(this, true, (n, e) -> {
+            if (e != null) Toast.makeText(this, "আনা যায়নি: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            else Toast.makeText(this, n == 0 ? "নতুন কোনো চ্যানেল নেই" : bn(n) + "টি চ্যানেল যোগ হয়েছে", Toast.LENGTH_LONG).show();
+        });
     }
 
     @Override
@@ -149,10 +168,14 @@ public class YouActivity extends AppCompatActivity {
                         .getResult(com.google.android.gms.common.api.ApiException.class);
                 YtAuth.clearToken(this);
                 Toast.makeText(this, "লগইন হয়েছে", Toast.LENGTH_SHORT).show();
+                syncSubs();   // asks for the YouTube permission now, once
             } catch (Exception e) {
                 Toast.makeText(this, "লগইন হয়নি", Toast.LENGTH_SHORT).show();
             }
             adapter.notifyDataSetChanged();
+        } else if (requestCode == YtAuth.REQ_RECOVER) {
+            if (resultCode == RESULT_OK) { YtAuth.clearToken(this); syncSubs(); }
+            else Toast.makeText(this, "অনুমতি দেওয়া হয়নি", Toast.LENGTH_SHORT).show();
         }
     }
 }

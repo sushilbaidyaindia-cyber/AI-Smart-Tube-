@@ -12,17 +12,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.tasks.Task;
+import org.json.JSONArray;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** YouTube account liked videos via Data API v3 + OAuth. */
+/** "পছন্দের ভিডিও": videos liked in this app + (when signed in) the YouTube account's likes, merged. */
 public class YtLikedActivity extends AppCompatActivity implements VideoAdapter.Listener {
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -30,108 +29,89 @@ public class YtLikedActivity extends AppCompatActivity implements VideoAdapter.L
     private VideoAdapter adapter;
     private TextView status;
     private final List<VideoItem> items = new ArrayList<>();
-    private boolean loaded, busy;
+    private boolean started;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(R.layout.activity_simple_list);
         TextView title = findViewById(R.id.barTitle);
-        title.setText("Google লাইক");
-        title.setContentDescription("Google এ লাইক করা ভিডিও");
+        title.setText("পছন্দের ভিডিও");
         status = findViewById(R.id.status);
         RecyclerView list = findViewById(R.id.list);
         list.setLayoutManager(new LinearLayoutManager(this));
         adapter = new VideoAdapter(this);
         list.setAdapter(adapter);
-
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (!loaded && !busy) begin();
+        if (started) return;
+        started = true;
+        showLocal();
+        if (YtAuth.isSignedIn(this)) loadGoogle();
     }
 
-    private void begin() {
-        if (!YtAuth.isSignedIn(this)) {
-            busy = true;
-            setStatus("Google লগইন করুন…");
-            YtAuth.signIn(this);
-        } else {
-            load();
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == YtAuth.REQ_SIGN_IN) {
-            busy = false;
-            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
-            try {
-                task.getResult(ApiException.class);
-                YtAuth.clearToken(this);
-                say("লগইন হয়েছে");
-                load();
-            } catch (ApiException e) {
-                busy = true;   // do not re-open the sign-in on its own
-                setStatus("লগইন হয়নি (কোড " + e.getStatusCode() + ")। কোড ১০ মানে SHA-1 মেলেনি।");
-                say("লগইন ব্যর্থ। Console এ SHA-1 ও package মিলান।");
+    private void showLocal() {
+        items.clear();
+        try {
+            String s = Store.get(this, "liked");
+            JSONArray a = s.isEmpty() ? new JSONArray() : new JSONArray(s);
+            for (int i = 0; i < a.length(); i++) {
+                VideoItem v = VideoItem.fromJson(a.optJSONObject(i));
+                if (v != null && !v.url.isEmpty()) items.add(v);
             }
-        } else if (requestCode == YtAuth.REQ_RECOVER && resultCode == RESULT_OK) {
-            YtAuth.clearToken(this);
-            load();
-        }
+        } catch (Throwable ignored) { }
+        adapter.submit(new ArrayList<>(items));
+        paintStatus();
     }
 
-    private void load() {
-        busy = true;   // no second load from onResume
-        setStatus("লাইক লোড হচ্ছে…");
+    private void paintStatus() {
+        status.setVisibility(View.VISIBLE);
+        status.setText(items.isEmpty() ? "কোনো পছন্দের ভিডিও নেই" : items.size() + "টি পছন্দের ভিডিও");
+    }
+
+    private void loadGoogle() {
+        status.setVisibility(View.VISIBLE);
+        status.setText("ইউটিউবের লাইক আনা হচ্ছে…");
         io.execute(() -> {
             try {
-                final List<VideoItem> list = YtApi.likedVideos(this, null);
+                final List<VideoItem> g = YtApi.likedVideos(this, null);
                 ui.post(() -> {
-                    loaded = true;
-                    items.clear();
-                    items.addAll(list);
-                    adapter.submit(items);
-                    setStatus(list.isEmpty()
-                            ? "কোনো লাইক নেই বা খালি"
-                            : list.size() + "টি লাইক করা ভিডিও");
+                    Set<String> have = new HashSet<>();
+                    for (VideoItem v : items) have.add(v.url);
+                    for (VideoItem v : g) if (have.add(v.url)) items.add(v);
+                    adapter.submit(new ArrayList<>(items));
+                    paintStatus();
                 });
             } catch (Exception e) {
-                Intent recover = YtAuth.recoverIntent(e);
+                final Intent recover = YtAuth.recoverIntent(e);
                 ui.post(() -> {
                     if (recover != null) {
-                        try {
-                            startActivityForResult(recover, YtAuth.REQ_RECOVER);
-                        } catch (Throwable t) {
-                            setStatus("অনুমতি লাগবে: " + e.getMessage());
-                        }
-                    } else {
-                        setStatus("ত্রুটি: " + e.getMessage());
-                        say(String.valueOf(e.getMessage()));
+                        try { startActivityForResult(recover, YtAuth.REQ_RECOVER); return; } catch (Throwable ignored) { }
                     }
+                    paintStatus();
+                    Toast.makeText(this, "ইউটিউবের লাইক আনা যায়নি: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
             }
         });
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == YtAuth.REQ_RECOVER && resultCode == RESULT_OK) {
+            YtAuth.clearToken(this);
+            loadGoogle();
+        }
+    }
+
+    @Override
     public void onOpen(VideoItem item, int position) {
         if (item == null || item.url.isEmpty()) return;
-        try { NativeFeedLoader.prefetch(item.url); } catch (Throwable ignored) {}
+        try { NativeFeedLoader.prefetch(item.url); } catch (Throwable ignored) { }
         startActivity(PlayerActivity.intent(this, items, position));
-    }
-
-    private void setStatus(String s) {
-        status.setVisibility(View.VISIBLE);
-        status.setText(s);
-    }
-
-    private void say(String m) {
-        Toast.makeText(this, m, Toast.LENGTH_SHORT).show();
     }
 
     @Override
