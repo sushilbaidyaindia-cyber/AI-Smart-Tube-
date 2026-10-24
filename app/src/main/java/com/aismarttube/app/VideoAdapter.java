@@ -73,6 +73,8 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VH> {
         if (it.duration > 0) {
             meta = (meta.isEmpty() ? "" : meta + " · ") + formatDur(it.duration);
         }
+        String stats = it.statsBn();
+        if (!stats.isEmpty()) meta = (meta.isEmpty() ? "" : meta + " · ") + stats;
         if ("playlist".equals(it.kind)) {
             meta = "প্লেলিস্ট" + (it.count > 0 ? " · " + VideoItem.formatCountBn(it.count) + "টি ভিডিও" : "");
         }

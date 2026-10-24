@@ -107,6 +107,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
 
     // ----------------------------------------------------------------- fields
 
+    private boolean replaced = false;
     final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newFixedThreadPool(2);
 
@@ -145,7 +146,9 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(R.layout.activity_player);
+        final PlayerActivity older = current;
         current = this;
+        if (older != null && older != this) older.replaceBy();   // only one video plays; back goes to the screen it was opened from
 
         pv = findViewById(R.id.playerView);
         videoBox = findViewById(R.id.videoBox);
@@ -207,11 +210,21 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         if (!Store.settingBool(this, "bgPlay", true) && player != null && player.isPlaying()) player.pause();
     }
 
+    /** a newer player screen took over: stop quietly and leave without touching the shared notification */
+    private void replaceBy() {
+        replaced = true;
+        try { if (player != null) player.stop(); } catch (Throwable ignored) {}
+        finish();
+    }
+
     @Override
     protected void onDestroy() {
-        final boolean wasOwner = owner;   // false when the web player or the radio took over: leave their notification alone
-        current = null;
-        owner = false;
+        final boolean mine = current == this;   // false when a newer player screen replaced this one
+        final boolean wasOwner = mine && owner;   // false when the web player or the radio took over: leave their notification alone
+        if (mine) {
+            current = null;
+            owner = false;
+        }
         ui.removeCallbacksAndMessages(null);
         savePos();
         try { if (player != null) { player.release(); player = null; } } catch (Throwable ignored) {}
@@ -269,6 +282,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             @Override
             public void onIsPlayingChanged(boolean playing) {
                 paintPlay(playing);
+                if (replaced) return;
                 if (playing) { owner = true; RadioHub.stopForVideo(); askNotify(); }
                 applyPlaybackState(playing);
                 updateService(playing);
@@ -839,6 +853,11 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
 
     private void sayPosition() {
         long dur = player == null ? C.TIME_UNSET : player.getDuration();
+        if (player != null && player.isCurrentMediaItemLive()) {
+            long off = player.getCurrentLiveOffset();
+            say(off != C.TIME_UNSET && off > 20000 ? "লাইভ চলছে, সরাসরি থেকে " + spoken(off / 1000) + " পিছনে" : "লাইভ চলছে, একদম সরাসরি");
+            return;
+        }
         if (cur == null || dur == C.TIME_UNSET || dur <= 0) {
             say("ভিডিও চালু নেই");
             return;
@@ -1123,7 +1142,16 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             seek.setProgress((int) (pos / 1000));
             paintTimeDesc(pos, known ? dur : C.TIME_UNSET);
         }
-        timeText.setText(clock(pos / 1000) + (known ? " / " + clock(dur / 1000) : ""));
+        boolean live = false;
+        try { live = player.isCurrentMediaItemLive(); } catch (Throwable ignored) {}
+        if (live) {
+            long off = player.getCurrentLiveOffset();
+            String behind = off != C.TIME_UNSET && off > 20000 ? clock(off / 1000) + " পিছনে" : "সরাসরি";
+            timeText.setText("লাইভ · " + behind);
+            if (!userBusy) ViewCompat.setStateDescription(seek, "লাইভ, " + (off != C.TIME_UNSET && off > 20000 ? spoken(off / 1000) + " পিছনে" : "একদম সরাসরি"));
+        } else {
+            timeText.setText(clock(pos / 1000) + (known ? " / " + clock(dur / 1000) : ""));
+        }
         long now = System.currentTimeMillis();
         if (player.isPlaying() && cur != null && now - lastSave > 5000 && known) {
             lastSave = now;
@@ -1200,6 +1228,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     }
 
     private void updateService(boolean playing) {
+        if (replaced) return;
         if (!owner && RadioHub.active()) return;   // the radio owns the notification now
         try {
             if (!Store.settingBool(this, "bgPlay", true)) {

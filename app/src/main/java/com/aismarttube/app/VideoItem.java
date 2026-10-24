@@ -14,6 +14,12 @@ public class VideoItem {
     /** "video" or "playlist" (channel pages) */
     public String kind = "video";
     public long count = 0;
+    /** upload (or live start) time in epoch milliseconds, 0 = unknown */
+    public long when = 0;
+    /** true while it is a live broadcast (views then means "watching now") */
+    public boolean live = false;
+    /** ready-made Bangla text from the extractor, e.g. "২ দিন আগে" (used when {@link #when} is unknown) */
+    public String uploaded = "";
 
     public VideoItem(String title, String url, String uploader, String uploaderUrl,
                      long duration, long views, String thumb) {
@@ -36,6 +42,9 @@ public class VideoItem {
             o.put("duration", duration);
             o.put("views", views);
             o.put("thumb", thumb);
+            if (when > 0) o.put("when", when);
+            if (live) { o.put("live", true); o.put("isLive", true); }
+            if (!uploaded.isEmpty()) o.put("uploaded", uploaded);
         } catch (Exception ignored) {}
         return o;
     }
@@ -45,6 +54,9 @@ public class VideoItem {
         VideoItem v = build(o);
         v.kind = o.optString("kind", "video");
         v.count = o.optLong("count", 0);
+        v.when = o.optLong("when", 0);
+        v.live = o.optBoolean("live", false) || o.optBoolean("isLive", false);
+        v.uploaded = o.optString("uploaded", "");
         return v;
     }
 
@@ -75,11 +87,50 @@ public class VideoItem {
             if (sb.length() > 0) sb.append(", ");
             sb.append("সময় ").append(formatDurationBn(duration));
         }
+        if (live) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append("লাইভ");
+        }
         if (views > 0) {
             if (sb.length() > 0) sb.append(", ");
-            sb.append(formatViewsBn(views));
+            sb.append(live ? formatCountBn(views) + " জন দেখছেন" : formatViewsBn(views));
+        }
+        String ag = agoBn();
+        if (!ag.isEmpty()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(live ? "শুরু হয়েছে " + ag : ag);
         }
         return sb.length() > 0 ? sb.toString() : "ভিডিও";
+    }
+
+    /** "৫ মিনিট আগে", "২ দিন আগে" … ; empty when the time is unknown */
+    public String agoBn() {
+        if (when <= 0) return uploaded == null ? "" : formatCountBn(uploaded);
+        long sec = Math.max(0, (System.currentTimeMillis() - when) / 1000);
+        String n;
+        if (sec < 60) return "এইমাত্র";
+        if (sec < 3600) n = formatCountBn(sec / 60) + " মিনিট";
+        else if (sec < 86400) n = formatCountBn(sec / 3600) + " ঘণ্টা";
+        else if (sec < 86400L * 30) n = formatCountBn(sec / 86400) + " দিন";
+        else if (sec < 86400L * 365) n = formatCountBn(sec / (86400L * 30)) + " মাস";
+        else n = formatCountBn(sec / (86400L * 365)) + " বছর";
+        return n + " আগে";
+    }
+
+    /** short line shown under the title: views · age */
+    public String statsBn() {
+        StringBuilder b = new StringBuilder();
+        if (live) b.append("লাইভ");
+        if (views > 0) {
+            if (b.length() > 0) b.append(" · ");
+            b.append(live ? formatCountBn(views) + " জন দেখছেন" : formatViewsBn(views));
+        }
+        String ag = agoBn();
+        if (!ag.isEmpty()) {
+            if (b.length() > 0) b.append(" · ");
+            b.append(live ? "শুরু " + ag : ag);
+        }
+        return b.toString();
     }
 
     public static String formatDurationBn(long sec) {
@@ -115,6 +166,17 @@ public class VideoItem {
         if (n >= 100_000) return toBn.apply(String.format("%.1f", n / 100_000.0)) + " লাখ ভিউ";
         if (n >= 1000) return toBn.apply(String.format("%.1f", n / 1000.0)) + " হাজার ভিউ";
         return toBn.apply(String.valueOf(n)) + " ভিউ";
+    }
+
+    /** turns any 0-9 digits inside a text into Bangla digits */
+    public static String formatCountBn(String t) {
+        String bn = "০১২৩৪৫৬৭৮৯";
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < t.length(); i++) {
+            char c = t.charAt(i);
+            b.append(c >= '0' && c <= '9' ? bn.charAt(c - '0') : c);
+        }
+        return b.toString();
     }
 
     public static String formatCountBn(long n) {
