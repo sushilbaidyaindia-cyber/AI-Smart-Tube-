@@ -30,6 +30,7 @@ public class YtLikedActivity extends AppCompatActivity implements VideoAdapter.L
     private VideoAdapter adapter;
     private TextView status;
     private final List<VideoItem> items = new ArrayList<>();
+    private boolean loaded, busy;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -44,15 +45,17 @@ public class YtLikedActivity extends AppCompatActivity implements VideoAdapter.L
         adapter = new VideoAdapter(this);
         list.setAdapter(adapter);
 
-        if (!Store.settingBool(this, "useGoogle", false)
-                || Store.settingStr(this, "ytApiKey", "").trim().isEmpty()) {
-            setStatus("আগে সেটআপে API Key দিন");
-            say("সেটআপ খুলছি");
-            SetupActivity.open(this, true);
-            return;
-        }
+    }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!loaded && !busy) begin();
+    }
+
+    private void begin() {
         if (!YtAuth.isSignedIn(this)) {
+            busy = true;
             setStatus("Google লগইন করুন…");
             YtAuth.signIn(this);
         } else {
@@ -64,6 +67,7 @@ public class YtLikedActivity extends AppCompatActivity implements VideoAdapter.L
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == YtAuth.REQ_SIGN_IN) {
+            busy = false;
             Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
             try {
                 task.getResult(ApiException.class);
@@ -71,7 +75,8 @@ public class YtLikedActivity extends AppCompatActivity implements VideoAdapter.L
                 say("লগইন হয়েছে");
                 load();
             } catch (ApiException e) {
-                setStatus("লগইন হয়নি (কোড " + e.getStatusCode() + ")");
+                busy = true;   // do not re-open the sign-in on its own
+                setStatus("লগইন হয়নি (কোড " + e.getStatusCode() + ")। কোড ১০ মানে SHA-1 মেলেনি।");
                 say("লগইন ব্যর্থ। Console এ SHA-1 ও package মিলান।");
             }
         } else if (requestCode == YtAuth.REQ_RECOVER && resultCode == RESULT_OK) {
@@ -81,11 +86,13 @@ public class YtLikedActivity extends AppCompatActivity implements VideoAdapter.L
     }
 
     private void load() {
+        busy = true;   // no second load from onResume
         setStatus("লাইক লোড হচ্ছে…");
         io.execute(() -> {
             try {
                 final List<VideoItem> list = YtApi.likedVideos(this, null);
                 ui.post(() -> {
+                    loaded = true;
                     items.clear();
                     items.addAll(list);
                     adapter.submit(items);

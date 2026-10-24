@@ -23,7 +23,6 @@ public class SetupActivity extends AppCompatActivity {
 
     private LinearLayout choiceBox, keysBox;
     private EditText apiKey, clientId;
-    private boolean pendingLogin;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -55,7 +54,7 @@ public class SetupActivity extends AppCompatActivity {
             choiceBox.setVisibility(View.GONE);
             keysBox.setVisibility(View.VISIBLE);
             apiKey.requestFocus();
-            say("এপিআই কি লিখুন। চাইলে Client ID ও দিন।");
+            say("এপিআই কি ও Client ID ঐচ্ছিক। খালি রেখেও সেভ করা যায়।");
         });
 
         btnSkip.setOnClickListener(v -> {
@@ -74,16 +73,10 @@ public class SetupActivity extends AppCompatActivity {
         btnSave.setOnClickListener(v -> {
             String key = apiKey.getText() != null ? apiKey.getText().toString().trim() : "";
             String cid = clientId.getText() != null ? clientId.getText().toString().trim() : "";
-            if (key.isEmpty()) {
-                say("এপিআই কি লিখুন");
-                apiKey.requestFocus();
-                return;
-            }
             Store.putSetting(this, "ytApiKey", key);
             Store.putSetting(this, "ytClientId", cid);
             Store.putSettingBool(this, "useGoogle", true);
             Store.putSettingBool(this, "setupDone", true);
-            pendingLogin = true;
             say("সেভ হয়েছে। এখন Google লগইন…");
             YtAuth.signIn(this);
         });
