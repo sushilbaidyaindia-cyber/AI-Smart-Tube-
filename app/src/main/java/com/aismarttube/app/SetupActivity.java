@@ -11,21 +11,24 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
+
 /**
- * First launch: pick Google path (save API Key + Client ID on device) or skip.
- * Keys stay only on this phone — not in the APK / GitHub.
- * Full Google account sign-in can use the saved Client ID later (SHA-1 must match).
+ * First launch / settings: skip or save YouTube API Key (+ optional Client ID), then Google login.
  */
 public class SetupActivity extends AppCompatActivity {
 
     private LinearLayout choiceBox, keysBox;
     private EditText apiKey, clientId;
+    private boolean pendingLogin;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
 
-        // Already finished setup and not forced from settings → home
         if (Store.settingBool(this, "setupDone", false)
                 && !getIntent().getBooleanExtra("force", false)) {
             goHome();
@@ -52,13 +55,13 @@ public class SetupActivity extends AppCompatActivity {
             choiceBox.setVisibility(View.GONE);
             keysBox.setVisibility(View.VISIBLE);
             apiKey.requestFocus();
-            say("এপিআই কি এবং ক্লায়েন্ট আইডি লিখুন");
+            say("এপিআই কি লিখুন। চাইলে Client ID ও দিন।");
         });
 
         btnSkip.setOnClickListener(v -> {
             Store.putSettingBool(this, "useGoogle", false);
             Store.putSettingBool(this, "setupDone", true);
-            say("লগইন ছাড়া চালু হচ্ছে");
+            say("লগইন ছাড়া চালু");
             goHome();
         });
 
@@ -80,9 +83,26 @@ public class SetupActivity extends AppCompatActivity {
             Store.putSetting(this, "ytClientId", cid);
             Store.putSettingBool(this, "useGoogle", true);
             Store.putSettingBool(this, "setupDone", true);
-            say("সেভ হয়েছে। হোমে যাচ্ছে। গুগল অ্যাকাউন্ট লগইন পরে যোগ হবে।");
-            goHome();
+            pendingLogin = true;
+            say("সেভ হয়েছে। এখন Google লগইন…");
+            YtAuth.signIn(this);
         });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == YtAuth.REQ_SIGN_IN) {
+            try {
+                Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+                task.getResult(ApiException.class);
+                YtAuth.clearToken(this);
+                say("Google লগইন সফল");
+            } catch (ApiException e) {
+                say("লগইন হয়নি — পরে আপনি ট্যাব থেকে চেষ্টা করুন");
+            }
+            goHome();
+        }
     }
 
     private void goHome() {
@@ -96,7 +116,6 @@ public class SetupActivity extends AppCompatActivity {
         Toast.makeText(this, m, Toast.LENGTH_SHORT).show();
     }
 
-    /** Open from settings later to change keys */
     public static void open(android.content.Context c, boolean force) {
         Intent i = new Intent(c, SetupActivity.class);
         i.putExtra("force", force);
