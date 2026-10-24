@@ -40,6 +40,11 @@ public class BrowseActivity extends AppCompatActivity implements VideoAdapter.Li
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!Store.settingBool(this, "setupDone", false)) {
+            startActivity(new Intent(this, SetupActivity.class));
+            finish();
+            return;
+        }
         setContentView(R.layout.activity_browse);
 
         status = findViewById(R.id.status);
