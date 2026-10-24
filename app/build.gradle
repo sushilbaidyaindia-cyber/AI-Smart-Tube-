@@ -40,6 +40,6 @@ dependencies {
     // NewPipe Extractor
     implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.5'
 
-    // MP3 encode (jump3r / LAME pure Java) — Mp3Service এর জন্য
-    implementation 'com.github.Sciss:jump3r:v1.0.5'
+    // MP3 encode — Maven Central (সঠিক)
+    implementation 'de.sciss:jump3r:1.0.5'
 }
