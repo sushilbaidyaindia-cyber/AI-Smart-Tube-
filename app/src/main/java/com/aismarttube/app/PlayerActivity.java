@@ -549,6 +549,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         paintSpeed();
         pill("পূর্ণ পর্দা", v -> setFullscreen(true));
         pill("M4A ডাউনলোড", v -> download());
+        pill("MP3 ডাউনলোড", v -> downloadMp3());
         pAudio = pill(audioMode ? "শুধু অডিও: চালু" : "শুধু অডিও: বন্ধ", v -> toggleAudio());
         pTimer = pill("টাইমার বন্ধ", v -> cycleTimer());
         pLike = pill("পছন্দ", v -> toggleList("liked"));
@@ -963,6 +964,40 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         startDownload(a.optString("url", ""), cur.title, Store.settingBool(this, "wifiOnly", false));
     }
 
+    private void downloadMp3() {
+        if (streams == null || cur == null) {
+            say("লিংক এখনও আসেনি, একটু পরে চাপুন");
+            return;
+        }
+        JSONObject a = pickAudio(streams, false);
+        if (a == null) {
+            say("এই ভিডিওর অডিও পাওয়া যায়নি");
+            return;
+        }
+        String url = a.optString("url", "");
+        if (Build.VERSION.SDK_INT < 29
+                && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            pendingDl = new String[]{url, cur.title, "mp3"};
+            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE);
+            return;
+        }
+        startMp3(url, cur.title);
+    }
+
+    private void startMp3(String url, String title) {
+        try {
+            askNotify();
+            Intent si = new Intent(this, Mp3Service.class)
+                    .putExtra(Mp3Service.EXTRA_URL, url)
+                    .putExtra(Mp3Service.EXTRA_TITLE, title);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(si); else startService(si);
+            say("MP3 তৈরি শুরু হয়েছে। নোটিফিকেশনে শতাংশ দেখা যাবে। শেষ হলে জানানো হবে। ফোল্ডার: Music/AISmartTube");
+        } catch (Throwable t) {
+            t.printStackTrace();
+            say("MP3 শুরু করা যায়নি: " + t.getMessage());
+        }
+    }
+
     private static String safeName(String title) {
         String t = title == null ? "" : title.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
         if (t.isEmpty()) t = "audio";
@@ -1026,7 +1061,8 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             String[] p = pendingDl;
             pendingDl = null;
             if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED && p != null) {
-                startDownload(p[0], p[1], "1".equals(p[2]));
+                if ("mp3".equals(p[2])) startMp3(p[0], p[1]);
+                else startDownload(p[0], p[1], "1".equals(p[2]));
             } else {
                 say("অনুমতি ছাড়া ডাউনলোড করা যাবে না");
             }
