@@ -472,31 +472,31 @@ public class NewPipeHelper {
         String x = s.trim().toLowerCase(java.util.Locale.US);
         try {
             if (x.contains("second")) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(x);
                 if (m.find()) return m.group(1) + " সেকেন্ড আগে";
             }
             if (x.contains("minute")) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(x);
                 if (m.find()) return m.group(1) + " মিনিট আগে";
             }
             if (x.contains("hour")) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(x);
                 if (m.find()) return m.group(1) + " ঘণ্টা আগে";
             }
             if (x.contains("day")) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(x);
                 if (m.find()) return m.group(1) + " দিন আগে";
             }
             if (x.contains("week")) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(x);
                 if (m.find()) return m.group(1) + " সপ্তাহ আগে";
             }
             if (x.contains("month")) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(x);
                 if (m.find()) return m.group(1) + " মাস আগে";
             }
             if (x.contains("year")) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(x);
                 if (m.find()) return m.group(1) + " বছর আগে";
             }
             if (x.contains("streamed") || x.equals("live") || x.contains("premiere")) return "লাইভ";
