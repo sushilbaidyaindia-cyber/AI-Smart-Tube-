@@ -22,6 +22,7 @@ import org.schabi.newpipe.extractor.search.SearchInfo;
 import org.schabi.newpipe.extractor.stream.AudioStream;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
+import org.schabi.newpipe.extractor.stream.StreamType;
 import org.schabi.newpipe.extractor.stream.SubtitlesStream;
 import org.schabi.newpipe.extractor.stream.VideoStream;
 
@@ -206,8 +207,7 @@ public class NewPipeHelper {
             o.put("url", s.getUrl() != null ? s.getUrl() : "");
             o.put("uploader", s.getUploaderName() != null ? s.getUploaderName() : "");
             o.put("uploaderUrl", s.getUploaderUrl() != null ? s.getUploaderUrl() : "");
-            o.put("duration", s.getDuration());
-            o.put("views", s.getViewCount());
+            putStreamMeta(o, s);
             String thumb = "";
             try {
                 if (s.getThumbnails() != null && !s.getThumbnails().isEmpty()) {
@@ -413,6 +413,111 @@ public class NewPipeHelper {
     private static final Map<String, Page> NEXT_PAGES = new HashMap<>();
     private static int tokenSeq = 0;
 
+
+    private static void putStreamMeta(JSONObject o, StreamInfoItem s) throws Exception {
+        long dur = s.getDuration();
+        boolean live = false;
+        try {
+            StreamType st = s.getStreamType();
+            live = st == StreamType.LIVE_STREAM
+                    || st == StreamType.LIVE_STREAM_PREMIERE
+                    || (st != null && st.name() != null && st.name().contains("LIVE"));
+        } catch (Throwable ignored) {}
+        // Some list items mis-report duration for long lives; UI shows লাইভ instead.
+        o.put("isLive", live);
+        o.put("duration", live ? 0L : Math.max(0L, dur));
+        try {
+            o.put("views", Math.max(0L, s.getViewCount()));
+        } catch (Throwable e) {
+            o.put("views", 0L);
+        }
+        String uploaded = "";
+        try {
+            if (s.getTextualUploadDate() != null) {
+                uploaded = translateUploadEn(s.getTextualUploadDate().trim());
+            }
+        } catch (Throwable ignored) {}
+        if (uploaded.isEmpty()) {
+            try {
+                Object ud = s.getUploadDate();
+                if (ud != null) {
+                    // DateWrapper: try getInstant / date methods across extractor versions
+                    java.time.Instant inst = null;
+                    try {
+                        java.lang.reflect.Method m = ud.getClass().getMethod("offsetDateTime");
+                        Object odt = m.invoke(ud);
+                        if (odt instanceof java.time.OffsetDateTime)
+                            inst = ((java.time.OffsetDateTime) odt).toInstant();
+                    } catch (Throwable ignored) {}
+                    if (inst == null) {
+                        try {
+                            java.lang.reflect.Method m = ud.getClass().getMethod("instant");
+                            Object o2 = m.invoke(ud);
+                            if (o2 instanceof java.time.Instant) inst = (java.time.Instant) o2;
+                        } catch (Throwable ignored) {}
+                    }
+                    if (inst != null) {
+                        long sec = java.time.Duration.between(inst, java.time.Instant.now()).getSeconds();
+                        uploaded = relativeBn(sec);
+                    }
+                }
+            } catch (Throwable ignored) {}
+        }
+        o.put("uploaded", uploaded);
+    }
+
+    /** Best-effort English "2 days ago" → বাংলা; unknown strings kept as-is. */
+    private static String translateUploadEn(String s) {
+        if (s == null) return "";
+        String x = s.trim().toLowerCase(java.util.Locale.US);
+        try {
+            if (x.contains("second")) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                if (m.find()) return m.group(1) + " সেকেন্ড আগে";
+            }
+            if (x.contains("minute")) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                if (m.find()) return m.group(1) + " মিনিট আগে";
+            }
+            if (x.contains("hour")) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                if (m.find()) return m.group(1) + " ঘণ্টা আগে";
+            }
+            if (x.contains("day")) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                if (m.find()) return m.group(1) + " দিন আগে";
+            }
+            if (x.contains("week")) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                if (m.find()) return m.group(1) + " সপ্তাহ আগে";
+            }
+            if (x.contains("month")) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                if (m.find()) return m.group(1) + " মাস আগে";
+            }
+            if (x.contains("year")) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\d+)").matcher(x);
+                if (m.find()) return m.group(1) + " বছর আগে";
+            }
+            if (x.contains("streamed") || x.equals("live") || x.contains("premiere")) return "লাইভ";
+        } catch (Throwable ignored) {}
+        return s.trim();
+    }
+
+    private static String relativeBn(long sec) {
+        if (sec < 0) sec = 0;
+        if (sec < 60) return sec + " সেকেন্ড আগে";
+        long m = sec / 60;
+        if (m < 60) return m + " মিনিট আগে";
+        long h = m / 60;
+        if (h < 24) return h + " ঘণ্টা আগে";
+        long d = h / 24;
+        if (d < 7) return d + " দিন আগে";
+        if (d < 30) return (d / 7) + " সপ্তাহ আগে";
+        if (d < 365) return (d / 30) + " মাস আগে";
+        return (d / 365) + " বছর আগে";
+    }
+
     private static JSONObject itemJson(InfoItem item) throws Exception {
         JSONObject o = new JSONObject();
         o.put("title", item.getName() != null ? item.getName() : "");
@@ -423,8 +528,7 @@ public class NewPipeHelper {
             o.put("kind", "video");
             o.put("uploader", s.getUploaderName() != null ? s.getUploaderName() : "");
             o.put("uploaderUrl", s.getUploaderUrl() != null ? s.getUploaderUrl() : "");
-            o.put("duration", s.getDuration());
-            o.put("views", s.getViewCount());
+            putStreamMeta(o, s);
         } else if (item instanceof PlaylistInfoItem) {
             o.put("kind", "playlist");
             o.put("count", ((PlaylistInfoItem) item).getStreamCount());
