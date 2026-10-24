@@ -25,10 +25,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="কীভাবে চালাবেন বেছে নিন"
+            android:text="Google দিয়ে লগইন করলে আপনার সাবস্ক্রিপশন, লাইক ও প্লেলিস্ট এখানে পাবেন"
             android:textColor="#A8C5C0"
             android:textSize="16sp"
-            android:contentDescription="কীভাবে চালাবেন বেছে নিন" />
+            android:contentDescription="Google দিয়ে লগইন করলে আপনার সাবস্ক্রিপশন, লাইক ও প্লেলিস্ট এখানে পাবেন" />
 
         <!-- Step 1: two big choices -->
         <LinearLayout
@@ -42,8 +42,8 @@
                 android:id="@+id/btnGoogle"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="Google দিয়ে চালিয়ে যান"
-                android:contentDescription="Google দিয়ে চালিয়ে যান। API কি এবং লগইন সেটআপ।"
+                android:text="Google দিয়ে লগইন"
+                android:contentDescription="Google দিয়ে লগইন করুন"
                 android:textSize="16sp" />
 
             <Button
@@ -56,79 +56,5 @@
                 android:textSize="16sp" />
         </LinearLayout>
 
-        <!-- Step 2: keys (hidden first) -->
-        <LinearLayout
-            android:id="@+id/keysBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="16dp"
-            android:visibility="gone">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="YouTube API Key (ঐচ্ছিক)"
-                android:textColor="#EAF5F3"
-                android:textSize="14sp"
-                android:contentDescription="ইউটিউব এপিআই কি লেবেল" />
-
-            <EditText
-                android:id="@+id/apiKey"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:hint="API Key পেস্ট করুন"
-                android:inputType="textVisiblePassword"
-                android:textColor="#EAF5F3"
-                android:textColorHint="#6A8A85"
-                android:contentDescription="ইউটিউব এপিআই কি লেখার ঘর" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="OAuth Client ID (ঐচ্ছিক, মনে রাখার জন্য)"
-                android:textColor="#EAF5F3"
-                android:textSize="14sp"
-                android:contentDescription="ওঅথ ক্লায়েন্ট আইডি লেবেল" />
-
-            <EditText
-                android:id="@+id/clientId"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:hint="Client ID পেস্ট করুন"
-                android:inputType="textVisiblePassword"
-                android:textColor="#EAF5F3"
-                android:textColorHint="#6A8A85"
-                android:contentDescription="ওঅথ ক্লায়েন্ট আইডি লেখার ঘর" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="কি গুলো শুধু এই ফোনে সেভ হবে। GitHub এ যাবে না।"
-                android:textColor="#A8C5C0"
-                android:textSize="13sp"
-                android:contentDescription="কি গুলো শুধু এই ফোনে সেভ হবে" />
-
-            <Button
-                android:id="@+id/btnSave"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="16dp"
-                android:text="সেভ করে এগিয়ে যান"
-                android:contentDescription="সেভ করে এগিয়ে যান"
-                android:textSize="16sp" />
-
-            <Button
-                android:id="@+id/btnBack"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="8dp"
-                android:text="পিছনে"
-                android:contentDescription="পিছনে ফিরে অপশন বেছে নিন" />
-        </LinearLayout>
     </LinearLayout>
 </ScrollView>
