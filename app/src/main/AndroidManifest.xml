@@ -95,6 +95,11 @@
             android:foregroundServiceType="dataSync" />
 
         <service
+            android:name=".Mp3Service"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
             android:name=".PlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
