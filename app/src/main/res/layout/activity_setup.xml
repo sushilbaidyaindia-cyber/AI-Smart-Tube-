@@ -68,7 +68,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="YouTube API Key"
+                android:text="YouTube API Key (ঐচ্ছিক)"
                 android:textColor="#EAF5F3"
                 android:textSize="14sp"
                 android:contentDescription="ইউটিউব এপিআই কি লেবেল" />
@@ -88,7 +88,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="OAuth Client ID (Android)"
+                android:text="OAuth Client ID (ঐচ্ছিক, মনে রাখার জন্য)"
                 android:textColor="#EAF5F3"
                 android:textSize="14sp"
                 android:contentDescription="ওঅথ ক্লায়েন্ট আইডি লেবেল" />
