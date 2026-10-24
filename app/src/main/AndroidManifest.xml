@@ -45,6 +45,11 @@
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
         <activity
+            android:name=".YtLikedActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+        <activity
             android:name=".SearchNativeActivity"
             android:exported="false"
             android:parentActivityName=".BrowseActivity"
