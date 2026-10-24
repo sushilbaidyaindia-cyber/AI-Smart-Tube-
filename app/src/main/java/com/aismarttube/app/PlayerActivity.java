@@ -303,7 +303,18 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     private void loadFromIntent(Intent in) {
         if (in == null) return;
         String q = in.getStringExtra(EXTRA_QUEUE);
-        if (q == null || q.isEmpty()) return;
+        if (q == null || q.isEmpty()) {
+            String vid = externalVideoId(in);
+            if (vid == null) return;
+            in.setData(null);
+            in.removeExtra(Intent.EXTRA_TEXT);
+            VideoItem v = new VideoItem("", "https://www.youtube.com/watch?v=" + vid, "", "", 0, 0,
+                    "https://i.ytimg.com/vi/" + vid + "/hqdefault.jpg");
+            JSONArray one = new JSONArray();
+            one.put(v.toJson());
+            q = one.toString();
+            in.putExtra(EXTRA_INDEX, 0);
+        }
         in.removeExtra(EXTRA_QUEUE);
         try {
             JSONArray a = new JSONArray(q);
@@ -327,6 +338,17 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         } catch (Throwable t) {
             say("ভিডিও খোলা যায়নি: " + t.getMessage());
         }
+    }
+
+    /** বাইরের লিংক (ক্লিক বা শেয়ার) থেকে ১১ অক্ষরের ভিডিও আইডি বের করে; না পেলে null */
+    private static String externalVideoId(Intent in) {
+        String raw = null;
+        if (in.getData() != null) raw = in.getData().toString();
+        else if (Intent.ACTION_SEND.equals(in.getAction())) raw = in.getStringExtra(Intent.EXTRA_TEXT);
+        if (raw == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "(?:youtu\\.be/|[?&]v=|/shorts/|/live/|/embed/|/v/)([A-Za-z0-9_-]{11})").matcher(raw);
+        return m.find() ? m.group(1) : null;
     }
 
     private void playIndex(int idx, boolean userAction) {
