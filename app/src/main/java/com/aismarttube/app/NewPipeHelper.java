@@ -420,7 +420,6 @@ public class NewPipeHelper {
         try {
             StreamType st = s.getStreamType();
             live = st == StreamType.LIVE_STREAM
-                    || st == StreamType.LIVE_STREAM_PREMIERE
                     || (st != null && st.name() != null && st.name().contains("LIVE"));
         } catch (Throwable ignored) {}
         // Some list items mis-report duration for long lives; UI shows লাইভ instead.
