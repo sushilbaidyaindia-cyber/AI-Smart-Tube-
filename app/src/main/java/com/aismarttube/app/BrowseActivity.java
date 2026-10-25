@@ -175,7 +175,7 @@ public class BrowseActivity extends AppCompatActivity implements VideoAdapter.Li
         });
 
         if (chipIdx == 0) {
-            NativeFeedLoader.loadHome(cb);
+            NativeFeedLoader.loadHome(this, cb);
         } else {
             NativeFeedLoader.search(CHIPS[chipIdx][1], cb);
         }

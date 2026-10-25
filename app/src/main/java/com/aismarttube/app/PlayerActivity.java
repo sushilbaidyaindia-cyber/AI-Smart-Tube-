@@ -41,6 +41,9 @@ import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MergingMediaSource;
+import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.ui.PlayerView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -108,6 +111,11 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     // ----------------------------------------------------------------- fields
 
     private boolean replaced = false;
+    private int forceHeight = 0;       // 0 = automatic
+    private long resumeMs = -1;        // set when the quality is changed mid-video
+    private Button pQual, pLang, pSubs;
+    private String audioPref = "";    // preferred audio language ("bn") or track id; empty = automatic
+    private String subLang = "";      // "" off | bn | en | hi | orig
     final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newFixedThreadPool(2);
 
@@ -468,7 +476,8 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         String url = "";
         boolean am = audioMode;
         if (am) {
-            JSONObject a = pickAudio(d, false);
+            JSONObject a = audioPref.isEmpty() ? null : pickAudioTrack(d, audioPref);
+            if (a == null) a = pickAudioForListening(d);
             if (a != null) url = a.optString("url", ""); else am = false;
         }
         if (url.isEmpty()) url = pickVideo(d);
@@ -481,8 +490,34 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         pv.setVisibility(am ? View.INVISIBLE : View.VISIBLE);
         pAudio.setText(audioMode ? "শুধু অডিও: চালু" : "শুধু অডিও: বন্ধ");
 
+        int tracks = audioTrackCount(d);
+        boolean hasSubs = d.optJSONArray("subtitles") != null && d.optJSONArray("subtitles").length() > 0;
+        pLang.setVisibility(tracks >= 2 ? View.VISIBLE : View.GONE);
+        pSubs.setVisibility(hasSubs ? View.VISIBLE : View.GONE);
+        MediaSource merged = null;
+        MediaItem.SubtitleConfiguration subCfg = am || !hasSubs ? null : subtitleFor(d);
+        JSONObject trackAudio = (am || audioPref.isEmpty() || tracks < 2) ? null : pickAudioTrack(d, audioPref);
+        if (!audioPref.isEmpty() && !am && tracks >= 2 && trackAudio == null) note("এই ভিডিওতে এই ভাষার অডিও নেই, মূল অডিও চলছে");
+        if (!am && (forceHeight > 0 || trackAudio != null)) {
+            if (trackAudio != null) {
+                // a chosen audio language: picture and sound come as separate streams and are joined
+                JSONObject vs = pickVideoOnly(d, forceHeight > 0 ? forceHeight : 360);
+                if (vs != null) merged = buildMerged(vs.optString("url", ""), trackAudio.optString("url", ""), subCfg);
+            } else {
+                JSONObject vs = pickByHeight(d, forceHeight);
+                if (vs != null) {
+                    if (vs.optBoolean("hasAudio", true)) {
+                        url = vs.optString("url", url);
+                    } else {
+                        JSONObject au = pickAudio(d, false);
+                        if (au != null) merged = buildMerged(vs.optString("url", ""), au.optString("url", ""), subCfg);
+                    }
+                }
+            }
+        }
         MediaItem.Builder mb = new MediaItem.Builder().setUri(Uri.parse(url));
         if (url.contains("m3u8") || url.contains("/hls_")) mb.setMimeType("application/x-mpegURL");
+        if (subCfg != null) mb.setSubtitleConfigurations(java.util.Collections.singletonList(subCfg));
         long startMs = 0;
         if (Store.settingBool(this, "resume", true)) {
             long pos = Store.getPos(this, cur.url);
@@ -492,12 +527,257 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
                 note("আগের জায়গা থেকে চালু: " + spoken(pos));
             }
         }
-        player.setMediaItem(mb.build(), startMs);
+        if (resumeMs >= 0) { startMs = resumeMs; resumeMs = -1; }
+        if (merged != null) player.setMediaSource(merged, startMs);
+        else player.setMediaItem(mb.build(), startMs);
         player.setPlaybackParameters(new PlaybackParameters((float) speed));
         player.prepare();
         player.play();
         owner = true;
         PlayerActivity.this.applyMeta();
+    }
+
+    /** best stream of exactly this height: video+audio together first, then MP4 before WebM */
+    private JSONObject pickByHeight(JSONObject d, int h) {
+        JSONArray a = d.optJSONArray("videoStreams");
+        if (a == null) return null;
+        JSONObject best = null;
+        int bestScore = -1;
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null || o.optString("url", "").isEmpty() || heightOf(o) != h) continue;
+            int sc = (o.optBoolean("hasAudio", true) ? 2 : 0)
+                    + (o.optString("format", "").toLowerCase().contains("webm") ? 0 : 1);
+            if (sc > bestScore) { best = o; bestScore = sc; }
+        }
+        return best;
+    }
+
+    @SuppressWarnings("UnsafeOptInUsageError")
+    private MediaSource buildMerged(String videoUrl, String audioUrl, MediaItem.SubtitleConfiguration sub) {
+        DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
+                .setUserAgent(UA)
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(20000);
+        DefaultDataSource.Factory dsf = new DefaultDataSource.Factory(this, http);
+        MediaItem.Builder vb = new MediaItem.Builder().setUri(Uri.parse(videoUrl));
+        if (sub != null) vb.setSubtitleConfigurations(java.util.Collections.singletonList(sub));
+        MediaSource video = new DefaultMediaSourceFactory(dsf).createMediaSource(vb.build());
+        MediaSource audio = new ProgressiveMediaSource.Factory(dsf).createMediaSource(MediaItem.fromUri(audioUrl));
+        return new MergingMediaSource(video, audio);
+    }
+
+    // ------------------------------------------------ audio language and subtitles
+
+    private static String langBase(String tag) {
+        if (tag == null) return "";
+        String t = tag.trim().toLowerCase(java.util.Locale.US);
+        int i = t.indexOf('_');
+        if (i < 0) i = t.indexOf('-');
+        if (i < 0) i = t.indexOf('.');
+        return i > 0 ? t.substring(0, i) : t;
+    }
+
+    /** best audio stream of the wanted track: matches the language ("bn") or the exact track id */
+    private JSONObject pickAudioTrack(JSONObject d, String pref) {
+        JSONArray a = d.optJSONArray("audioStreams");
+        if (a == null || pref == null || pref.isEmpty()) return null;
+        JSONObject best = null;
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null || o.optString("url", "").isEmpty()) continue;
+            String loc = langBase(o.optString("locale", ""));
+            String id = o.optString("trackId", "");
+            if (!(pref.equals(loc) || pref.equals(id) || (!id.isEmpty() && langBase(id).equals(pref)))) continue;
+            if (best == null) { best = o; continue; }
+            boolean m4 = o.optString("format", "").toLowerCase().matches(".*(m4a|mp4|aac).*");
+            boolean bm4 = best.optString("format", "").toLowerCase().matches(".*(m4a|mp4|aac).*");
+            if ((m4 && !bm4) || (m4 == bm4 && o.optLong("bitrate", 0) > best.optLong("bitrate", 0))) best = o;
+        }
+        return best;
+    }
+
+    /** picture-only stream near the wanted height (not above it when possible) */
+    private JSONObject pickVideoOnly(JSONObject d, int target) {
+        JSONArray a = d.optJSONArray("videoStreams");
+        if (a == null) return null;
+        JSONObject best = null, smallest = null;
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null || o.optString("url", "").isEmpty() || o.optBoolean("hasAudio", true)) continue;
+            int h = heightOf(o);
+            if (h <= 0) continue;
+            if (smallest == null || h < heightOf(smallest)) smallest = o;
+            if (h <= target && (best == null || h > heightOf(best)
+                    || (h == heightOf(best) && !o.optString("format", "").toLowerCase().contains("webm")))) best = o;
+        }
+        return best != null ? best : smallest;
+    }
+
+    /** how many different audio languages this video offers */
+    private int audioTrackCount(JSONObject d) {
+        JSONArray a = d.optJSONArray("audioStreams");
+        List<String> keys = new ArrayList<>();
+        if (a != null) {
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.optJSONObject(i);
+                if (o == null) continue;
+                String loc = langBase(o.optString("locale", ""));
+                String key = !loc.isEmpty() ? loc : o.optString("trackId", "");
+                if (!key.isEmpty() && !keys.contains(key)) keys.add(key);
+            }
+        }
+        return keys.size();
+    }
+
+    private void audioMenu() {
+        if (streams == null) { say("লিংক এখনও আসেনি, একটু পরে চাপুন"); return; }
+        JSONArray a = streams.optJSONArray("audioStreams");
+        final List<String> keys = new ArrayList<>();
+        final List<String> names = new ArrayList<>();
+        if (a != null) {
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.optJSONObject(i);
+                if (o == null) continue;
+                String loc = langBase(o.optString("locale", ""));
+                String id = o.optString("trackId", "");
+                String key = !loc.isEmpty() ? loc : id;
+                if (key.isEmpty() || keys.contains(key)) continue;
+                keys.add(key);
+                String nm = o.optString("trackName", "");
+                if (nm.isEmpty()) nm = langName(loc.isEmpty() ? id : loc);
+                if (o.optString("trackType", "").toUpperCase().contains("DUB")) nm += " (ডাব করা)";
+                names.add(nm);
+            }
+        }
+        if (keys.size() < 2) { say("এই ভিডিওতে একটাই অডিও ভাষা আছে"); return; }
+        String[] labels = new String[names.size() + 1];
+        labels[0] = "অটো (মূল)";
+        for (int i = 0; i < names.size(); i++) labels[i + 1] = names.get(i);
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("অডিও ভাষা")
+                .setItems(labels, (dlg, which) -> {
+                    audioPref = which == 0 ? "" : keys.get(which - 1);
+                    pLang.setText("অডিও ভাষা: " + (which == 0 ? "অটো" : names.get(which - 1)));
+                    say(which == 0 ? "মূল অডিও" : "অডিও ভাষা " + names.get(which - 1));
+                    if (player != null && streams != null) {
+                        resumeMs = player.getCurrentPosition();
+                        startPlayback(streams);
+                    }
+                })
+                .setNegativeButton("থাক", null)
+                .show();
+    }
+
+    private static String langName(String code) {
+        switch (langBase(code)) {
+            case "bn": return "বাংলা";
+            case "en": return "ইংরেজি";
+            case "hi": return "হিন্দি";
+            case "ur": return "উর্দু";
+            case "ar": return "আরবি";
+            case "es": return "স্পেনীয়";
+            case "fr": return "ফরাসি";
+            case "ja": return "জাপানি";
+            case "ko": return "কোরিয়ান";
+            case "ta": return "তামিল";
+            case "te": return "তেলুগু";
+            case "mr": return "মারাঠি";
+            default: return code == null || code.isEmpty() ? "অন্য ভাষা" : code;
+        }
+    }
+
+    private void subMenu() {
+        final String[] codes = {"", "bn", "en", "hi", "orig"};
+        final String[] labels = {"বন্ধ", "বাংলা (দরকারে অনুবাদ হয়ে)", "ইংরেজি", "হিন্দি", "ভিডিওর মূল ভাষা"};
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("সাবটাইটেল")
+                .setItems(labels, (dlg, which) -> {
+                    subLang = codes[which];
+                    pSubs.setText("সাবটাইটেল: " + (which == 0 ? "বন্ধ" : which == 1 ? "বাংলা" : labels[which]));
+                    say("সাবটাইটেল " + (which == 0 ? "বন্ধ" : labels[which]));
+                    if (player != null && streams != null) {
+                        resumeMs = player.getCurrentPosition();
+                        startPlayback(streams);
+                    }
+                })
+                .setNegativeButton("থাক", null)
+                .show();
+    }
+
+    /** the subtitle file for the chosen language; a missing language is asked from YouTube as a translation (tlang) */
+    private MediaItem.SubtitleConfiguration subtitleFor(JSONObject d) {
+        JSONArray ss = d.optJSONArray("subtitles");
+        if (subLang.isEmpty() || ss == null || ss.length() == 0) return null;
+        JSONObject base = null;
+        boolean translate = false;
+        if ("orig".equals(subLang)) {
+            base = ss.optJSONObject(0);
+        } else {
+            for (int i = 0; i < ss.length(); i++) {
+                JSONObject o = ss.optJSONObject(i);
+                if (o == null || !langBase(o.optString("lang", "")).equals(subLang)) continue;
+                if (base == null || (base.optBoolean("auto", false) && !o.optBoolean("auto", false))) base = o;
+            }
+            if (base == null) {
+                for (int i = 0; i < ss.length(); i++) {
+                    JSONObject o = ss.optJSONObject(i);
+                    if (o != null && !o.optBoolean("auto", false)) { base = o; break; }
+                }
+                if (base == null) base = ss.optJSONObject(0);
+                translate = true;
+            }
+        }
+        if (base == null || base.optString("url", "").isEmpty()) return null;
+        String u = base.optString("url", "");
+        if (translate && !u.contains("tlang=")) u += (u.contains("?") ? "&" : "?") + "tlang=" + subLang;
+        String f = base.optString("format", "").toLowerCase();
+        String mime = f.contains("vtt") ? "text/vtt"
+                : (f.contains("srt") || f.contains("subrip")) ? "application/x-subrip"
+                : "application/ttml+xml";
+        return new MediaItem.SubtitleConfiguration.Builder(Uri.parse(u))
+                .setMimeType(mime)
+                .setLanguage("orig".equals(subLang) ? langBase(base.optString("lang", "")) : subLang)
+                .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                .build();
+    }
+
+    private void qualityMenu() {
+        if (streams == null) { say("লিংক এখনও আসেনি, একটু পরে চাপুন"); return; }
+        JSONArray a = streams.optJSONArray("videoStreams");
+        java.util.TreeSet<Integer> hs = new java.util.TreeSet<>(java.util.Collections.reverseOrder());
+        if (a != null) {
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.optJSONObject(i);
+                if (o != null && !o.optString("url", "").isEmpty() && heightOf(o) > 0) hs.add(heightOf(o));
+            }
+        }
+        if (hs.isEmpty()) { say("এই ভিডিওতে কোয়ালিটি বাছাই নেই"); return; }
+        final List<Integer> opts = new ArrayList<>(hs);
+        String[] labels = new String[opts.size() + 1];
+        labels[0] = "অটো";
+        for (int i = 0; i < opts.size(); i++) labels[i + 1] = toBn(String.valueOf(opts.get(i))) + "p";
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("কোয়ালিটি")
+                .setItems(labels, (dlg, which) -> {
+                    forceHeight = which == 0 ? 0 : opts.get(which - 1);
+                    pQual.setText("কোয়ালিটি: " + (forceHeight == 0 ? "অটো" : toBn(String.valueOf(forceHeight)) + "p"));
+                    say(forceHeight == 0 ? "কোয়ালিটি অটো" : "কোয়ালিটি " + toBn(String.valueOf(forceHeight)) + "p");
+                    if (player != null && streams != null) {
+                        resumeMs = player.getCurrentPosition();
+                        startPlayback(streams);
+                    }
+                })
+                .setNegativeButton("থাক", null)
+                .show();
+    }
+
+    private void openComments() {
+        if (cur == null || cur.url.isEmpty()) { say("ভিডিও এখনও আসেনি"); return; }
+        startActivity(new Intent(this, CommentsActivity.class)
+                .putExtra(CommentsActivity.EXTRA_URL, cur.url)
+                .putExtra(CommentsActivity.EXTRA_TITLE, cur.title));
     }
 
     private int heightOf(JSONObject s) {
@@ -533,6 +813,27 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             }
         }
         return pick.optString("url", "");
+    }
+
+    /** audio-only listening: the smallest usable stream when "কম ডাটা অডিও" is on, otherwise the best one */
+    private JSONObject pickAudioForListening(JSONObject d) {
+        if (Store.settingBool(this, "lowData", false)) {
+            JSONArray a = d.optJSONArray("audioStreams");
+            JSONObject low = null;
+            if (a != null) {
+                for (int i = 0; i < a.length(); i++) {
+                    JSONObject o = a.optJSONObject(i);
+                    if (o == null || o.optString("url", "").isEmpty()) continue;
+                    long br = o.optLong("bitrate", 0);
+                    if (br <= 0) continue;
+                    boolean m4a = o.optString("format", "").toLowerCase().matches(".*(m4a|mp4|aac).*");
+                    if (!m4a) continue;   // same container family as the normal choice, so it always plays
+                    if (low == null || br < low.optLong("bitrate", 0)) low = o;
+                }
+            }
+            if (low != null) return low;
+        }
+        return pickAudio(d, false);
     }
 
     private JSONObject pickAudio(JSONObject d, boolean needM4a) {
@@ -584,6 +885,12 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         pSpeed = pill("", v -> cycleSpeed());
         paintSpeed();
         pill("পূর্ণ পর্দা", v -> setFullscreen(true));
+        pQual = pill("কোয়ালিটি: অটো", v -> qualityMenu());
+        pLang = pill("অডিও ভাষা: অটো", v -> audioMenu());
+        pSubs = pill("সাবটাইটেল: বন্ধ", v -> subMenu());
+        pLang.setVisibility(View.GONE);   // shown only for videos that really have other languages
+        pSubs.setVisibility(View.GONE);
+        pill("মন্তব্য", v -> openComments());
         pill("M4A ডাউনলোড", v -> download());
         pill("MP3 ডাউনলোড", v -> downloadMp3());
         pAudio = pill(audioMode ? "শুধু অডিও: চালু" : "শুধু অডিও: বন্ধ", v -> toggleAudio());
@@ -886,7 +1193,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             boolean wasPlaying = player.isPlaying();
             String u = "";
             boolean am = audioMode;
-            if (am) { JSONObject a = pickAudio(streams, false); if (a != null) u = a.optString("url", ""); else am = false; }
+            if (am) { JSONObject a = pickAudioForListening(streams); if (a != null) u = a.optString("url", ""); else am = false; }
             if (u.isEmpty()) u = pickVideo(streams);
             if (u.isEmpty()) return;
             pv.setVisibility(am ? View.INVISIBLE : View.VISIBLE);
@@ -1078,6 +1385,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
                 return;
             }
             long id = dm.enqueue(r);
+            DownloadLog.add(this, base, "m4a", "", id);
             askNotify();
             try {
                 Intent si = new Intent(this, DownloadService.class)

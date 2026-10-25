@@ -105,6 +105,7 @@ public class Mp3Service extends Service {
             out.stream.flush();
             out.stream.close();
             out.finish();
+            DownloadLog.add(getApplicationContext(), name, "mp3", out.where, 0);
             out = null;
         } finally {
             tmp.delete();
@@ -228,6 +229,7 @@ public class Mp3Service extends Service {
 
     private abstract static class OutputTarget {
         OutputStream stream;
+        String where = "";
         abstract void finish();
         abstract void abort();
     }
@@ -254,6 +256,7 @@ public class Mp3Service extends Service {
                 void abort() { try { cr.delete(uri, null, null); } catch (Throwable ignore) { } }
             };
             o.stream = os;
+            o.where = uri.toString();
             return o;
         }
         final File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "AISmartTube");
@@ -266,6 +269,7 @@ public class Mp3Service extends Service {
             void abort() { f.delete(); }
         };
         o.stream = new java.io.BufferedOutputStream(new FileOutputStream(f), 64 * 1024);
+        o.where = Uri.fromFile(f).toString();
         return o;
     }
 

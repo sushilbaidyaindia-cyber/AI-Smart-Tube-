@@ -41,6 +41,10 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
     private RecyclerView list;
     private HistAd histAdapter;
     private final List<Object> histRows = new ArrayList<>();
+    private int sugGen = 0;
+    private Runnable sugTask;
+    private final List<String> sugRows = new ArrayList<>();
+    private RecyclerView.Adapter<RecyclerView.ViewHolder> sugAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,11 +84,64 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void afterTextChanged(Editable s) {
-                if (s == null || s.toString().trim().isEmpty()) showHistory();
+                String t = s == null ? "" : s.toString().trim();
+                if (t.isEmpty()) { sugGen++; showHistory(); }
+                else scheduleSuggest(t);
             }
         });
+        sugAdapter = new RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+            @Override public int getItemCount() { return sugRows.size(); }
+
+            @Override
+            public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup p, int t) {
+                TextView v = new TextView(p.getContext());
+                v.setLayoutParams(new RecyclerView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                v.setMinHeight(dp(56));
+                v.setGravity(Gravity.CENTER_VERTICAL);
+                v.setPadding(dp(20), dp(10), dp(20), dp(10));
+                v.setTextColor(0xFFEAF5F3);
+                v.setTextSize(17);
+                v.setClickable(true);
+                v.setFocusable(true);
+                v.setBackgroundResource(android.R.drawable.list_selector_background);
+                return new RecyclerView.ViewHolder(v) { };
+            }
+
+            @Override
+            public void onBindViewHolder(RecyclerView.ViewHolder h, int pos) {
+                final String sg = sugRows.get(pos);
+                TextView v = (TextView) h.itemView;
+                v.setText(sg);
+                v.setContentDescription("সাজেশন: " + sg);
+                v.setOnClickListener(x -> {
+                    query.setText(sg);
+                    query.setSelection(sg.length());
+                    runSearch();
+                });
+            }
+        };
         showHistory();
         query.requestFocus();
+    }
+
+    // ------------------------------------------------------------ suggestions while typing
+
+    private void scheduleSuggest(final String t) {
+        final int gen = ++sugGen;
+        if (sugTask != null) main.removeCallbacks(sugTask);
+        sugTask = () -> new Thread(() -> {
+            final List<String> r = Suggest.fetch(t);
+            main.post(() -> {
+                if (gen != sugGen || r.isEmpty()) return;
+                sugRows.clear();
+                sugRows.addAll(r);
+                if (list.getAdapter() != sugAdapter) list.setAdapter(sugAdapter);
+                sugAdapter.notifyDataSetChanged();
+                status.setText(r.size() + "টি সাজেশন");
+            });
+        }).start();
+        main.postDelayed(sugTask, 250);
     }
 
     // ------------------------------------------------------------ search history
@@ -255,6 +312,7 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
     }
 
     private void runSearch() {
+        sugGen++;   // a pending suggestion must not paint over the results
         hideKeyboard();
         String q = query.getText() != null ? query.getText().toString().trim() : "";
         if (q.isEmpty()) {

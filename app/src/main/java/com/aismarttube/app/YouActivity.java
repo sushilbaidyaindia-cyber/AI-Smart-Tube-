@@ -17,7 +17,7 @@ import org.json.JSONArray;
 /** "আপনি" tab, laid out like YouTube's: account, history, playlists, watch later, liked videos, settings. */
 public class YouActivity extends AppCompatActivity {
 
-    private static final int ACCOUNT = 0, HISTORY = 1, PLAYLISTS = 2, LATER = 3, LIKED = 4, SETTINGS = 5, COUNT = 6;
+    private static final int ACCOUNT = 0, HISTORY = 1, PLAYLISTS = 2, LATER = 3, LIKED = 4, DOWNLOADS = 5, SETTINGS = 6, COUNT = 7;
 
     private RecyclerView.Adapter<RecyclerView.ViewHolder> adapter;
 
@@ -95,6 +95,7 @@ public class YouActivity extends AppCompatActivity {
             case PLAYLISTS: return "প্লেলিস্ট";
             case LATER: return "পরে দেখব";
             case LIKED: return "পছন্দের ভিডিও";
+            case DOWNLOADS: return "ডাউনলোড";
             default: return "সেটিংস";
         }
     }
@@ -116,6 +117,10 @@ public class YouActivity extends AppCompatActivity {
             case PLAYLISTS: return YtAuth.isSignedIn(this) ? "আপনার ইউটিউব প্লেলিস্ট" : "লগইন করলে দেখা যাবে";
             case LATER: return count("later");
             case LIKED: return count("liked");
+            case DOWNLOADS: {
+                try { return bn(DownloadLog.all(this).length()) + "টি অডিও, অ্যাপের ভেতরেই চালানো যায়"; }
+                catch (Throwable t) { return ""; }
+            }
             default: return "AI, সোর্স, প্লেব্যাক";
         }
     }
@@ -132,6 +137,7 @@ public class YouActivity extends AppCompatActivity {
                 break;
             case LATER: startActivity(HistoryActivity.open(this, "later")); break;
             case LIKED: startActivity(new Intent(this, YtLikedActivity.class)); break;
+            case DOWNLOADS: startActivity(new Intent(this, DownloadsActivity.class)); break;
             default:
                 startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_OPEN_TAB, "settings"));
         }
