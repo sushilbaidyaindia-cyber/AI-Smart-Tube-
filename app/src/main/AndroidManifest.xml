@@ -101,6 +101,16 @@
         </activity>
 
         <activity
+            android:name=".CommentsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+        <activity
+            android:name=".DownloadsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+        <activity
             android:name=".RadioActivity"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
