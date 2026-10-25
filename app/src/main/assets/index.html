@@ -449,6 +449,8 @@
       <label class="switch"><input type="checkbox" id="quietPlay" class="sv" aria-label="বাজার সময় ঘোষণা কমান" /><span class="sl"></span></label></div>
     <div class="srow"><div class="lb"><strong>শুধু অডিও মোড</strong><small>ছবি ছাড়া শুধু শব্দ, ডেটা কম লাগে</small></div>
       <label class="switch"><input type="checkbox" id="audioOnly" class="sv" aria-label="শুধু অডিও মোড" /><span class="sl"></span></label></div>
+    <div class="srow"><div class="lb"><strong>কম ডাটা অডিও</strong><small>"শুধু অডিও" চালালে সবচেয়ে ছোট মানের অডিও বেছে নেয়। ডাটা অনেক কম লাগে, গানে মান কিছুটা কমে, কথা বা খবরে প্রায় বোঝা যায় না।</small></div>
+      <label class="switch"><input type="checkbox" id="lowData" class="sv" aria-label="কম ডাটা অডিও" /><span class="sl"></span></label></div>
     <div class="srow"><div class="lb"><strong>আগের জায়গা থেকে চালু</strong><small>আগে যতদূর দেখেছেন, সেখান থেকে শুরু হবে</small></div>
       <label class="switch"><input type="checkbox" id="resume" class="sv" aria-label="আগের জায়গা থেকে চালু" /><span class="sl"></span></label></div>
     <div class="srow"><div class="lb"><strong>শেষ হলে পরেরটা চালান</strong></div>
@@ -747,7 +749,7 @@ const SET_DEFAULTS = {
   aiLang: 'বাংলা', sumLen: '5', aiWatch: true, useTranscript: true, aiSpeak: false,
   primary: 'newpipe', fallback: true,
   bgPlay: true, quietPlay: true, quality: 'auto', audioOnly: false, resume: true, autoplay: true, skip: '10', speed: '1',
-  voiceLang: 'bn-IN', wifiOnly: false, sceneLen: '5',
+  voiceLang: 'bn-IN', wifiOnly: false, lowData: false, sceneLen: '5',
   textSize: '1', contrast: false, reduceMotion: false, focusHeading: true,
   theme: 'auto', keepHistory: true, keepSearch: true
 };
