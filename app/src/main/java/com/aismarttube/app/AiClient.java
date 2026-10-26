@@ -46,8 +46,38 @@ public class AiClient {
                 return err("মডেলের নাম দেওয়া হয়নি — সেটিংসে দিন");
             }
             String text;
+            String usedModel = model.trim();
             if ("gemini".equals(provider)) {
-                text = gemini(model.trim(), key.trim(), system, user, videoUrl, startSec, endSec);
+                String[] chain = geminiChain(model.trim());
+                HttpError last = null;
+                text = null;
+                StringBuilder tried = new StringBuilder();
+                for (int i = 0; i < chain.length && text == null; i++) {
+                    // each model: up to 2 attempts when the server is busy (503/500/502/504)
+                    for (int attempt = 0; attempt < 2 && text == null; attempt++) {
+                        try {
+                            text = gemini(chain[i], key.trim(), system, user, videoUrl, startSec, endSec);
+                            usedModel = chain[i];
+                        } catch (HttpError e) {
+                            last = e;
+                            if (!canFallback(e.code)) throw e;
+                            boolean busy = e.code == 503 || e.code == 500 || e.code == 502 || e.code == 504;
+                            if (busy && attempt == 0) {
+                                try { Thread.sleep(1500); } catch (InterruptedException ie) { break; }
+                                continue;
+                            }
+                            break; // go to next model
+                        }
+                    }
+                    if (text == null) {
+                        if (tried.length() > 0) tried.append(", ");
+                        tried.append(chain[i]);
+                    }
+                }
+                if (text == null) {
+                    String m = last == null ? "AI সার্ভার সাড়া দেয়নি" : last.getMessage();
+                    return err(m + " [চেষ্টা করা মডেল: " + tried + "]");
+                }
             } else {
                 text = openAiCompatible(baseUrl, model.trim(), key.trim(), system, user);
             }
@@ -57,10 +87,28 @@ public class AiClient {
             JSONObject o = new JSONObject();
             o.put("ok", true);
             o.put("text", text.trim());
+            o.put("model", usedModel);
             return o.toString();
         } catch (Throwable e) {
             return err(String.valueOf(e.getMessage()));
         }
+    }
+
+    /** Errors where trying another model can help: busy/overloaded, quota, or model name unknown. */
+    private static boolean canFallback(int code) {
+        return code == 503 || code == 500 || code == 502 || code == 504 || code == 429 || code == 404;
+    }
+
+    /** The model chosen in settings first, then other Gemini models as backup (no duplicates). */
+    private static String[] geminiChain(String chosen) {
+        String[] backups = {
+                "gemini-3.8-flash", "gemini-4-argon", "gemini-2.5-flash",
+                "gemini-2.5-flash-lite", "gemini-2.0-flash"
+        };
+        java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
+        set.add(chosen);
+        for (String b : backups) set.add(b);
+        return set.toArray(new String[0]);
     }
 
     private static String gemini(String model, String key, String system, String user,
