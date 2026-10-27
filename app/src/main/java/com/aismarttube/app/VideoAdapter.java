@@ -83,6 +83,13 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VH> {
         h.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onOpen(it, h.getBindingAdapterPosition());
         });
+        // "more" menu: channel, downloads, watch later ... without opening the video
+        final boolean menuOk = !"playlist".equals(it.kind);
+        h.more.setVisibility(menuOk ? View.VISIBLE : View.GONE);
+        h.more.setOnClickListener(menuOk ? v -> VideoMenu.show(h.itemView.getContext(), it) : null);
+        h.itemView.setOnLongClickListener(menuOk ? v -> { VideoMenu.show(h.itemView.getContext(), it); return true; } : null);
+        h.menuOk = menuOk;
+        h.item = it;
 
         // avatar letter
         String letter = it.uploader.isEmpty() ? "?" : it.uploader.substring(0, 1).toUpperCase();
@@ -112,8 +119,10 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VH> {
 
     public static class VH extends RecyclerView.ViewHolder {
         final ImageView thumb;
-        final TextView title, meta, avatar;
+        final TextView title, meta, avatar, more;
         String url = "";
+        boolean menuOk = false;
+        VideoItem item;
 
         public VH(View v) {
             super(v);
@@ -121,13 +130,27 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VH> {
             title = v.findViewById(R.id.title);
             meta = v.findViewById(R.id.meta);
             avatar = v.findViewById(R.id.avatar);
+            more = v.findViewById(R.id.more);
             // Important for TalkBack: one action on the whole row
             v.setClickable(true);
             v.setFocusable(true);
             // TalkBack landed on this card -> start loading its stream in the background
             v.setAccessibilityDelegate(new View.AccessibilityDelegate() {
                 @Override
+                public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                    super.onInitializeAccessibilityNodeInfo(host, info);
+                    if (menuOk) {
+                        info.addAction(new AccessibilityNodeInfo.AccessibilityAction(
+                                R.id.more, "আরও অপশন (চ্যানেল, ডাউনলোড…)"));
+                    }
+                }
+
+                @Override
                 public boolean performAccessibilityAction(View host, int action, android.os.Bundle args) {
+                    if (action == R.id.more && menuOk && item != null) {
+                        VideoMenu.show(host.getContext(), item);
+                        return true;
+                    }
                     if (action == AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS) {
                         NativeFeedLoader.prefetch(url);
                     }

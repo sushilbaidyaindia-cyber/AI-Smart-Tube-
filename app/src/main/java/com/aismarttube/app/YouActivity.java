@@ -139,7 +139,7 @@ public class YouActivity extends AppCompatActivity {
             case LIKED: startActivity(new Intent(this, YtLikedActivity.class)); break;
             case DOWNLOADS: startActivity(new Intent(this, DownloadsActivity.class)); break;
             default:
-                startActivity(new Intent(this, MainActivity.class).putExtra(MainActivity.EXTRA_OPEN_TAB, "settings"));
+                startActivity(new Intent(this, SettingsActivity.class));
         }
     }
 
