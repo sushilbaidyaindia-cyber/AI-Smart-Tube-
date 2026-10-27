@@ -125,6 +125,11 @@
             android:exported="false"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
         <!-- নেটিভ ইতিহাস / পরে দেখব / পছন্দের তালিকা -->
         <activity
             android:name=".HistoryActivity"
