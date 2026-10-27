@@ -52,8 +52,12 @@ public class AiClient {
                 HttpError last = null;
                 text = null;
                 StringBuilder tried = new StringBuilder();
+                final boolean hasVideo = videoUrl != null && videoUrl.startsWith("https://");
+                final long t0 = System.currentTimeMillis();
+                IOException lastNet = null;
                 for (int i = 0; i < chain.length && text == null; i++) {
-                    // each model: up to 2 attempts when the server is busy (503/500/502/504)
+                    if (System.currentTimeMillis() - t0 > 200000) break; // do not make the user wait forever
+                    // each model: up to 2 attempts when the server is busy or the connection broke
                     for (int attempt = 0; attempt < 2 && text == null; attempt++) {
                         try {
                             text = gemini(chain[i], key.trim(), system, user, videoUrl, startSec, endSec);
@@ -67,6 +71,20 @@ public class AiClient {
                                 continue;
                             }
                             break; // go to next model
+                        } catch (java.net.SocketTimeoutException e) {
+                            lastNet = e;
+                            // a video that takes this long will not be faster on another model
+                            if (hasVideo) throw new IOException("TIMEOUT_VIDEO");
+                            break;
+                        } catch (IOException e) {
+                            // connection dropped / reset: try again on a fresh connection
+                            lastNet = e;
+                            if (e.getMessage() != null && e.getMessage().startsWith("Gemini")) throw e;
+                            if (attempt == 0) {
+                                try { Thread.sleep(1200); } catch (InterruptedException ie) { break; }
+                                continue;
+                            }
+                            break;
                         }
                     }
                     if (text == null) {
@@ -74,6 +92,7 @@ public class AiClient {
                         tried.append(chain[i]);
                     }
                 }
+                if (text == null && last == null && lastNet != null) throw lastNet;
                 if (text == null) {
                     String m = last == null ? "AI সার্ভার সাড়া দেয়নি" : last.getMessage();
                     return err(m + " [চেষ্টা করা মডেল: " + tried + "]");
@@ -202,7 +221,9 @@ public class AiClient {
             c = (HttpURLConnection) new URL(url).openConnection();
             c.setRequestMethod("POST");
             c.setConnectTimeout(20000);
-            c.setReadTimeout(150000); // video understanding can take a while
+            c.setReadTimeout(json.contains("file_uri") ? 180000 : 70000); // video understanding can take a while
+            c.setUseCaches(false);
+            c.setRequestProperty("Connection", "close"); // fresh connection each time: no stale keep-alive reuse
             c.setDoOutput(true);
             c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             c.setRequestProperty("Accept", "application/json");

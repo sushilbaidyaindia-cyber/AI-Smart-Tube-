@@ -271,7 +271,7 @@ public class AiActivity extends AppCompatActivity {
         int ws = -1, we = -1;
         if ("scene".equals(kind)) {
             int s0 = startOverride != null ? startOverride : vPos;
-            int len = 60 * Math.max(1, parseInt(Store.settingStr(this, "sceneLen", "5"), 5));
+            int len = 60 * Math.max(1, parseInt(Store.settingStr(this, "sceneLen", "2"), 2));
             int dur = (int) vDur;
             if (dur > 0 && s0 >= dur - 3) { toast("ভিডিও প্রায় শেষ, বর্ণনা করার মতো অংশ নেই"); return; }
             ws = s0;
