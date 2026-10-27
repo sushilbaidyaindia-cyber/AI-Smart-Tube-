@@ -59,8 +59,7 @@ public class BrowseActivity extends AppCompatActivity implements VideoAdapter.Li
                 startActivity(new Intent(this, SearchNativeActivity.class)));
         findViewById(R.id.btnHistory).setOnClickListener(v ->
                 startActivity(HistoryActivity.open(this, "history")));
-        findViewById(R.id.btnFullApp).setOnClickListener(v ->
-                startActivity(new Intent(this, MainActivity.class)));
+        findViewById(R.id.btnFullApp).setVisibility(android.view.View.GONE);
 
         TabBar.setup(this, TabBar.HOME);
         buildChips();

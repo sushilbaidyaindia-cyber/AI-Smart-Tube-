@@ -149,6 +149,9 @@ public class SettingsActivity extends AppCompatActivity {
                 box.addView(row((Item) o));
             }
         }
+        box.addView(testButton("Gemini পরীক্ষা করুন", "gemini"));
+        box.addView(testButton("Grok পরীক্ষা করুন", "grok"));
+        box.addView(testButton("অন্য AI পরীক্ষা করুন", "custom"));
         box.addView(button("দেখার ইতিহাস মুছুন", () -> confirmClear("history", "দেখার ইতিহাস মুছবেন?")));
         box.addView(button("সার্চের ইতিহাস মুছুন", () -> confirmClear("searches", "সার্চের ইতিহাস মুছবেন?")));
     }
@@ -165,6 +168,27 @@ public class SettingsActivity extends AppCompatActivity {
         v.setFocusable(true);
         v.setBackgroundResource(android.R.drawable.list_selector_background);
         v.setOnClickListener(x -> r.run());
+        return v;
+    }
+
+    private View testButton(String text, final String name) {
+        TextView v = (TextView) button(text, () -> { });
+        v.setTextColor(0xFF7FD6C8);
+        v.setOnClickListener(x -> {
+            final String[] c = AiActivity.provCfg(this, name);
+            if (c[3].trim().isEmpty()) { Toast.makeText(this, "আগে API key দিন", Toast.LENGTH_SHORT).show(); return; }
+            Toast.makeText(this, "পরীক্ষা চলছে…", Toast.LENGTH_SHORT).show();
+            new Thread(() -> {
+                String msg;
+                try {
+                    org.json.JSONObject d = new org.json.JSONObject(AiClient.call(c[0], c[1], c[2], c[3], "", "শুধু একটি শব্দ লিখুন: ঠিক", "", -1, -1));
+                    msg = d.optBoolean("ok", false) ? "কাজ করছে। মডেল: " + d.optString("model", c[2])
+                            : "কাজ করছে না: " + d.optString("error", "অজানা ত্রুটি");
+                } catch (Throwable t) { msg = "কাজ করছে না: " + t.getMessage(); }
+                final String m = msg;
+                runOnUiThread(() -> new AlertDialog.Builder(this).setTitle(name).setMessage(m).setPositiveButton("ঠিক আছে", null).show());
+            }).start();
+        });
         return v;
     }
 

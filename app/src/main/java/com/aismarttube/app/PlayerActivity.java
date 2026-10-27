@@ -1256,17 +1256,13 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         startActivity(Intent.createChooser(i, "শেয়ার"));
     }
 
-    /** AI summary / translate / ask / scene description live in the web player */
+    /** AI summary / translate / ask / scene description: native AI page */
     private void openWeb() {
         if (cur == null) return;
         savePos();
-        try { if (player != null) player.pause(); } catch (Throwable ignored) {}
-        owner = false;
-        Intent i = new Intent(this, MainActivity.class);
-        i.putExtra(MainActivity.EXTRA_OPEN_URL, cur.url);
-        i.putExtra(MainActivity.EXTRA_OPEN_TITLE, cur.title);
-        i.putExtra(MainActivity.EXTRA_OPEN_UPLOADER, cur.uploader);
-        startActivity(i);
+        int pos = 0;
+        try { if (player != null) { pos = (int) (player.getCurrentPosition() / 1000); player.pause(); } } catch (Throwable ignored) {}
+        AiActivity.start(this, cur.url, cur.title, cur.uploader, cur.duration > 0 ? cur.duration : 0, pos);
     }
 
     private void setFullscreen(boolean on) {
