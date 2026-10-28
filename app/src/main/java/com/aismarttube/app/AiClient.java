@@ -55,6 +55,8 @@ public class AiClient {
                 final boolean hasVideo = videoUrl != null && videoUrl.startsWith("https://");
                 final long t0 = System.currentTimeMillis();
                 IOException lastNet = null;
+                String firstErr = null;
+                StringBuilder detail = new StringBuilder();
                 for (int i = 0; i < chain.length && text == null; i++) {
                     if (System.currentTimeMillis() - t0 > 200000) break; // do not make the user wait forever
                     // each model: up to 2 attempts when the server is busy or the connection broke
@@ -64,6 +66,16 @@ public class AiClient {
                             usedModel = chain[i];
                         } catch (HttpError e) {
                             last = e;
+                            if (attempt == 1 || !(e.code == 503 || e.code == 500 || e.code == 502 || e.code == 504)) {
+                                String em = String.valueOf(e.getMessage());
+                                int k = em.indexOf(": ");
+                                String shortMsg = k >= 0 ? em.substring(k + 2) : em;
+                                if (shortMsg.length() > 90) shortMsg = shortMsg.substring(0, 90) + "…";
+                                detail.append("\n• ").append(chain[i]).append(" → ").append(e.code).append(": ").append(shortMsg);
+                            }
+                            if (e.code != 404 || firstErr == null) {
+                                if (e.code != 404 || attempt == 0) firstErr = pickErr(firstErr, e, chain[i]);
+                            }
                             if (!canFallback(e.code)) throw e;
                             boolean busy = e.code == 503 || e.code == 500 || e.code == 502 || e.code == 504;
                             if (busy && attempt == 0) {
@@ -94,8 +106,8 @@ public class AiClient {
                 }
                 if (text == null && last == null && lastNet != null) throw lastNet;
                 if (text == null) {
-                    String m = last == null ? "AI সার্ভার সাড়া দেয়নি" : last.getMessage();
-                    return err(m + " [চেষ্টা করা মডেল: " + tried + "]");
+                    String m = firstErr != null ? firstErr : last == null ? "AI সার্ভার সাড়া দেয়নি" : last.getMessage();
+                    return err(m + "\n\nপ্রতিটি মডেলের ফল:" + detail);
                 }
             } else {
                 text = openAiCompatible(baseUrl, model.trim(), key.trim(), system, user);
@@ -120,9 +132,9 @@ public class AiClient {
 
     /** The model chosen in settings first, then other Gemini models as backup (no duplicates). */
     private static String[] geminiChain(String chosen) {
+        // "-latest" aliases never get retired; the named ones are tried first
         String[] backups = {
-                "gemini-3.8-flash", "gemini-4-argon", "gemini-2.5-flash",
-                "gemini-2.5-flash-lite", "gemini-2.0-flash"
+                "gemini-3.8-flash", "gemini-flash-latest", "gemini-4-argon", "gemini-flash-lite-latest"
         };
         java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
         set.add(chosen);
