@@ -155,6 +155,7 @@ public class AiActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------------ provider settings
 
+    static final String GROQ_MODEL = "llama-3.3-70b-versatile";
     private static final String[] LABEL = {"sum", "fact", "tr", "scene", "ask"};
 
     private static String kindLabel(String k) {
@@ -168,7 +169,7 @@ public class AiActivity extends AppCompatActivity {
     }
 
     static String provLabel(String p) {
-        return "gemini".equals(p) ? "Gemini" : "grok".equals(p) ? "Grok" : "অন্য AI";
+        return "gemini".equals(p) ? "Gemini" : "grok".equals(p) ? "Groq" : "অন্য AI";
     }
 
     /** returns {provider, baseUrl, model, key} for a name: gemini | grok | custom */
@@ -177,7 +178,9 @@ public class AiActivity extends AppCompatActivity {
             return new String[]{"gemini", "", Store.settingStr(c, "gemModel", "gemini-3.8-flash"), Store.settingStr(c, "gemKey", "")};
         }
         if ("grok".equals(name)) {
-            return new String[]{"openai", "https://api.x.ai/v1", Store.settingStr(c, "grokModel", "grok-4.7"), Store.settingStr(c, "grokKey", "")};
+            String gm = Store.settingStr(c, "grokModel", GROQ_MODEL).trim();
+            if (gm.isEmpty() || gm.toLowerCase(java.util.Locale.US).startsWith("grok")) gm = GROQ_MODEL; // old xAI name
+            return new String[]{"openai", "https://api.groq.com/openai/v1", gm, Store.settingStr(c, "grokKey", "")};
         }
         return new String[]{"openai", Store.settingStr(c, "cusBase", ""), Store.settingStr(c, "cusModel", ""), Store.settingStr(c, "cusKey", "")};
     }
@@ -209,6 +212,7 @@ public class AiActivity extends AppCompatActivity {
         if (d.length() > 3000) d = d.substring(0, 3000);
         String s = "শিরোনাম: " + vTitle + "\nচ্যানেল: " + vUploader + "\nসময়কাল: " + (vDur > 0 ? fmt(vDur) : "অজানা")
                 + "\nবিবরণ:\n" + (d.isEmpty() ? "(বিবরণ পাওয়া যায়নি)" : d);
+        if (transcript != null && transcript.length() > 12000) transcript = transcript.substring(0, 12000); // keeps Groq free limits happy
         if (transcript != null && !transcript.isEmpty()) s += "\n\nসাবটাইটেল (ভিডিওতে যা বলা হয়েছে):\n" + transcript;
         return s;
     }

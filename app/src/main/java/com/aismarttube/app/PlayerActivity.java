@@ -245,7 +245,6 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         }
         if (wasOwner) {
             PlaybackService.sessionToken = null;
-            MainActivity.reclaimSession();
         }
         io.shutdownNow();
         super.onDestroy();

@@ -9,7 +9,7 @@ import org.json.JSONObject;
 /**
  * One place for the data that both the web screens and the native screens use:
  * subscriptions, history, liked, watch-later, resume positions and settings.
- * index.html reads and writes these through Android.storeGet / storeSet.
+ * Native screens only (the old HTML page is gone).
  */
 final class Store {
 

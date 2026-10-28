@@ -32,12 +32,19 @@ public class PlaybackService extends Service {
     private static final String CHANNEL = "playback";
     private static final int NOTE_ID = 7001;
 
-    /** Set by MainActivity so the notification can show the lock-screen media card. */
+    /** Set by the native player so the notification can show the lock-screen media card. */
     static volatile MediaSession.Token sessionToken;
 
     private PowerManager.WakeLock wake;
     private WifiManager.WifiLock wifi;
     private boolean foreground;
+
+    /** notification buttons: the native player or the native radio, whichever is playing */
+    static void dispatch(String cmd) {
+        if (cmd == null) return;
+        if (PlayerActivity.handleRemote(cmd)) return;
+        RadioHub.handleRemote(cmd);
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -48,13 +55,13 @@ public class PlaybackService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? ACTION_UPDATE : intent.getAction();
         if (ACTION_STOP.equals(action)) {
-            MainActivity.dispatch("pause");
+            dispatch("pause");
             RadioHub.stop(true);
             shutDown();
             return START_NOT_STICKY;
         }
         if (ACTION_CMD.equals(action)) {
-            MainActivity.dispatch(intent.getStringExtra(EXTRA_CMD));
+            dispatch(intent.getStringExtra(EXTRA_CMD));
             return START_NOT_STICKY;
         }
         String title = intent != null ? intent.getStringExtra(EXTRA_TITLE) : null;
@@ -102,7 +109,7 @@ public class PlaybackService extends Service {
             b = new Notification.Builder(this);
         }
         Class<?> target = (PlayerActivity.current != null && PlayerActivity.owner) ? PlayerActivity.class
-                : RadioHub.active() ? RadioActivity.class : MainActivity.class;
+                : RadioHub.active() ? RadioActivity.class : BrowseActivity.class;
         Intent open = new Intent(this, target).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         int fl = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
         b.setContentIntent(PendingIntent.getActivity(this, 0, open, fl))

@@ -88,17 +88,17 @@ public class SettingsActivity extends AppCompatActivity {
         head("AI — key ও মডেল");
         txt("gemKey", "Gemini API key", "Google AI Studio থেকে নেওয়া", "", true);
         txt("gemModel", "Gemini মডেল", "ব্যর্থ হলে অ্যাপ নিজেই অন্য মডেল চেষ্টা করবে", "gemini-3.8-flash", false);
-        txt("grokKey", "Grok (xAI) API key", "", "", true);
-        txt("grokModel", "Grok মডেল", "", "grok-4.7", false);
+        txt("grokKey", "Groq API key", "console.groq.com থেকে নেওয়া (gsk_ দিয়ে শুরু)", "", true);
+        txt("grokModel", "Groq মডেল", "যেমন llama-3.3-70b-versatile বা openai/gpt-oss-120b", AiActivity.GROQ_MODEL, false);
         txt("cusBase", "অন্য AI-এর Base URL", "https:// দিয়ে শুরু, যেমন https://openrouter.ai/api/v1", "", false);
         txt("cusModel", "অন্য AI-এর মডেল", "", "", false);
         txt("cusKey", "অন্য AI-এর API key", "", "", true);
 
         head("AI — কে কী করবে");
-        sel("provSum", "সারাংশ কে করবে", "", "gemini", "gemini", "Gemini", "grok", "Grok", "custom", "অন্য AI");
-        sel("provFact", "ক্লিকবেইট পরীক্ষা কে করবে", "", "grok", "grok", "Grok", "gemini", "Gemini", "custom", "অন্য AI");
-        sel("provTr", "অনুবাদ কে করবে", "", "gemini", "gemini", "Gemini", "grok", "Grok", "custom", "অন্য AI");
-        sel("provAsk", "প্রশ্নের উত্তর কে দেবে", "", "gemini", "gemini", "Gemini", "grok", "Grok", "custom", "অন্য AI");
+        sel("provSum", "সারাংশ কে করবে", "", "gemini", "gemini", "Gemini", "grok", "Groq", "custom", "অন্য AI");
+        sel("provFact", "ক্লিকবেইট পরীক্ষা কে করবে", "", "grok", "grok", "Groq", "gemini", "Gemini", "custom", "অন্য AI");
+        sel("provTr", "অনুবাদ কে করবে", "", "gemini", "gemini", "Gemini", "grok", "Groq", "custom", "অন্য AI");
+        sel("provAsk", "প্রশ্নের উত্তর কে দেবে", "", "gemini", "gemini", "Gemini", "grok", "Groq", "custom", "অন্য AI");
         sel("aiLang", "উত্তরের ভাষা", "অনুবাদ কোন ভাষায় হবে, সেটাও এটাই", "বাংলা", "বাংলা", "বাংলা", "English", "English", "हिन्दी", "हिन्दी");
         sel("sumLen", "সারাংশের দৈর্ঘ্য", "", "5", "3", "ছোট (৩ পয়েন্ট)", "5", "মাঝারি (৫ পয়েন্ট)", "8", "বিস্তারিত (৮ পয়েন্ট)");
         sw("aiWatch", "Gemini সরাসরি ভিডিও দেখুক", "", true);
@@ -114,6 +114,10 @@ public class SettingsActivity extends AppCompatActivity {
         super.onCreate(b);
         setTitle("সেটিংস");
         spec();
+        // old settings may still hold the xAI model name or key
+        if (Store.settingStr(this, "grokModel", "").toLowerCase(java.util.Locale.US).startsWith("grok")) {
+            Store.putSetting(this, "grokModel", AiActivity.GROQ_MODEL);
+        }
         ScrollView sv = new ScrollView(this);
         sv.setBackgroundColor(0xFF0B1A1F);
         sv.setFillViewport(true);
@@ -150,7 +154,7 @@ public class SettingsActivity extends AppCompatActivity {
             }
         }
         box.addView(testButton("Gemini পরীক্ষা করুন", "gemini"));
-        box.addView(testButton("Grok পরীক্ষা করুন", "grok"));
+        box.addView(testButton("Groq পরীক্ষা করুন", "grok"));
         box.addView(testButton("অন্য AI পরীক্ষা করুন", "custom"));
         box.addView(button("দেখার ইতিহাস মুছুন", () -> confirmClear("history", "দেখার ইতিহাস মুছবেন?")));
         box.addView(button("সার্চের ইতিহাস মুছুন", () -> confirmClear("searches", "সার্চের ইতিহাস মুছবেন?")));
