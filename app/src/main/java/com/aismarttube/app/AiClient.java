@@ -121,8 +121,34 @@ public class AiClient {
             o.put("model", usedModel);
             return o.toString();
         } catch (Throwable e) {
-            return err(String.valueOf(e.getMessage()));
+            return err(friendly(e));
         }
+    }
+
+    /** keeps the most useful error: a real error (busy, quota, key) beats "model not found" */
+    private static String pickErr(String old, HttpError e, String model) {
+        String now = "(" + model + ") " + e.getMessage();
+        if (old == null) return now;
+        if (old.contains("HTTP 404") && e.code != 404) return now;
+        return old;
+    }
+
+    private static String friendly(Throwable e) {
+        String m = String.valueOf(e.getMessage());
+        if ("TIMEOUT_VIDEO".equals(m)) {
+            return "Gemini ভিডিও দেখতে অনেক সময় নিচ্ছে। সেটিংসে \"দৃশ্য বর্ণনার সময়\" ছোট করুন (১ মিনিট) বা পরে আবার চেষ্টা করুন";
+        }
+        if (e instanceof java.net.SocketTimeoutException || m.toLowerCase().contains("timed out") || m.equalsIgnoreCase("timeout")) {
+            return "সার্ভার সময়মতো উত্তর দেয়নি। ইন্টারনেট ঠিক আছে কিনা দেখে আবার চেষ্টা করুন";
+        }
+        if (e instanceof java.net.UnknownHostException) {
+            return "ইন্টারনেট সংযোগ পাওয়া যায়নি (DNS)। নেট বা VPN দেখুন";
+        }
+        if (m.contains("connection abort") || m.contains("Connection reset") || m.contains("unexpected end of stream")
+                || m.contains("Broken pipe") || e instanceof javax.net.ssl.SSLException) {
+            return "নেটওয়ার্ক সংযোগ মাঝপথে কেটে গেছে (" + m + ")। ওয়াইফাই/ডেটা বদলে বা VPN, ডেটা-সেভার বন্ধ করে আবার চেষ্টা করুন";
+        }
+        return m;
     }
 
     /** Errors where trying another model can help: busy/overloaded, quota, or model name unknown. */
