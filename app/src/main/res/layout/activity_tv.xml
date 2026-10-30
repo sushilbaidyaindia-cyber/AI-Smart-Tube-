@@ -46,6 +46,15 @@
             android:textAllCaps="false" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/tvCat"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:text="ক্যাটাগরি: সব চ্যানেল"
+        android:textAllCaps="false" />
+
     <TextView
         android:id="@+id/status"
         android:layout_width="match_parent"
