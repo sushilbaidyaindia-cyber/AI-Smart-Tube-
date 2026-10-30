@@ -5,17 +5,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.widget.Button;
 
-/** The always-visible bottom tabs (Home, Subscriptions, Radio, You) of the native screens. */
+/** The always-visible bottom tabs (Home, Subscriptions, Radio, TV, You) of the native screens. */
 final class TabBar {
 
-    static final int HOME = 0, SUBS = 1, RADIO = 2, YOU = 3;
-    private static final int[] IDS = {R.id.tabHome, R.id.tabSubs, R.id.tabRadio, R.id.tabYou};
-    private static final String[] NAMES = {"হোম", "সাবস্ক্রিপশন", "রেডিও", "আপনি"};
+    static final int HOME = 0, SUBS = 1, RADIO = 2, TV = 3, YOU = 4;
+    private static final int[] IDS = {R.id.tabHome, R.id.tabSubs, R.id.tabRadio, R.id.tabTv, R.id.tabYou};
+    private static final String[] NAMES = {"হোম", "সাবস্ক্রিপশন", "রেডিও", "টিভি", "আপনি"};
 
     private TabBar() {}
 
     static void setup(final Activity a, final int current) {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < IDS.length; i++) {
             Button b = a.findViewById(IDS[i]);
             if (b == null) continue;
             final int to = i;
@@ -37,6 +37,7 @@ final class TabBar {
         switch (to) {
             case HOME: in = new Intent(c, BrowseActivity.class); break;
             case SUBS: in = new Intent(c, SubsActivity.class); break;
+            case TV: in = new Intent(c, TvActivity.class); break;
             case YOU: in = new Intent(c, YouActivity.class); break;
             default: in = new Intent(c, RadioActivity.class); break;
         }
@@ -51,7 +52,7 @@ final class TabBar {
 
     /** used by the web screens (radio / settings) for their tab buttons */
     static void open(Context c, String name) {
-        int to = "subs".equals(name) ? SUBS : "you".equals(name) ? YOU : "radio".equals(name) ? RADIO : HOME;
+        int to = "subs".equals(name) ? SUBS : "you".equals(name) ? YOU : "radio".equals(name) ? RADIO : "tv".equals(name) ? TV : HOME;
         c.startActivity(intentFor(c, to));
     }
 }
