@@ -168,6 +168,54 @@ public class AiClient {
         return set.toArray(new String[0]);
     }
 
+    /** Asks Google which models this key can use. Returns {ok:true,models:["gemini-...",...]} or {ok:false,error:"..."} */
+    public static String listGeminiModels(String key) {
+        HttpURLConnection c = null;
+        try {
+            if (key == null || key.trim().isEmpty()) return err("আগে Gemini API key দিন");
+            JSONArray out = new JSONArray();
+            String token = "";
+            for (int page = 0; page < 6; page++) {
+                String u = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200"
+                        + (token.isEmpty() ? "" : "&pageToken=" + java.net.URLEncoder.encode(token, "UTF-8"));
+                c = (HttpURLConnection) new URL(u).openConnection();
+                c.setConnectTimeout(15000);
+                c.setReadTimeout(30000);
+                c.setUseCaches(false);
+                c.setRequestProperty("x-goog-api-key", key.trim());
+                c.setRequestProperty("Accept", "application/json");
+                int code = c.getResponseCode();
+                InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+                String body = in == null ? "" : readAll(in);
+                if (code >= 400) return err(describeError(code, body));
+                JSONObject root = new JSONObject(body);
+                JSONArray ms = root.optJSONArray("models");
+                if (ms != null) {
+                    for (int i = 0; i < ms.length(); i++) {
+                        JSONObject m = ms.getJSONObject(i);
+                        JSONArray methods = m.optJSONArray("supportedGenerationMethods");
+                        boolean gen = false;
+                        if (methods != null) for (int k = 0; k < methods.length(); k++) if ("generateContent".equals(methods.optString(k, ""))) gen = true;
+                        if (!gen) continue;
+                        String name = m.optString("name", "");
+                        if (name.startsWith("models/")) name = name.substring(7);
+                        if (name.isEmpty()) continue;
+                        out.put(name);
+                    }
+                }
+                token = root.optString("nextPageToken", "");
+                c.disconnect();
+                c = null;
+                if (token.isEmpty()) break;
+            }
+            return new JSONObject().put("ok", true).put("models", out).toString();
+        } catch (Throwable e) {
+            return err(friendly(e));
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
     private static String gemini(String model, String key, String system, String user,
                                  String videoUrl, int startSec, int endSec) throws Exception {
         JSONObject body = new JSONObject();

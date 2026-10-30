@@ -116,7 +116,100 @@ public class Mp3Service extends Service {
         }
     }
 
-    private void download(String url, File dst, String name) throws Exception {
+    /** YouTube slows down one long plain download. Asking for small pieces with several connections at once is much faster. */
+    private void download(final String url, final File dst, final String name) throws Exception {
+        long total = -1;
+        boolean ranged = false;
+        HttpURLConnection p = (HttpURLConnection) new URL(url).openConnection();
+        try {
+            p.setRequestProperty("User-Agent", UA);
+            p.setRequestProperty("Range", "bytes=0-0");
+            p.setConnectTimeout(15000);
+            p.setReadTimeout(15000);
+            p.connect();
+            if (p.getResponseCode() == 206) {
+                String cr = p.getHeaderField("Content-Range"); // bytes 0-0/12345
+                int sl = cr == null ? -1 : cr.lastIndexOf('/');
+                if (sl > 0) {
+                    try { total = Long.parseLong(cr.substring(sl + 1).trim()); ranged = total > 0; } catch (Throwable ignore) { }
+                }
+            }
+        } catch (Throwable ignore) {
+            ranged = false;
+        } finally {
+            p.disconnect();
+        }
+        if (!ranged || total < 256 * 1024) { downloadPlain(url, dst, name); return; }
+        try {
+            downloadParallel(url, dst, name, total);
+        } catch (Exception e) {
+            if (Thread.currentThread().isInterrupted()) throw e;
+            downloadPlain(url, dst, name); // pieces did not work: the old way
+        }
+    }
+
+    private void downloadParallel(final String url, final File dst, final String name, final long total) throws Exception {
+        final int CHUNK = 1024 * 1024;
+        final int chunks = (int) ((total + CHUNK - 1) / CHUNK);
+        final java.util.concurrent.atomic.AtomicInteger next = new java.util.concurrent.atomic.AtomicInteger(0);
+        final java.util.concurrent.atomic.AtomicLong got = new java.util.concurrent.atomic.AtomicLong(0);
+        final java.util.concurrent.atomic.AtomicReference<Exception> fail = new java.util.concurrent.atomic.AtomicReference<>();
+        final java.io.RandomAccessFile raf = new java.io.RandomAccessFile(dst, "rw");
+        try {
+            raf.setLength(total);
+            int nThreads = Math.min(4, chunks);
+            ExecutorService dl = Executors.newFixedThreadPool(nThreads);
+            java.util.List<java.util.concurrent.Future<?>> fs = new java.util.ArrayList<>();
+            for (int t = 0; t < nThreads; t++) {
+                fs.add(dl.submit(() -> {
+                    byte[] buf = new byte[32 * 1024];
+                    int idx;
+                    while (fail.get() == null && (idx = next.getAndIncrement()) < chunks) {
+                        long from = (long) idx * CHUNK;
+                        long to = Math.min(total, from + CHUNK) - 1;
+                        boolean ok = false;
+                        for (int attempt = 0; attempt < 3 && !ok && fail.get() == null; attempt++) {
+                            HttpURLConnection c = null;
+                            try {
+                                c = (HttpURLConnection) new URL(url).openConnection();
+                                c.setRequestProperty("User-Agent", UA);
+                                c.setRequestProperty("Range", "bytes=" + from + "-" + to);
+                                c.setConnectTimeout(15000);
+                                c.setReadTimeout(20000);
+                                if (c.getResponseCode() != 206) throw new java.io.IOException("HTTP " + c.getResponseCode());
+                                long pos = from;
+                                try (InputStream in = c.getInputStream()) {
+                                    int n;
+                                    while ((n = in.read(buf)) > 0) {
+                                        synchronized (raf) { raf.seek(pos); raf.write(buf, 0, n); }
+                                        pos += n;
+                                        long g = got.addAndGet(n);
+                                        progress(name, "অডিও নামানো হচ্ছে…", (int) (g * 40 / total));
+                                    }
+                                }
+                                if (pos != to + 1) throw new java.io.IOException("অসম্পূর্ণ অংশ");
+                                ok = true;
+                            } catch (Exception e) {
+                                if (attempt == 2) fail.compareAndSet(null, e);
+                            } finally {
+                                if (c != null) c.disconnect();
+                            }
+                        }
+                    }
+                    return null;
+                }));
+            }
+            dl.shutdown();
+            for (java.util.concurrent.Future<?> f : fs) {
+                try { f.get(); } catch (java.util.concurrent.ExecutionException e) { fail.compareAndSet(null, new Exception(String.valueOf(e.getCause()))); }
+            }
+            if (fail.get() != null) throw fail.get();
+        } finally {
+            try { raf.close(); } catch (Throwable ignore) { }
+        }
+    }
+
+    private void downloadPlain(String url, File dst, String name) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setRequestProperty("User-Agent", UA);
         c.setConnectTimeout(20000);
@@ -191,7 +284,7 @@ public class Mp3Service extends Service {
                             int ch = of.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
                             if (ch < 1 || ch > 2) throw new Exception("এই অডিও ফরম্যাট সমর্থিত নয় (চ্যানেল " + ch + ")");
                             AudioFormat af = new AudioFormat(rate, 16, ch, true, false);
-                            enc = new LameEncoder(af);
+                            enc = newFastEncoder(af);
                             mp3 = new byte[enc.getMP3BufferSize()];
                             pcm = new byte[enc.getPCMBufferSize()];
                         }
@@ -222,6 +315,17 @@ public class Mp3Service extends Service {
             try { if (codec != null) { codec.stop(); codec.release(); } } catch (Throwable ignore) { }
             try { ex.release(); } catch (Throwable ignore) { }
             try { if (enc != null) enc.close(); } catch (Throwable ignore) { }
+        }
+    }
+
+    /** MP3 quality 7 (fast) at 128 kbit/s. If this library version has no such constructor, the normal encoder is used. */
+    private static LameEncoder newFastEncoder(AudioFormat af) {
+        try {
+            java.lang.reflect.Constructor<LameEncoder> k = LameEncoder.class.getConstructor(
+                    AudioFormat.class, int.class, int.class, int.class, boolean.class);
+            return k.newInstance(af, 128, -1, 7, false);
+        } catch (Throwable t) {
+            return new LameEncoder(af);
         }
     }
 

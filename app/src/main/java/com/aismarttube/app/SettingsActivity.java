@@ -24,7 +24,7 @@ import java.util.List;
  */
 public class SettingsActivity extends AppCompatActivity {
 
-    private static final int SW = 0, SEL = 1, TXT = 2, KEY = 3;
+    private static final int SW = 0, SEL = 1, TXT = 2, KEY = 3, GEM = 4;
 
     private static final class Item {
         final int type; final String id, title, hint; final String[] labels, values; final boolean defB; final String defS;
@@ -87,7 +87,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         head("AI — key ও মডেল");
         txt("gemKey", "Gemini API key", "Google AI Studio থেকে নেওয়া", "", true);
-        txt("gemModel", "Gemini মডেল", "ব্যর্থ হলে অ্যাপ নিজেই অন্য মডেল চেষ্টা করবে", "gemini-3.8-flash", false);
+        rows.add(new Item(GEM, "gemModel", "Gemini মডেল", "চাপলে Google থেকে সব মডেলের তালিকা আসবে, বেছে নিন। ব্যর্থ হলে অ্যাপ নিজেই অন্য মডেল চেষ্টা করবে", null, null, false, "gemini-3.8-flash"));
         txt("grokKey", "Groq API key", "console.groq.com থেকে নেওয়া (gsk_ দিয়ে শুরু)", "", true);
         txt("grokModel", "Groq মডেল", "যেমন llama-3.3-70b-versatile বা openai/gpt-oss-120b", AiActivity.GROQ_MODEL, false);
         txt("cusBase", "অন্য AI-এর Base URL", "https:// দিয়ে শুরু, যেমন https://openrouter.ai/api/v1", "", false);
@@ -230,7 +230,7 @@ public class SettingsActivity extends AppCompatActivity {
         v.setBackgroundResource(android.R.drawable.list_selector_background);
         refreshRow(v, it);
         v.setOnClickListener(x -> {
-            if (it.type == SEL) pick(it, v); else edit(it, v);
+            if (it.type == SEL) pick(it, v); else if (it.type == GEM) pickGemini(it, v); else edit(it, v);
         });
         return v;
     }
@@ -242,6 +242,7 @@ public class SettingsActivity extends AppCompatActivity {
             return cur;
         }
         if (it.type == KEY) return cur.isEmpty() ? "দেওয়া হয়নি" : "দেওয়া আছে (লুকানো)";
+        if (it.type == GEM) return cur.isEmpty() ? it.defS : cur;
         return cur.isEmpty() ? "ফাঁকা" : cur;
     }
 
@@ -271,6 +272,63 @@ public class SettingsActivity extends AppCompatActivity {
                     d.dismiss();
                 })
                 .setNegativeButton("বন্ধ", null).show();
+    }
+
+    private static final String[] GEM_BUILTIN = {"gemini-3.8-flash", "gemini-4-argon", "gemini-flash-latest", "gemini-flash-lite-latest"};
+
+    private void pickGemini(final Item it, final TextView v) {
+        final String key = Store.settingStr(this, "gemKey", "").trim();
+        if (key.isEmpty()) {
+            Toast.makeText(this, "আগে Gemini API key দিন, তারপর তালিকা আসবে", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Toast.makeText(this, "মডেলের তালিকা আনা হচ্ছে…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String[] names;
+            String note = "";
+            try {
+                org.json.JSONObject d = new org.json.JSONObject(AiClient.listGeminiModels(key));
+                if (d.optBoolean("ok", false)) {
+                    org.json.JSONArray a = d.optJSONArray("models");
+                    List<String> good = new ArrayList<>(), other = new ArrayList<>();
+                    for (int i = 0; a != null && i < a.length(); i++) {
+                        String n = a.optString(i, "");
+                        String l = n.toLowerCase(java.util.Locale.US);
+                        boolean skip = l.contains("tts") || l.contains("image") || l.contains("embedding") || l.contains("live")
+                                || l.contains("audio") || l.contains("robotics") || l.contains("computer-use") || l.contains("transcribe")
+                                || l.contains("imagen") || l.contains("veo") || l.contains("aqa");
+                        if (skip) continue;
+                        if (l.startsWith("gemini")) good.add(n); else other.add(n);
+                    }
+                    java.util.Collections.sort(good, java.util.Collections.reverseOrder());
+                    good.addAll(other);
+                    names = good.toArray(new String[0]);
+                    if (names.length == 0) { names = GEM_BUILTIN; note = "তালিকা ফাঁকা এসেছে, তাই চেনা মডেলগুলো দেখানো হচ্ছে"; }
+                } else {
+                    names = GEM_BUILTIN;
+                    note = "তালিকা আনা যায়নি (" + d.optString("error", "") + "), তাই চেনা মডেলগুলো দেখানো হচ্ছে";
+                }
+            } catch (Throwable t) {
+                names = GEM_BUILTIN;
+                note = "তালিকা আনা যায়নি, তাই চেনা মডেলগুলো দেখানো হচ্ছে";
+            }
+            final String[] fn = names;
+            final String fnote = note;
+            runOnUiThread(() -> {
+                String cur = curStr(it);
+                int sel = -1;
+                for (int i = 0; i < fn.length; i++) if (fn[i].equals(cur)) sel = i;
+                AlertDialog.Builder b = new AlertDialog.Builder(this).setTitle("Gemini মডেল বেছে নিন")
+                        .setSingleChoiceItems(fn, sel, (d, which) -> {
+                            Store.putSetting(this, it.id, fn[which]);
+                            refreshRow(v, it);
+                            d.dismiss();
+                        })
+                        .setNegativeButton("বন্ধ", null);
+                if (!fnote.isEmpty()) Toast.makeText(this, fnote, Toast.LENGTH_LONG).show();
+                try { b.show(); } catch (Throwable ignored) { }
+            });
+        }).start();
     }
 
     private void edit(final Item it, final TextView v) {
