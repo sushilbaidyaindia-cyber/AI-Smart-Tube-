@@ -47,67 +47,26 @@ public class AiClient {
             }
             String text;
             String usedModel = model.trim();
+            int keyUsed = 0, keyTotal = 1;
             if ("gemini".equals(provider)) {
                 String[] chain = geminiChain(model.trim());
-                HttpError last = null;
-                text = null;
-                StringBuilder tried = new StringBuilder();
-                final boolean hasVideo = videoUrl != null && videoUrl.startsWith("https://");
+                String[] keys = splitKeys(key);
+                if (keys.length == 0) return err("API key দেওয়া হয়নি — সেটিংসে AI অংশে দিন");
+                keyTotal = keys.length;
+                GState st = new GState();
+                st.video = videoUrl != null && videoUrl.startsWith("https://");
+                st.multi = keys.length > 1;
                 final long t0 = System.currentTimeMillis();
-                IOException lastNet = null;
-                String firstErr = null;
-                StringBuilder detail = new StringBuilder();
+                text = null;
                 for (int i = 0; i < chain.length && text == null; i++) {
                     if (System.currentTimeMillis() - t0 > 200000) break; // do not make the user wait forever
-                    // each model: up to 2 attempts when the server is busy or the connection broke
-                    for (int attempt = 0; attempt < 2 && text == null; attempt++) {
-                        try {
-                            text = gemini(chain[i], key.trim(), system, user, videoUrl, startSec, endSec);
-                            usedModel = chain[i];
-                        } catch (HttpError e) {
-                            last = e;
-                            if (attempt == 1 || !(e.code == 503 || e.code == 500 || e.code == 502 || e.code == 504)) {
-                                String em = String.valueOf(e.getMessage());
-                                int k = em.indexOf(": ");
-                                String shortMsg = k >= 0 ? em.substring(k + 2) : em;
-                                if (shortMsg.length() > 90) shortMsg = shortMsg.substring(0, 90) + "…";
-                                detail.append("\n• ").append(chain[i]).append(" → ").append(e.code).append(": ").append(shortMsg);
-                            }
-                            if (e.code != 404 || firstErr == null) {
-                                if (e.code != 404 || attempt == 0) firstErr = pickErr(firstErr, e, chain[i]);
-                            }
-                            if (!canFallback(e.code)) throw e;
-                            boolean busy = e.code == 503 || e.code == 500 || e.code == 502 || e.code == 504;
-                            if (busy && attempt == 0) {
-                                try { Thread.sleep(1500); } catch (InterruptedException ie) { break; }
-                                continue;
-                            }
-                            break; // go to next model
-                        } catch (java.net.SocketTimeoutException e) {
-                            lastNet = e;
-                            // a video that takes this long will not be faster on another model
-                            if (hasVideo) throw new IOException("TIMEOUT_VIDEO");
-                            break;
-                        } catch (IOException e) {
-                            // connection dropped / reset: try again on a fresh connection
-                            lastNet = e;
-                            if (e.getMessage() != null && e.getMessage().startsWith("Gemini")) throw e;
-                            if (attempt == 0) {
-                                try { Thread.sleep(1200); } catch (InterruptedException ie) { break; }
-                                continue;
-                            }
-                            break;
-                        }
-                    }
-                    if (text == null) {
-                        if (tried.length() > 0) tried.append(", ");
-                        tried.append(chain[i]);
-                    }
+                    text = tryModel(chain[i], keys, system, user, videoUrl, startSec, endSec, st);
+                    if (text != null) { usedModel = chain[i]; keyUsed = st.keyIdx; }
                 }
-                if (text == null && last == null && lastNet != null) throw lastNet;
+                if (text == null && st.last == null && st.lastNet != null) throw st.lastNet;
                 if (text == null) {
-                    String m = firstErr != null ? firstErr : last == null ? "AI সার্ভার সাড়া দেয়নি" : last.getMessage();
-                    return err(m + "\n\nপ্রতিটি মডেলের ফল:" + detail);
+                    String m = st.firstErr != null ? st.firstErr : st.last == null ? "AI সার্ভার সাড়া দেয়নি" : st.last.getMessage();
+                    return err(m + "\n\nপ্রতিটি চেষ্টার ফল:" + st.detail);
                 }
             } else {
                 text = openAiCompatible(baseUrl, model.trim(), key.trim(), system, user);
@@ -119,10 +78,118 @@ public class AiClient {
             o.put("ok", true);
             o.put("text", text.trim());
             o.put("model", usedModel);
+            o.put("key", keyUsed);
+            o.put("keys", keyTotal);
             return o.toString();
         } catch (Throwable e) {
             return err(friendly(e));
         }
+    }
+
+    // ------------------------------------------------------------ several Gemini keys
+
+    private static final class GState {
+        final StringBuilder detail = new StringBuilder();
+        String firstErr;
+        HttpError last;
+        IOException lastNet;
+        int keyIdx = 1;
+        boolean video, multi;
+    }
+
+    private static final java.util.Map<String, Long> COOL = new java.util.concurrent.ConcurrentHashMap<>();
+    private static volatile String stickyKey = "";
+
+    /** one key per line (or separated by spaces / commas) */
+    static String[] splitKeys(String raw) {
+        java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
+        if (raw != null) for (String p : raw.split("[\\s,;]+")) if (p.length() > 8) set.add(p.trim());
+        String[] out = set.toArray(new String[0]);
+        return out.length > 10 ? java.util.Arrays.copyOf(out, 10) : out;
+    }
+
+    /** the key that worked last goes first; keys that just ran out of quota go last */
+    private static String[] orderKeys(String[] keys, String model) {
+        java.util.List<String> ok = new java.util.ArrayList<>(), cool = new java.util.ArrayList<>();
+        long now = System.currentTimeMillis();
+        for (String k : keys) {
+            Long until = COOL.get(model + "|" + k);
+            (until != null && until > now ? cool : ok).add(k);
+        }
+        int si = ok.indexOf(stickyKey);
+        if (si > 0) ok.add(0, ok.remove(si));
+        ok.addAll(cool);
+        return ok.toArray(new String[0]);
+    }
+
+    private static void cool(String key, String model, String msg) {
+        String m = msg == null ? "" : msg.toLowerCase(java.util.Locale.ROOT);
+        boolean daily = m.contains("per day") || m.contains("perday") || m.contains("daily");
+        COOL.put(model + "|" + key, System.currentTimeMillis() + (daily ? 30 * 60 * 1000L : 75 * 1000L));
+    }
+
+    private static int indexOf(String[] a, String k) {
+        for (int i = 0; i < a.length; i++) if (a[i].equals(k)) return i;
+        return 0;
+    }
+
+    private static void pause(long ms) throws IOException {
+        try { Thread.sleep(ms); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); throw new IOException("বাতিল"); }
+    }
+
+    /**
+     * One model, all keys. Busy server (503): other keys will not help, so give up this model.
+     * Quota used up (429) or key refused: the next key. Returns null = try the next model.
+     */
+    private static String tryModel(String model, String[] keys, String system, String user, String videoUrl,
+                                   int startSec, int endSec, GState st) throws Exception {
+        for (String k : orderKeys(keys, model)) {
+            int ki = indexOf(keys, k) + 1;
+            for (int attempt = 0; attempt < 2; attempt++) {
+                try {
+                    String t = gemini(model, k, system, user, videoUrl, startSec, endSec);
+                    stickyKey = k;
+                    st.keyIdx = ki;
+                    return t;
+                } catch (HttpError e) {
+                    st.last = e;
+                    int c = e.code;
+                    boolean busy = c == 503 || c == 500 || c == 502 || c == 504;
+                    if (attempt == 1 || !busy) {
+                        String em = String.valueOf(e.getMessage());
+                        int q = em.indexOf(": ");
+                        String shortMsg = q >= 0 ? em.substring(q + 2) : em;
+                        if (shortMsg.length() > 90) shortMsg = shortMsg.substring(0, 90) + "…";
+                        st.detail.append("\n• ").append(model).append(st.multi ? " [key " + ki + "]" : "").append(" → ").append(c).append(": ").append(shortMsg);
+                    }
+                    if (c != 404 || st.firstErr == null) {
+                        if (c != 404 || attempt == 0) st.firstErr = pickErr(st.firstErr, e, model + (st.multi ? " key " + ki : ""));
+                    }
+                    if (busy) {
+                        if (attempt == 0) { pause(1500); continue; }
+                        return null;
+                    }
+                    if (c == 404) return null;
+                    if (c == 429) { cool(k, model, e.getMessage()); break; }          // next key
+                    if (c == 400 || c == 401 || c == 403) {
+                        String em = String.valueOf(e.getMessage()).toLowerCase(java.util.Locale.ROOT);
+                        boolean keyProblem = c != 400 || em.contains("api key");
+                        if (keyProblem && keys.length > 1) break;                      // next key
+                    }
+                    throw e;
+                } catch (java.net.SocketTimeoutException e) {
+                    st.lastNet = e;
+                    if (st.video) throw new IOException("TIMEOUT_VIDEO");   // another model will not be faster
+                    return null;
+                } catch (IOException e) {
+                    st.lastNet = e;
+                    if (e.getMessage() != null && e.getMessage().startsWith("Gemini")) throw e;
+                    if (attempt == 0) { pause(1200); continue; }
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 
     /** keeps the most useful error: a real error (busy, quota, key) beats "model not found" */
@@ -151,11 +218,6 @@ public class AiClient {
         return m;
     }
 
-    /** Errors where trying another model can help: busy/overloaded, quota, or model name unknown. */
-    private static boolean canFallback(int code) {
-        return code == 503 || code == 500 || code == 502 || code == 504 || code == 429 || code == 404;
-    }
-
     /** The model chosen in settings first, then other Gemini models as backup (no duplicates). */
     private static String[] geminiChain(String chosen) {
         // "-latest" aliases never get retired; the named ones are tried first
@@ -172,7 +234,9 @@ public class AiClient {
     public static String listGeminiModels(String key) {
         HttpURLConnection c = null;
         try {
-            if (key == null || key.trim().isEmpty()) return err("আগে Gemini API key দিন");
+            String[] ks = splitKeys(key);
+            if (ks.length == 0) return err("আগে Gemini API key দিন");
+            key = ks[0];
             JSONArray out = new JSONArray();
             String token = "";
             for (int page = 0; page < 6; page++) {

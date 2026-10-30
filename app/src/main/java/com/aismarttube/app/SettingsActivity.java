@@ -24,7 +24,7 @@ import java.util.List;
  */
 public class SettingsActivity extends AppCompatActivity {
 
-    private static final int SW = 0, SEL = 1, TXT = 2, KEY = 3, GEM = 4;
+    private static final int SW = 0, SEL = 1, TXT = 2, KEY = 3, GEM = 4, MKEY = 5;
 
     private static final class Item {
         final int type; final String id, title, hint; final String[] labels, values; final boolean defB; final String defS;
@@ -86,7 +86,7 @@ public class SettingsActivity extends AppCompatActivity {
         sw("keepSearch", "সার্চের ইতিহাস রাখুন", "", true);
 
         head("AI — key ও মডেল");
-        txt("gemKey", "Gemini API key", "Google AI Studio থেকে নেওয়া", "", true);
+        rows.add(new Item(MKEY, "gemKey", "Gemini API key (একাধিক দেওয়া যায়)", "একটার লিমিট শেষ হলে অ্যাপ নিজে পরেরটা ব্যবহার করবে। আলাদা Google অ্যাকাউন্ট বা প্রজেক্টের key হলে সবচেয়ে ভালো", null, null, false, ""));
         rows.add(new Item(GEM, "gemModel", "Gemini মডেল", "চাপলে Google থেকে সব মডেলের তালিকা আসবে, বেছে নিন। ব্যর্থ হলে অ্যাপ নিজেই অন্য মডেল চেষ্টা করবে", null, null, false, "gemini-3.8-flash"));
         txt("grokKey", "Groq API key", "console.groq.com থেকে নেওয়া (gsk_ দিয়ে শুরু)", "", true);
         txt("grokModel", "Groq মডেল", "যেমন llama-3.3-70b-versatile বা openai/gpt-oss-120b", AiActivity.GROQ_MODEL, false);
@@ -186,7 +186,8 @@ public class SettingsActivity extends AppCompatActivity {
                 String msg;
                 try {
                     org.json.JSONObject d = new org.json.JSONObject(AiClient.call(c[0], c[1], c[2], c[3], "", "শুধু একটি শব্দ লিখুন: ঠিক", "", -1, -1));
-                    msg = d.optBoolean("ok", false) ? "কাজ করছে। মডেল: " + d.optString("model", c[2])
+                    int kt = d.optInt("keys", 1), ku = d.optInt("key", 0);
+                    msg = d.optBoolean("ok", false) ? "কাজ করছে। মডেল: " + d.optString("model", c[2]) + (kt > 1 ? " (key " + ku + "/" + kt + ")" : "")
                             : "কাজ করছে না: " + d.optString("error", "অজানা ত্রুটি");
                 } catch (Throwable t) { msg = "কাজ করছে না: " + t.getMessage(); }
                 final String m = msg;
@@ -230,7 +231,7 @@ public class SettingsActivity extends AppCompatActivity {
         v.setBackgroundResource(android.R.drawable.list_selector_background);
         refreshRow(v, it);
         v.setOnClickListener(x -> {
-            if (it.type == SEL) pick(it, v); else if (it.type == GEM) pickGemini(it, v); else edit(it, v);
+            if (it.type == SEL) pick(it, v); else if (it.type == GEM) pickGemini(it, v); else if (it.type == MKEY) keysDialog(it, v); else edit(it, v);
         });
         return v;
     }
@@ -243,6 +244,7 @@ public class SettingsActivity extends AppCompatActivity {
         }
         if (it.type == KEY) return cur.isEmpty() ? "দেওয়া হয়নি" : "দেওয়া আছে (লুকানো)";
         if (it.type == GEM) return cur.isEmpty() ? it.defS : cur;
+        if (it.type == MKEY) { int n = AiClient.splitKeys(cur).length; return n == 0 ? "দেওয়া হয়নি" : n + "টি key দেওয়া আছে (লুকানো)"; }
         return cur.isEmpty() ? "ফাঁকা" : cur;
     }
 
@@ -272,6 +274,83 @@ public class SettingsActivity extends AppCompatActivity {
                     d.dismiss();
                 })
                 .setNegativeButton("বন্ধ", null).show();
+    }
+
+    private static String maskKey(String k) {
+        return k.length() <= 10 ? "••••" : k.substring(0, 4) + "…" + k.substring(k.length() - 4);
+    }
+
+    private void saveKeys(Item it, TextView v, List<String> keys) {
+        StringBuilder sb = new StringBuilder();
+        for (String k : keys) { if (sb.length() > 0) sb.append('\n'); sb.append(k); }
+        Store.putSetting(this, it.id, sb.toString());
+        refreshRow(v, it);
+    }
+
+    private void keysDialog(final Item it, final TextView v) {
+        final List<String> keys = new ArrayList<>(java.util.Arrays.asList(AiClient.splitKeys(curStr(it))));
+        List<String> names = new ArrayList<>();
+        names.add("➕ নতুন key যোগ করুন");
+        for (int i = 0; i < keys.size(); i++) names.add("key " + (i + 1) + ": " + maskKey(keys.get(i)) + " (চাপলে মুছবে)");
+        if (!keys.isEmpty()) names.add("✔ সব key আলাদা করে পরীক্ষা করুন");
+        new AlertDialog.Builder(this).setTitle("Gemini API key (" + keys.size() + "টি)")
+                .setItems(names.toArray(new String[0]), (d, which) -> {
+                    if (which == 0) {
+                        addKeyDialog(it, v, keys);
+                    } else if (which <= keys.size()) {
+                        final int idx = which - 1;
+                        new AlertDialog.Builder(this).setTitle("key " + (idx + 1) + " মুছবেন?")
+                                .setMessage(maskKey(keys.get(idx)))
+                                .setPositiveButton("মুছুন", (d2, w2) -> { keys.remove(idx); saveKeys(it, v, keys); })
+                                .setNegativeButton("থাক", null).show();
+                    } else {
+                        testEachKey(keys);
+                    }
+                })
+                .setNegativeButton("বন্ধ", null).show();
+    }
+
+    private void addKeyDialog(final Item it, final TextView v, final List<String> keys) {
+        final EditText e = new EditText(this);
+        e.setHint("নতুন Gemini key বসান");
+        e.setSingleLine(true);
+        e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        LinearLayout w = new LinearLayout(this);
+        w.setPadding(dp(20), dp(8), dp(20), 0);
+        w.addView(e, new LinearLayout.LayoutParams(-1, -2));
+        new AlertDialog.Builder(this).setTitle("নতুন key").setView(w)
+                .setPositiveButton("যোগ করুন", (d, wh) -> {
+                    String s = e.getText().toString().trim();
+                    String[] parts = AiClient.splitKeys(s);
+                    if (parts.length == 0) { Toast.makeText(this, "key ঠিকমতো বসেনি", Toast.LENGTH_SHORT).show(); return; }
+                    int added = 0;
+                    for (String p : parts) if (!keys.contains(p) && keys.size() < 10) { keys.add(p); added++; }
+                    saveKeys(it, v, keys);
+                    Toast.makeText(this, added == 0 ? "এই key আগেই আছে (সর্বোচ্চ ১০টি)" : added + "টি key যোগ হয়েছে", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("বাতিল", null).show();
+    }
+
+    private void testEachKey(final List<String> keys) {
+        Toast.makeText(this, "প্রতিটি key পরীক্ষা হচ্ছে…", Toast.LENGTH_SHORT).show();
+        final String model = Store.settingStr(this, "gemModel", "gemini-3.8-flash");
+        new Thread(() -> {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < keys.size(); i++) {
+                String res;
+                try {
+                    org.json.JSONObject d = new org.json.JSONObject(AiClient.call("gemini", "", model, keys.get(i), "", "শুধু একটি শব্দ লিখুন: ঠিক", "", -1, -1));
+                    if (d.optBoolean("ok", false)) res = "কাজ করছে";
+                    else {
+                        String er = d.optString("error", "");
+                        res = er.toLowerCase(java.util.Locale.ROOT).contains("429") ? "লিমিট শেষ" : er.toLowerCase(java.util.Locale.ROOT).contains("api key") ? "key ভুল" : "কাজ করছে না";
+                    }
+                } catch (Throwable t) { res = "কাজ করছে না"; }
+                sb.append("key ").append(i + 1).append(" (").append(maskKey(keys.get(i))).append("): ").append(res).append("\n");
+            }
+            final String m = sb.toString().trim();
+            runOnUiThread(() -> new AlertDialog.Builder(this).setTitle("key পরীক্ষার ফল").setMessage(m).setPositiveButton("ঠিক আছে", null).show());
+        }).start();
     }
 
     private static final String[] GEM_BUILTIN = {"gemini-3.8-flash", "gemini-4-argon", "gemini-flash-latest", "gemini-flash-lite-latest"};

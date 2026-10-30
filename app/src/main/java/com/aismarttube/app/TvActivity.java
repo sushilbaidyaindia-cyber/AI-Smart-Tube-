@@ -12,6 +12,7 @@ import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -51,6 +52,8 @@ public class TvActivity extends AppCompatActivity {
     private TextView status;
     private EditText search;
     private boolean loading = false;
+    private String catSel = "";          // "" = all, "__fav" = favourites, otherwise a category key
+    private Set<String> favNow = new java.util.HashSet<>();
 
     @Override
     protected void onCreate(Bundle b) {
@@ -64,6 +67,8 @@ public class TvActivity extends AppCompatActivity {
         adapter = new Ad();
         list.setAdapter(adapter);
         TabBar.setup(this, TabBar.TV);
+        catSel = Store.settingStr(this, "tvCat", "");
+        findViewById(R.id.tvCat).setOnClickListener(v -> catMenu());
         findViewById(R.id.tvMore).setOnClickListener(v -> moreMenu());
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
@@ -129,30 +134,81 @@ public class TvActivity extends AppCompatActivity {
         status.setText(t);
     }
 
+    private boolean inCategory(TvChannels.Ch c) {
+        if (catSel.isEmpty()) return true;
+        if ("__fav".equals(catSel)) return TvChannels.isFavIn(favNow, c);
+        if ("other".equals(catSel)) return c.cats.isEmpty();
+        return c.cats.contains(catSel);
+    }
+
+    private String catName() {
+        if (catSel.isEmpty()) return "সব চ্যানেল";
+        if ("__fav".equals(catSel)) return "প্রিয় চ্যানেল";
+        return TvChannels.catLabel(catSel);
+    }
+
     private void build() {
         rows.clear();
+        favNow = TvChannels.favs(this);
         String q = search.getText().toString().trim().toLowerCase(Locale.ROOT);
-        Set<String> favs = TvChannels.favs(this);
+        Button cb = findViewById(R.id.tvCat);
+        cb.setText("ক্যাটাগরি: " + catName());
+        cb.setContentDescription("ক্যাটাগরি বদলান। এখন: " + catName());
+        List<TvChannels.Ch> pool = new ArrayList<>();
+        for (TvChannels.Ch c : all) if (inCategory(c)) pool.add(c);
         if (!q.isEmpty()) {
-            for (TvChannels.Ch c : all) {
-                if (c.name.toLowerCase(Locale.ROOT).contains(q) || c.group.toLowerCase(Locale.ROOT).contains(q)) rows.add(new Row(c));
+            for (TvChannels.Ch c : pool) {
+                if (c.name.toLowerCase(Locale.ROOT).contains(q) || TvChannels.catText(c).toLowerCase(Locale.ROOT).contains(q)
+                        || c.cats.contains(q)) rows.add(new Row(c));
             }
-        } else {
+        } else if (catSel.isEmpty()) {
             List<TvChannels.Ch> f = new ArrayList<>(), rest = new ArrayList<>();
-            for (TvChannels.Ch c : all) (favs.contains(c.url) ? f : rest).add(c);
+            for (TvChannels.Ch c : pool) (TvChannels.isFavIn(favNow, c) ? f : rest).add(c);
             if (!f.isEmpty()) {
                 rows.add(new Row("প্রিয় চ্যানেল"));
                 for (TvChannels.Ch c : f) rows.add(new Row(c));
                 rows.add(new Row("সব চ্যানেল"));
             }
             for (TvChannels.Ch c : rest) rows.add(new Row(c));
+        } else {
+            for (TvChannels.Ch c : pool) rows.add(new Row(c));
         }
         adapter.notifyDataSetChanged();
         if (rows.isEmpty() && !loading) {
-            showStatus(all.isEmpty() ? "কোনো চ্যানেল নেই। 'আরও' থেকে তালিকা আনুন বা নিজের চ্যানেল যোগ করুন" : "কিছু পাওয়া যায়নি");
+            showStatus(all.isEmpty() ? "কোনো চ্যানেল নেই। 'আরও' থেকে তালিকা আনুন বা নিজের চ্যানেল যোগ করুন"
+                    : "কিছু পাওয়া যায়নি। ক্যাটাগরি বা খোঁজা বদলে দেখুন");
         } else if (!loading && status.getText().toString().startsWith("কিছু পাওয়া")) {
             showStatus("");
         }
+    }
+
+    private void catMenu() {
+        java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+        int other = 0, fav = 0;
+        for (TvChannels.Ch c : all) {
+            if (TvChannels.isFavIn(favNow, c)) fav++;
+            if (c.cats.isEmpty()) other++;
+            for (String k : c.cats) counts.put(k, counts.containsKey(k) ? counts.get(k) + 1 : 1);
+        }
+        List<String> keys = new ArrayList<>(counts.keySet());
+        final java.util.Map<String, Integer> cn = counts;
+        Collections.sort(keys, new Comparator<String>() {
+            @Override public int compare(String a, String b) { return cn.get(b) - cn.get(a); }
+        });
+        final List<String> ids = new ArrayList<>(), names = new ArrayList<>();
+        ids.add(""); names.add("সব চ্যানেল (" + all.size() + ")");
+        ids.add("__fav"); names.add("প্রিয় চ্যানেল (" + fav + ")");
+        for (String k : keys) { ids.add(k); names.add(TvChannels.catLabel(k) + " (" + counts.get(k) + ")"); }
+        if (other > 0) { ids.add("other"); names.add("অন্যান্য (" + other + ")"); }
+        int sel = Math.max(0, ids.indexOf(catSel));
+        new AlertDialog.Builder(this).setTitle("ক্যাটাগরি বেছে নিন")
+                .setSingleChoiceItems(names.toArray(new String[0]), sel, (d, which) -> {
+                    catSel = ids.get(which);
+                    Store.putSetting(this, "tvCat", catSel);
+                    build();
+                    d.dismiss();
+                })
+                .setNegativeButton("বন্ধ", null).show();
     }
 
     private void play(TvChannels.Ch ch) {
@@ -160,7 +216,7 @@ public class TvActivity extends AppCompatActivity {
         int idx = 0;
         for (Row r : rows) {
             if (r.header) continue;
-            if (r.ch.url.equals(ch.url)) idx = q.size();
+            if (r.ch == ch) idx = q.size();
             q.add(r.ch);
         }
         TvChannels.queue = q;
@@ -168,7 +224,7 @@ public class TvActivity extends AppCompatActivity {
     }
 
     private void channelMenu(final TvChannels.Ch ch) {
-        final boolean fav = TvChannels.isFav(this, ch.url);
+        final boolean fav = TvChannels.isFav(this, ch);
         List<String> names = new ArrayList<>();
         names.add(fav ? "প্রিয় থেকে সরান" : "প্রিয় চ্যানেলে রাখুন");
         names.add("লিংক কপি করুন");
@@ -176,17 +232,17 @@ public class TvActivity extends AppCompatActivity {
         new AlertDialog.Builder(this).setTitle(ch.name)
                 .setItems(names.toArray(new String[0]), (d, which) -> {
                     if (which == 0) {
-                        boolean now = TvChannels.toggleFav(this, ch.url);
+                        boolean now = TvChannels.toggleFav(this, ch);
                         Toast.makeText(this, now ? "প্রিয়তে রাখা হয়েছে" : "প্রিয় থেকে সরানো হয়েছে", Toast.LENGTH_SHORT).show();
                         build();
                     } else if (which == 1) {
                         try {
                             ((ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE))
-                                    .setPrimaryClip(ClipData.newPlainText("tv", ch.url));
+                                    .setPrimaryClip(ClipData.newPlainText("tv", ch.url()));
                             Toast.makeText(this, "লিংক কপি হয়েছে", Toast.LENGTH_SHORT).show();
                         } catch (Throwable ignored) { }
                     } else {
-                        TvChannels.removeCustom(this, ch.url);
+                        TvChannels.removeCustom(this, ch);
                         all = merge();
                         build();
                     }
@@ -291,10 +347,13 @@ public class TvActivity extends AppCompatActivity {
                 return;
             }
             ViewCompat.setAccessibilityHeading(v, false);
-            boolean fav = TvChannels.isFav(TvActivity.this, r.ch.url);
-            String line2 = r.ch.group;
-            v.setText(line2.isEmpty() ? r.ch.name : r.ch.name + "\n" + line2);
-            v.setContentDescription(r.ch.name + (line2.isEmpty() ? "" : ", " + line2) + (fav ? ", প্রিয়" : ""));
+            boolean fav = TvChannels.isFavIn(favNow, r.ch);
+            String line2 = TvChannels.catText(r.ch);
+            int n = r.ch.streams.size();
+            String extra = n > 1 ? n + "টি সার্ভার" : "";
+            String sub = line2.isEmpty() ? extra : (extra.isEmpty() ? line2 : line2 + " · " + extra);
+            v.setText(sub.isEmpty() ? r.ch.name : r.ch.name + "\n" + sub);
+            v.setContentDescription(r.ch.name + (sub.isEmpty() ? "" : ", " + sub) + (fav ? ", প্রিয়" : ""));
             v.setOnClickListener(x -> play(r.ch));
             v.setOnLongClickListener(x -> { channelMenu(r.ch); return true; });
         }

@@ -45,7 +45,10 @@ public class TvPlayerActivity extends AppCompatActivity {
     private Button bPlay, bFav, bFull;
     private LinearLayout controls;
     private boolean fullscreen = false;
-    private boolean retried = false;
+    private List<TvChannels.Stream> streams = new java.util.ArrayList<>();
+    private int si = 0;          // which server (stream) of this channel is being tried
+    private int failed = 0;      // servers that failed in this round
+    private final Runnable stuck = () -> nextServer("সময় লাগছে");
 
     @Override
     @SuppressWarnings("UnsafeOptInUsageError")
@@ -96,6 +99,7 @@ public class TvPlayerActivity extends AppCompatActivity {
         r2.setOrientation(LinearLayout.HORIZONTAL);
         bFav = btn("প্রিয়তে রাখুন", v -> toggleFav());
         r2.addView(bFav, w());
+        r2.addView(btn("অন্য সার্ভার", v -> manualServer()), w());
         bFull = btn("পূর্ণ পর্দা", v -> setFullscreen(true));
         r2.addView(bFull, w());
         controls.addView(r2);
@@ -146,8 +150,13 @@ public class TvPlayerActivity extends AppCompatActivity {
         player.addListener(new Player.Listener() {
             @Override
             public void onPlaybackStateChanged(int st) {
-                if (st == Player.STATE_BUFFERING) setState("লোড হচ্ছে…");
-                else if (st == Player.STATE_READY) { retried = false; setState("চলছে"); }
+                if (st == Player.STATE_BUFFERING) setState(serverNote("লোড হচ্ছে…"));
+                else if (st == Player.STATE_READY) {
+                    ui.removeCallbacks(stuck);
+                    failed = 0;
+                    setState(serverNote("চলছে"));
+                    try { TvChannels.markGood(TvPlayerActivity.this, queue.get(idx), streams.get(si).url); } catch (Throwable ignored) { }
+                }
                 updatePlay();
             }
 
@@ -161,31 +170,61 @@ public class TvPlayerActivity extends AppCompatActivity {
                     player.prepare();
                     return;
                 }
-                if (!retried) {
-                    retried = true;
-                    setState("আবার চেষ্টা হচ্ছে…");
-                    ui.postDelayed(() -> { try { player.prepare(); player.play(); } catch (Throwable ignored) { } }, 2000);
-                    return;
-                }
-                setState("এই চ্যানেল এখন চলছে না। 'পরের চ্যানেল' চাপুন, অথবা একটু পরে আবার চেষ্টা করুন।");
+                nextServer("চলেনি");
             }
         });
     }
 
+    private String serverNote(String base) {
+        return streams.size() > 1 ? base + " (সার্ভার " + (si + 1) + "/" + streams.size() + ")" : base;
+    }
+
+    /** this server did not work: try the next one; when all failed once, say so */
+    private void nextServer(String why) {
+        ui.removeCallbacks(stuck);
+        failed++;
+        if (failed >= Math.max(2, streams.size())) {
+            try { player.stop(); } catch (Throwable ignored) { }
+            setState("এই চ্যানেল এখন চলছে না (" + streams.size() + "টি সার্ভার চেষ্টা হয়েছে)। 'পরের চ্যানেল' চাপুন, অথবা একটু পরে আবার চেষ্টা করুন।");
+            return;
+        }
+        si = (si + 1) % streams.size();
+        setState("সার্ভার " + why + ", অন্য সার্ভার চেষ্টা হচ্ছে (" + (si + 1) + "/" + streams.size() + ")…");
+        startStream();
+    }
+
+    private void manualServer() {
+        if (streams.size() < 2) { setState("এই চ্যানেলের আর কোনো সার্ভার নেই"); return; }
+        si = (si + 1) % streams.size();
+        failed = 0;
+        setState("সার্ভার " + (si + 1) + "/" + streams.size() + " চেষ্টা হচ্ছে…");
+        startStream();
+    }
+
     private void load() {
         final TvChannels.Ch ch = queue.get(idx);
-        retried = false;
+        ui.removeCallbacks(stuck);
         title.setText(ch.name);
         title.setContentDescription(ch.name);
-        setState("লোড হচ্ছে…");
-        http.setUserAgent(ch.ua.isEmpty() ? UA : ch.ua);
+        streams = TvChannels.orderedStreams(this, ch);
+        si = 0;
+        failed = 0;
+        setState(serverNote("লোড হচ্ছে…"));
+        updateFav();
+        startStream();
+    }
+
+    private void startStream() {
+        TvChannels.Stream s = streams.get(si);
+        http.setUserAgent(s.ua.isEmpty() ? UA : s.ua);
         Map<String, String> h = new HashMap<>();
-        if (!ch.ref.isEmpty()) h.put("Referer", ch.ref);
+        if (!s.ref.isEmpty()) h.put("Referer", s.ref);
         http.setDefaultRequestProperties(h);
-        player.setMediaItem(MediaItem.fromUri(ch.url));
+        player.setMediaItem(MediaItem.fromUri(s.url));
         player.prepare();
         player.play();
-        updateFav();
+        ui.removeCallbacks(stuck);
+        ui.postDelayed(stuck, 15000);   // no picture after 15 s: next server
         updatePlay();
     }
 
@@ -208,13 +247,13 @@ public class TvPlayerActivity extends AppCompatActivity {
     }
 
     private void toggleFav() {
-        TvChannels.toggleFav(this, queue.get(idx).url);
+        TvChannels.toggleFav(this, queue.get(idx));
         updateFav();
-        setState(TvChannels.isFav(this, queue.get(idx).url) ? "প্রিয়তে রাখা হয়েছে" : "প্রিয় থেকে সরানো হয়েছে");
+        setState(TvChannels.isFav(this, queue.get(idx)) ? "প্রিয়তে রাখা হয়েছে" : "প্রিয় থেকে সরানো হয়েছে");
     }
 
     private void updateFav() {
-        bFav.setText(TvChannels.isFav(this, queue.get(idx).url) ? "প্রিয় থেকে সরান" : "প্রিয়তে রাখুন");
+        bFav.setText(TvChannels.isFav(this, queue.get(idx)) ? "প্রিয় থেকে সরান" : "প্রিয়তে রাখুন");
     }
 
     private void setState(String s) {
