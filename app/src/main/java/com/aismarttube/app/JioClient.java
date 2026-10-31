@@ -129,7 +129,6 @@ final class JioClient {
             if (body != null) {
                 h.setDoOutput(true);
                 byte[] b = body.getBytes(StandardCharsets.UTF_8);
-                h.setFixedLengthStreamingMode(b.length);
                 h.getOutputStream().write(b);
             }
             Resp r = new Resp();
@@ -572,6 +571,8 @@ final class JioClient {
         if (srno != null) h.put("srno", srno);
         Resp r = http("POST", URL_PLAY, h, body);
         if (r.code != 200) {
+            if (r.body.contains("No eligible plans") || r.body.contains("3012"))
+                throw new Exception("আপনার Jio প্ল্যানে এই চ্যানেল ধরা নেই (Jio বলছে: যোগ্য প্ল্যান পাওয়া যায়নি)। 'আরও' মেনুর 'আমার Jio প্ল্যান দেখুন' চেপে দেখুন");
             if (r.code == 401 || r.code == 403) throw new Exception("Jio এই চ্যানেল দিতে রাজি হয়নি (কোড " + r.code + "). আবার লগইন করে দেখুন। " + shortBody(r.body));
             throw new Exception("Jio থেকে লিংক আসেনি (কোড " + r.code + "). " + shortBody(r.body));
         }

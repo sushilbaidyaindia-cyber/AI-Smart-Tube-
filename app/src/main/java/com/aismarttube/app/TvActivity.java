@@ -92,7 +92,9 @@ public class TvActivity extends AppCompatActivity {
         });
         all = merge();
         build();
-        if (all.isEmpty() || TvChannels.stale(this) || (JioClient.isLoggedIn(this) && JioClient.channelsStale(this))) fetch(false);
+        boolean jioIn = JioClient.isLoggedIn(this);
+        boolean freeNeeded = !jioIn || Store.settingBool(this, "tvFree", false);
+        if (all.isEmpty() || (freeNeeded && TvChannels.stale(this)) || (jioIn && JioClient.channelsStale(this))) fetch(false);
         if (!JioClient.isLoggedIn(this) && Store.settingStr(this, "tvMode", "").isEmpty()) welcomeDialog();
     }
 
@@ -359,6 +361,7 @@ public class TvActivity extends AppCompatActivity {
             names.add("Jio থেকে বেরিয়ে যান (লগআউট)");
             acts.add(() -> {
                 JioClient.logout(this);
+                if ("jio".equals(catSel)) { catSel = ""; Store.putSetting(this, "tvCat", ""); }
                 all = merge();
                 build();
                 if (all.isEmpty()) fetch(true);
