@@ -148,6 +148,7 @@ final class TvChannels {
             case "travel": return "ভ্রমণ";
             case "weather": return "আবহাওয়া";
             case "mine": return "আমার চ্যানেল";
+            case "jio": return "Jio চ্যানেল";
             case "other": return "অন্যান্য";
             default: return key;
         }

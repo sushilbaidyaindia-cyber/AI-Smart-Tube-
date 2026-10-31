@@ -103,20 +103,8 @@ public class TvActivity extends AppCompatActivity {
     private List<TvChannels.Ch> merge() {
         List<TvChannels.Ch> out = new ArrayList<>(TvChannels.custom(this));
         List<TvChannels.Ch> net = TvChannels.cached(this);
-        // Jio channels (only when logged in): the Jio link goes first for a channel that is also in the free list
-        java.util.Map<String, TvChannels.Ch> byKey = new java.util.HashMap<>();
-        for (TvChannels.Ch x : net) byKey.put(x.key(), x);
-        for (TvChannels.Ch j : JioClient.cachedChannels(this)) {
-            TvChannels.Ch ex = byKey.get(j.key());
-            if (ex != null) {
-                if (!ex.streams.isEmpty() && ex.streams.get(0).url.startsWith(JioClient.SCHEME)) continue;
-                ex.streams.add(0, j.streams.get(0));
-                for (String cc : j.cats) ex.addCat(cc);
-            } else {
-                net.add(j);
-                byKey.put(j.key(), j);
-            }
-        }
+        // Jio channels (only when logged in) are listed on their own, with "(Jio)" after the name
+        net.addAll(JioClient.cachedChannels(this));
         Collections.sort(net, new Comparator<TvChannels.Ch>() {
             @Override public int compare(TvChannels.Ch a, TvChannels.Ch b) { return a.name.compareToIgnoreCase(b.name); }
         });
@@ -314,6 +302,10 @@ public class TvActivity extends AppCompatActivity {
                 .setPositiveButton("OTP পাঠান", (d, w) -> {
                     final String num = n.getText().toString().trim();
                     showStatus("OTP পাঠানো হচ্ছে…");
+                    try {
+                        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                            androidx.core.app.ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.RECEIVE_SMS}, 77);
+                    } catch (Throwable ignored) { }
                     io.execute(() -> {
                         String err = null;
                         try { JioClient.sendOtp(getApplicationContext(), num); }
@@ -336,7 +328,8 @@ public class TvActivity extends AppCompatActivity {
         o.setHint("OTP");
         o.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         box.addView(o, new LinearLayout.LayoutParams(-1, -2));
-        new AlertDialog.Builder(this).setTitle("OTP দিন").setView(box)
+        final AlertDialog dlg = new AlertDialog.Builder(this).setTitle("OTP দিন").setView(box)
+                .setMessage("OTP-র মেসেজ এলে নিজে থেকেই বসে যাবে (SMS-এর অনুমতি দিলে)")
                 .setPositiveButton("লগইন", (d, w) -> {
                     final String otp = o.getText().toString().trim();
                     showStatus("লগইন হচ্ছে…");
@@ -351,11 +344,36 @@ public class TvActivity extends AppCompatActivity {
                             all = merge();
                             build();
                             if (e != null) showStatus("Jio: " + e);
-                            else showStatus("Jio-তে লগইন হয়েছে, মোট " + all.size() + "টি চ্যানেল");
+                            else showStatus("Jio-তে লগইন হয়েছে। Jio-র " + JioClient.cachedChannels(TvActivity.this).size() + "টি চ্যানেল পাওয়া গেছে, 'Jio চ্যানেল' ক্যাটাগরিতে দেখুন");
                         });
                     });
                 })
-                .setNegativeButton("বাতিল", null).show();
+                .setNegativeButton("বাতিল", null).create();
+        final android.content.BroadcastReceiver sms = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent in) {
+                try {
+                    android.telephony.SmsMessage[] ms = android.provider.Telephony.Sms.Intents.getMessagesFromIntent(in);
+                    StringBuilder sb = new StringBuilder();
+                    if (ms != null) for (android.telephony.SmsMessage m : ms) if (m != null && m.getMessageBody() != null) sb.append(m.getMessageBody());
+                    String t = sb.toString();
+                    if (!t.toLowerCase(Locale.ROOT).contains("jio") && !t.toLowerCase(Locale.ROOT).contains("otp")) return;
+                    java.util.regex.Matcher mm = java.util.regex.Pattern.compile("(?<!\\d)(\\d{4,6})(?!\\d)").matcher(t);
+                    if (mm.find()) {
+                        o.setText(mm.group(1));
+                        if (dlg.isShowing()) dlg.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+                    }
+                } catch (Throwable ignored) { }
+            }
+        };
+        try {
+            android.content.IntentFilter f = new android.content.IntentFilter("android.provider.Telephony.SMS_RECEIVED");
+            f.setPriority(999);
+            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(sms, f, Context.RECEIVER_EXPORTED);
+            else registerReceiver(sms, f);
+            dlg.setOnDismissListener(x -> { try { unregisterReceiver(sms); } catch (Throwable ignored) { } });
+        } catch (Throwable ignored) { }
+        dlg.show();
     }
 
     private void addDialog() {

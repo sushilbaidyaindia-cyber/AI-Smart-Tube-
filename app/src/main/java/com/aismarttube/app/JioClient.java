@@ -416,7 +416,8 @@ final class JioClient {
                 String name = x.optString("n", "").trim();
                 if (id.isEmpty() || name.isEmpty()) continue;
                 TvChannels.Ch ch = new TvChannels.Ch();
-                ch.name = name;
+                ch.name = name + " (Jio)";
+                ch.addCat("jio");
                 ch.addCat(catKey(x.optInt("cat", 0)));
                 ch.addStream(new TvChannels.Stream(SCHEME + id, "jio", ""));
                 out.add(ch);
