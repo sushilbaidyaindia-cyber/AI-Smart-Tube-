@@ -103,6 +103,20 @@ public class TvActivity extends AppCompatActivity {
     private List<TvChannels.Ch> merge() {
         List<TvChannels.Ch> out = new ArrayList<>(TvChannels.custom(this));
         List<TvChannels.Ch> net = TvChannels.cached(this);
+        // Jio channels (only when logged in): the Jio link goes first for a channel that is also in the free list
+        java.util.Map<String, TvChannels.Ch> byKey = new java.util.HashMap<>();
+        for (TvChannels.Ch x : net) byKey.put(x.key(), x);
+        for (TvChannels.Ch j : JioClient.cachedChannels(this)) {
+            TvChannels.Ch ex = byKey.get(j.key());
+            if (ex != null) {
+                if (!ex.streams.isEmpty() && ex.streams.get(0).url.startsWith(JioClient.SCHEME)) continue;
+                ex.streams.add(0, j.streams.get(0));
+                for (String cc : j.cats) ex.addCat(cc);
+            } else {
+                net.add(j);
+                byKey.put(j.key(), j);
+            }
+        }
         Collections.sort(net, new Comparator<TvChannels.Ch>() {
             @Override public int compare(TvChannels.Ch a, TvChannels.Ch b) { return a.name.compareToIgnoreCase(b.name); }
         });
@@ -117,6 +131,12 @@ public class TvActivity extends AppCompatActivity {
         io.execute(() -> {
             String err = null;
             try { TvChannels.download(getApplicationContext()); } catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
+            if (JioClient.isLoggedIn(getApplicationContext()) && (announce || JioClient.channelsStale(getApplicationContext()))) {
+                try { JioClient.fetchChannels(getApplicationContext()); } catch (Throwable t) {
+                    String m = "Jio: " + (t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage());
+                    err = err == null ? m : err + "; " + m;
+                }
+            }
             final String e = err;
             ui.post(() -> {
                 loading = false;
@@ -251,17 +271,91 @@ public class TvActivity extends AppCompatActivity {
     }
 
     private void moreMenu() {
-        String[] items = {"চ্যানেলের তালিকা নতুন করে আনুন", "নিজের চ্যানেল যোগ করুন", "তালিকার লিংক বদলান", "আসল তালিকায় ফিরুন (বাংলা)"};
+        final boolean jio = JioClient.isLoggedIn(this);
+        String[] items = {"চ্যানেলের তালিকা নতুন করে আনুন", "নিজের চ্যানেল যোগ করুন", "তালিকার লিংক বদলান", "আসল তালিকায় ফিরুন (বাংলা)",
+                jio ? "Jio থেকে বেরিয়ে যান (লগআউট)" : "Jio টিভিতে লগইন করুন",
+                jio ? (JioClient.allLanguages(this) ? "Jio চ্যানেল: শুধু বাংলা দেখান" : "Jio চ্যানেল: সব ভাষা দেখান") : "Jio টিভি কী?"};
         new AlertDialog.Builder(this).setTitle("টিভি")
                 .setItems(items, (d, which) -> {
                     if (which == 0) fetch(true);
                     else if (which == 1) addDialog();
                     else if (which == 2) srcDialog();
-                    else {
+                    else if (which == 3) {
                         Store.putSetting(this, "tvSrc", TvChannels.DEFAULT_SRC);
                         fetch(true);
+                    } else if (which == 4) {
+                        if (jio) {
+                            JioClient.logout(this);
+                            all = merge();
+                            build();
+                            Toast.makeText(this, "Jio থেকে বেরিয়ে এসেছেন", Toast.LENGTH_SHORT).show();
+                        } else jioNumberDialog();
+                    } else {
+                        if (jio) {
+                            Store.putSetting(this, "jioLang", JioClient.allLanguages(this) ? "bn" : "all");
+                            all = merge();
+                            build();
+                        } else new AlertDialog.Builder(this).setTitle("Jio টিভি")
+                                .setMessage("আপনার Jio নম্বরে OTP দিয়ে একবার লগইন করলে Jio-র চ্যানেলগুলো এই তালিকায় যোগ হবে। কোনো আলাদা সার্ভার লাগে না। লগইনের তথ্য শুধু এই ফোনে থাকে।")
+                                .setPositiveButton("লগইন করুন", (dd, ww) -> jioNumberDialog())
+                                .setNegativeButton("বন্ধ", null).show();
                     }
                 }).setNegativeButton("বন্ধ", null).show();
+    }
+
+    private void jioNumberDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        final EditText n = new EditText(this);
+        n.setHint("১০ অঙ্কের Jio নম্বর (+91 ছাড়া)");
+        n.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        box.addView(n, new LinearLayout.LayoutParams(-1, -2));
+        new AlertDialog.Builder(this).setTitle("Jio লগইন").setView(box)
+                .setPositiveButton("OTP পাঠান", (d, w) -> {
+                    final String num = n.getText().toString().trim();
+                    showStatus("OTP পাঠানো হচ্ছে…");
+                    io.execute(() -> {
+                        String err = null;
+                        try { JioClient.sendOtp(getApplicationContext(), num); }
+                        catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
+                        final String e = err;
+                        ui.post(() -> {
+                            if (e != null) { showStatus("Jio: " + e); return; }
+                            showStatus("OTP পাঠানো হয়েছে, মেসেজ দেখুন");
+                            jioOtpDialog(num);
+                        });
+                    });
+                })
+                .setNegativeButton("বাতিল", null).show();
+    }
+
+    private void jioOtpDialog(final String num) {
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        final EditText o = new EditText(this);
+        o.setHint("OTP");
+        o.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        box.addView(o, new LinearLayout.LayoutParams(-1, -2));
+        new AlertDialog.Builder(this).setTitle("OTP দিন").setView(box)
+                .setPositiveButton("লগইন", (d, w) -> {
+                    final String otp = o.getText().toString().trim();
+                    showStatus("লগইন হচ্ছে…");
+                    io.execute(() -> {
+                        String err = null;
+                        try {
+                            JioClient.verifyOtp(getApplicationContext(), num, otp);
+                            JioClient.fetchChannels(getApplicationContext());
+                        } catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
+                        final String e = err;
+                        ui.post(() -> {
+                            all = merge();
+                            build();
+                            if (e != null) showStatus("Jio: " + e);
+                            else showStatus("Jio-তে লগইন হয়েছে, মোট " + all.size() + "টি চ্যানেল");
+                        });
+                    });
+                })
+                .setNegativeButton("বাতিল", null).show();
     }
 
     private void addDialog() {

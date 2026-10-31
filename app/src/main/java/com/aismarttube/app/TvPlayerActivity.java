@@ -17,6 +17,7 @@ import androidx.core.view.ViewCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultDataSource;
@@ -48,6 +49,9 @@ public class TvPlayerActivity extends AppCompatActivity {
     private List<TvChannels.Stream> streams = new java.util.ArrayList<>();
     private int si = 0;          // which server (stream) of this channel is being tried
     private int failed = 0;      // servers that failed in this round
+    private int gen = 0;         // marks the newest start, so a late answer from Jio is ignored
+    private boolean jioRetried = false;   // a failing Jio channel gets one fresh link before the next server
+    private String lastJioError = "";
     private final Runnable stuck = () -> nextServer("সময় লাগছে");
 
     @Override
@@ -154,6 +158,7 @@ public class TvPlayerActivity extends AppCompatActivity {
                 else if (st == Player.STATE_READY) {
                     ui.removeCallbacks(stuck);
                     failed = 0;
+                    jioRetried = false;
                     setState(serverNote("চলছে"));
                     try { TvChannels.markGood(TvPlayerActivity.this, queue.get(idx), streams.get(si).url); } catch (Throwable ignored) { }
                 }
@@ -182,6 +187,13 @@ public class TvPlayerActivity extends AppCompatActivity {
     /** this server did not work: try the next one; when all failed once, say so */
     private void nextServer(String why) {
         ui.removeCallbacks(stuck);
+        // a Jio link expires after a while: ask for a fresh one once before giving up on it
+        if (!jioRetried && si < streams.size() && !JioClient.idOf(streams.get(si).url).isEmpty() && !why.startsWith("Jio:")) {
+            jioRetried = true;
+            setState("Jio-র লিংক নতুন করে আনা হচ্ছে…");
+            startStream();
+            return;
+        }
         failed++;
         if (failed >= Math.max(2, streams.size())) {
             try { player.stop(); } catch (Throwable ignored) { }
@@ -209,13 +221,43 @@ public class TvPlayerActivity extends AppCompatActivity {
         streams = TvChannels.orderedStreams(this, ch);
         si = 0;
         failed = 0;
+        jioRetried = false;
         setState(serverNote("লোড হচ্ছে…"));
         updateFav();
         startStream();
     }
 
     private void startStream() {
-        TvChannels.Stream s = streams.get(si);
+        final TvChannels.Stream s = streams.get(si);
+        final String jioId = JioClient.idOf(s.url);
+        ui.removeCallbacks(stuck);
+        ui.postDelayed(stuck, 15000);   // no picture after 15 s: next server
+        if (!jioId.isEmpty()) {
+            // Jio channel: ask Jio for a fresh playing link first (takes a moment, so not on the main thread)
+            final int my = ++gen;
+            try { player.stop(); } catch (Throwable ignored) { }
+            setState(serverNote("Jio থেকে লিংক আনা হচ্ছে…"));
+            new Thread(() -> {
+                JioClient.Play p = null;
+                String err = null;
+                try { p = JioClient.resolve(getApplicationContext(), jioId); }
+                catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
+                final JioClient.Play fp = p;
+                final String fe = err;
+                ui.post(() -> {
+                    if (my != gen || player == null) return;
+                    if (fp == null) { jioFailed(fe); return; }
+                    http.setUserAgent(JioClient.UA_PLAYER);
+                    http.setDefaultRequestProperties(fp.headers);
+                    player.setMediaItem(new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build());
+                    player.prepare();
+                    player.play();
+                    updatePlay();
+                });
+            }, "jio-resolve").start();
+            return;
+        }
+        gen++;
         http.setUserAgent(s.ua.isEmpty() ? UA : s.ua);
         Map<String, String> h = new HashMap<>();
         if (!s.ref.isEmpty()) h.put("Referer", s.ref);
@@ -223,9 +265,20 @@ public class TvPlayerActivity extends AppCompatActivity {
         player.setMediaItem(MediaItem.fromUri(s.url));
         player.prepare();
         player.play();
-        ui.removeCallbacks(stuck);
-        ui.postDelayed(stuck, 15000);   // no picture after 15 s: next server
         updatePlay();
+    }
+
+    /** Jio did not give a link: say why, then try the next server (if the channel has one) */
+    private void jioFailed(String why) {
+        lastJioError = why == null ? "" : why;
+        boolean loginProblem = lastJioError.contains("লগইন");
+        if (streams.size() < 2 || loginProblem) {
+            ui.removeCallbacks(stuck);
+            try { player.stop(); } catch (Throwable ignored) { }
+            setState("Jio: " + lastJioError);
+            return;
+        }
+        nextServer("Jio: " + lastJioError);
     }
 
     private void step(int d) {
