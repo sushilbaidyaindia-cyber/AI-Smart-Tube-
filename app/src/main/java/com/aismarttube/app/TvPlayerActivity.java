@@ -1,6 +1,9 @@
 package com.aismarttube.app;
 
 import android.content.pm.ActivityInfo;
+import android.media.MediaMetadata;
+import android.media.session.MediaSession;
+import android.media.session.PlaybackState;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
@@ -34,6 +37,7 @@ import java.util.Map;
 public class TvPlayerActivity extends AppCompatActivity {
 
     static final String EXTRA_INDEX = "tv_index";
+    static final String EXTRA_CU_SRNO = "cu_srno", EXTRA_CU_START = "cu_start", EXTRA_CU_END = "cu_end", EXTRA_CU_TITLE = "cu_title";
     private static final String UA = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -49,6 +53,10 @@ public class TvPlayerActivity extends AppCompatActivity {
     private List<TvChannels.Stream> streams = new java.util.ArrayList<>();
     private int si = 0;          // which server (stream) of this channel is being tried
     private int failed = 0;      // servers that failed in this round
+    private String cuSrno = null, cuTitle = "";   // set when an earlier programme is being watched
+    private long cuStart = 0, cuEnd = 0;
+    private LinearLayout skipRow;
+    private MediaSession session;
     private int gen = 0;         // marks the newest start, so a late answer from Jio is ignored
     private boolean jioRetried = false;   // a failing Jio channel gets one fresh link before the next server
     private String lastJioError = "";
@@ -61,6 +69,11 @@ public class TvPlayerActivity extends AppCompatActivity {
         queue = TvChannels.queue;
         if (queue == null || queue.isEmpty()) { finish(); return; }
         idx = Math.max(0, Math.min(getIntent().getIntExtra(EXTRA_INDEX, 0), queue.size() - 1));
+        cuSrno = getIntent().getStringExtra(EXTRA_CU_SRNO);
+        cuStart = getIntent().getLongExtra(EXTRA_CU_START, 0);
+        cuEnd = getIntent().getLongExtra(EXTRA_CU_END, 0);
+        cuTitle = getIntent().getStringExtra(EXTRA_CU_TITLE) == null ? "" : getIntent().getStringExtra(EXTRA_CU_TITLE);
+        if (cuSrno != null && cuSrno.isEmpty()) cuSrno = null;
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -107,6 +120,14 @@ public class TvPlayerActivity extends AppCompatActivity {
         bFull = btn("পূর্ণ পর্দা", v -> setFullscreen(true));
         r2.addView(bFull, w());
         controls.addView(r2);
+
+        skipRow = new LinearLayout(this);
+        skipRow.setOrientation(LinearLayout.HORIZONTAL);
+        skipRow.addView(btn("৩০ সেকেন্ড পিছনে", v -> seekBy(-30000)), w());
+        skipRow.addView(btn("৩০ সেকেন্ড সামনে", v -> seekBy(30000)), w());
+        skipRow.addView(btn("৫ মিনিট সামনে", v -> seekBy(300000)), w());
+        skipRow.setVisibility(cuSrno != null ? View.VISIBLE : View.GONE);
+        controls.addView(skipRow);
         root.addView(controls, new LinearLayout.LayoutParams(-1, -2));
         setContentView(root);
 
@@ -150,6 +171,12 @@ public class TvPlayerActivity extends AppCompatActivity {
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build(), true);
         player.setWakeMode(C.WAKE_MODE_NETWORK);
+        if (Store.settingBool(this, "tvLowData", false)) {
+            // data saver: small picture, low bit rate (the player still picks the best one under this limit)
+            player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
+                    .setMaxVideoSize(640, 360).setMaxVideoBitrate(800000).build());
+        }
+        setupSession();
         pv.setPlayer(player);
         player.addListener(new Player.Listener() {
             @Override
@@ -216,9 +243,17 @@ public class TvPlayerActivity extends AppCompatActivity {
     private void load() {
         final TvChannels.Ch ch = queue.get(idx);
         ui.removeCallbacks(stuck);
-        title.setText(ch.name);
-        title.setContentDescription(ch.name);
+        String tt = cuSrno != null && !cuTitle.isEmpty() ? ch.name + " — " + cuTitle : ch.name;
+        title.setText(tt);
+        title.setContentDescription(tt);
         streams = TvChannels.orderedStreams(this, ch);
+        if (cuSrno != null) {
+            // an earlier programme only comes from Jio
+            List<TvChannels.Stream> only = new java.util.ArrayList<>();
+            for (TvChannels.Stream x : streams) if (!JioClient.idOf(x.url).isEmpty()) { only.add(x); break; }
+            if (!only.isEmpty()) streams = only; else cuSrno = null;
+        }
+        if (skipRow != null) skipRow.setVisibility(cuSrno != null ? View.VISIBLE : View.GONE);
         si = 0;
         failed = 0;
         jioRetried = false;
@@ -240,7 +275,10 @@ public class TvPlayerActivity extends AppCompatActivity {
             new Thread(() -> {
                 JioClient.Play p = null;
                 String err = null;
-                try { p = JioClient.resolve(getApplicationContext(), jioId); }
+                try {
+                    p = cuSrno != null ? JioClient.catchup(getApplicationContext(), jioId, cuSrno, cuStart, cuEnd)
+                            : JioClient.resolve(getApplicationContext(), jioId);
+                }
                 catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
                 final JioClient.Play fp = p;
                 final String fe = err;
@@ -281,7 +319,16 @@ public class TvPlayerActivity extends AppCompatActivity {
         nextServer("Jio: " + lastJioError);
     }
 
+    private void seekBy(long ms) {
+        if (player == null) return;
+        long pos = Math.max(0, player.getCurrentPosition() + ms);
+        long dur = player.getDuration();
+        if (dur != C.TIME_UNSET && dur > 0) pos = Math.min(pos, Math.max(0, dur - 2000));
+        player.seekTo(pos);
+    }
+
     private void step(int d) {
+        cuSrno = null;      // next / previous channel is always live
         idx = (idx + d + queue.size()) % queue.size();
         load();
     }
@@ -297,6 +344,44 @@ public class TvPlayerActivity extends AppCompatActivity {
     private void updatePlay() {
         boolean on = player != null && player.getPlayWhenReady() && player.getPlaybackState() != Player.STATE_IDLE;
         bPlay.setText(on ? "থামান" : "চালান");
+        applySession(on);
+    }
+
+    // ---- media session: so the two-finger double tap of TalkBack (and headset / watch buttons) play and pause the channel
+    private void setupSession() {
+        try {
+            session = new MediaSession(this, "AISmartTubeTv");
+            session.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+            session.setCallback(new MediaSession.Callback() {
+                @Override public void onPlay() { ui.post(() -> { if (player != null) { if (player.getPlaybackState() == Player.STATE_IDLE) player.prepare(); player.play(); updatePlay(); } }); }
+                @Override public void onPause() { ui.post(() -> { if (player != null) { player.pause(); updatePlay(); } }); }
+                @Override public void onStop() { ui.post(() -> { if (player != null) { player.pause(); updatePlay(); } }); }
+                @Override public void onSkipToNext() { ui.post(() -> step(1)); }
+                @Override public void onSkipToPrevious() { ui.post(() -> step(-1)); }
+            });
+            session.setActive(true);
+            applySession(false);
+        } catch (Throwable t) {
+            session = null;
+        }
+    }
+
+    private void applySession(boolean playing) {
+        if (session == null) return;
+        try {
+            long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_PLAY_PAUSE
+                    | PlaybackState.ACTION_STOP | PlaybackState.ACTION_SKIP_TO_NEXT | PlaybackState.ACTION_SKIP_TO_PREVIOUS;
+            session.setPlaybackState(new PlaybackState.Builder()
+                    .setActions(actions)
+                    .setState(playing ? PlaybackState.STATE_PLAYING : PlaybackState.STATE_PAUSED,
+                            PlaybackState.PLAYBACK_POSITION_UNKNOWN, playing ? 1f : 0f)
+                    .build());
+            if (queue != null && idx < queue.size()) {
+                session.setMetadata(new MediaMetadata.Builder()
+                        .putString(MediaMetadata.METADATA_KEY_TITLE, queue.get(idx).name).build());
+            }
+            if (!session.isActive()) session.setActive(true);
+        } catch (Throwable ignored) { }
     }
 
     private void toggleFav() {
@@ -347,6 +432,7 @@ public class TvPlayerActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         ui.removeCallbacksAndMessages(null);
+        if (session != null) { try { session.setActive(false); session.release(); } catch (Throwable ignored) { } session = null; }
         if (player != null) { try { player.release(); } catch (Throwable ignored) { } player = null; }
         super.onDestroy();
     }

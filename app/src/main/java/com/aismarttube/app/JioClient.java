@@ -410,16 +410,18 @@ final class JioClient {
             for (int i = 0; i < a.length(); i++) {
                 JSONObject x = a.optJSONObject(i);
                 if (x == null) continue;
-                if (x.optBoolean("prem", false)) continue;         // needs a separate paid plan
+                boolean prem = x.optBoolean("prem", false);
+                if (prem && !Store.settingBool(c, "tvPrem", false)) continue;   // premium channels only when asked for
                 if (!all && x.optInt("lang", 0) != 5) continue;     // 5 = Bengali
                 String id = x.optString("id", "");
                 String name = x.optString("n", "").trim();
                 if (id.isEmpty() || name.isEmpty()) continue;
                 TvChannels.Ch ch = new TvChannels.Ch();
-                ch.name = name + " (Jio)";
+                ch.name = name + (prem ? " (Jio প্রিমিয়াম)" : " (Jio)");
                 ch.addCat("jio");
                 ch.addCat(catKey(x.optInt("cat", 0)));
                 ch.addStream(new TvChannels.Stream(SCHEME + id, "jio", ""));
+                ch.cu = x.optBoolean("cu", false);
                 out.add(ch);
             }
         } catch (Throwable ignored) { }
@@ -474,8 +476,75 @@ final class JioClient {
         return found;
     }
 
-    /** asks Jio for the playing link of a channel */
+    /** asks Jio for the live playing link of a channel */
     static Play resolve(Context c, String channelId) throws Exception {
+        String body = "channel_id=" + URLEncoder.encode(channelId, "UTF-8")
+                + "&stream_type=Seek&begin=" + utcNow() + "&srno=" + utcDate();
+        return fetchPlay(c, channelId, body, null);
+    }
+
+    /** the playing link of an earlier programme (catch-up) */
+    static Play catchup(Context c, String channelId, Prog p) throws Exception {
+        String body = "stream_type=Catchup&channel_id=" + URLEncoder.encode(channelId, "UTF-8")
+                + "&programId=" + URLEncoder.encode(p.srno, "UTF-8") + "&showtime=000000&srno=" + URLEncoder.encode(p.srno, "UTF-8")
+                + "&begin=" + utcAt(p.start) + "&end=" + utcAt(p.end);
+        return fetchPlay(c, channelId, body, p.srno);
+    }
+
+    static Play catchup(Context c, String channelId, String srno, long start, long end) throws Exception {
+        Prog p = new Prog();
+        p.srno = srno;
+        p.start = start;
+        p.end = end;
+        return catchup(c, channelId, p);
+    }
+
+    private static String utcAt(long ms) {
+        SimpleDateFormat f = new SimpleDateFormat("yyyyMMdd'T'HHmmss", Locale.US);
+        f.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return f.format(new Date(ms));
+    }
+
+    /** one programme of a channel's schedule */
+    static final class Prog {
+        String title = "", desc = "", srno = "";
+        long start, end;   // milliseconds
+    }
+
+    /** the schedule of a channel. offset 0 = today, -1 = yesterday ... */
+    static List<Prog> epg(Context c, String channelId, int offset) throws Exception {
+        Map<String, String> h = new LinkedHashMap<>();
+        h.put("User-Agent", "okhttp/4.12.13");
+        Resp r = http("GET", "https://jiotvapi.cdn.jio.com/apis/v1.3/getepg/get?offset=" + offset
+                + "&channel_id=" + URLEncoder.encode(channelId, "UTF-8") + "&langId=6", h, null);
+        if (r.code != 200) throw new Exception("অনুষ্ঠানের তালিকা আসেনি (কোড " + r.code + ")");
+        JSONArray a = new JSONObject(r.body).optJSONArray("epg");
+        if (a == null) throw new Exception("এই দিনের অনুষ্ঠানের তালিকা নেই");
+        List<Prog> out = new ArrayList<>();
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject x = a.optJSONObject(i);
+            if (x == null) continue;
+            Prog p = new Prog();
+            p.title = x.optString("showname", "").trim();
+            p.desc = x.optString("description", "").trim();
+            p.start = ms(x.optDouble("startEpoch", 0));
+            p.end = ms(x.optDouble("endEpoch", 0));
+            Object sr = x.opt("srno");
+            if (sr instanceof Number) p.srno = String.valueOf(((Number) sr).longValue());
+            else p.srno = sr == null ? "" : String.valueOf(sr);
+            if (p.title.isEmpty() || p.start <= 0) continue;
+            out.add(p);
+        }
+        java.util.Collections.sort(out, (x, y) -> Long.compare(x.start, y.start));
+        return out;
+    }
+
+    private static long ms(double v) {
+        long l = (long) v;
+        return l > 0 && l < 100000000000L ? l * 1000 : l;
+    }
+
+    private static Play fetchPlay(Context c, String channelId, String body, String srno) throws Exception {
         ensureFresh(c);
         JSONObject o = cred(c);
         String dev = deviceId(c);
@@ -500,8 +569,7 @@ final class JioClient {
         h.put("versionCode", VERSION_CODE);
         h.put("accessToken", o.optString("auth", ""));
 
-        String body = "channel_id=" + URLEncoder.encode(channelId, "UTF-8")
-                + "&stream_type=Seek&begin=" + utcNow() + "&srno=" + utcDate();
+        if (srno != null) h.put("srno", srno);
         Resp r = http("POST", URL_PLAY, h, body);
         if (r.code != 200) {
             if (r.code == 401 || r.code == 403) throw new Exception("Jio এই চ্যানেল দিতে রাজি হয়নি (কোড " + r.code + "). আবার লগইন করে দেখুন। " + shortBody(r.body));

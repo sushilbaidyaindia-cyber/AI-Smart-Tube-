@@ -70,6 +70,19 @@ public class TvActivity extends AppCompatActivity {
         catSel = Store.settingStr(this, "tvCat", "");
         findViewById(R.id.tvCat).setOnClickListener(v -> catMenu());
         findViewById(R.id.tvMore).setOnClickListener(v -> moreMenu());
+        final android.widget.CheckBox cuBox = findViewById(R.id.tvCatchup);
+        cuBox.setChecked(Store.settingBool(this, "tvCatchup", false));
+        cuBox.setContentDescription("ক্যাচআপ। চালু থাকলে Jio চ্যানেলে চাপলে আগের অনুষ্ঠানের তালিকা খোলে");
+        cuBox.setOnCheckedChangeListener((v, on) -> Store.putSettingBool(this, "tvCatchup", on));
+        final android.widget.CheckBox premBox = findViewById(R.id.tvPrem);
+        premBox.setChecked(Store.settingBool(this, "tvPrem", false));
+        premBox.setContentDescription("প্রিমিয়াম চ্যানেল দেখান। Jio-তে প্রিমিয়াম প্ল্যান থাকলে এগুলো চলে");
+        premBox.setOnCheckedChangeListener((v, on) -> {
+            Store.putSettingBool(this, "tvPrem", on);
+            all = merge();
+            build();
+            showStatus(on ? "প্রিমিয়াম চ্যানেল তালিকায় যোগ হয়েছে (নামের শেষে 'Jio প্রিমিয়াম')" : "প্রিমিয়াম চ্যানেল লুকানো হয়েছে");
+        });
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
@@ -104,6 +117,7 @@ public class TvActivity extends AppCompatActivity {
         List<TvChannels.Ch> out = new ArrayList<>(TvChannels.custom(this));
         List<TvChannels.Ch> net = TvChannels.cached(this);
         // Jio channels (only when logged in) are listed on their own, with "(Jio)" after the name
+        if (JioClient.isLoggedIn(this) && !Store.settingBool(this, "tvFree", false)) net.clear();   // only Jio, unless the free list is switched on
         net.addAll(JioClient.cachedChannels(this));
         Collections.sort(net, new Comparator<TvChannels.Ch>() {
             @Override public int compare(TvChannels.Ch a, TvChannels.Ch b) { return a.name.compareToIgnoreCase(b.name); }
@@ -118,7 +132,8 @@ public class TvActivity extends AppCompatActivity {
         showStatus("চ্যানেলের তালিকা আনা হচ্ছে…");
         io.execute(() -> {
             String err = null;
-            try { TvChannels.download(getApplicationContext()); } catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
+            boolean needFree = !JioClient.isLoggedIn(getApplicationContext()) || Store.settingBool(getApplicationContext(), "tvFree", false);
+            if (needFree) try { TvChannels.download(getApplicationContext()); } catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
             if (JioClient.isLoggedIn(getApplicationContext()) && (announce || JioClient.channelsStale(getApplicationContext()))) {
                 try { JioClient.fetchChannels(getApplicationContext()); } catch (Throwable t) {
                     String m = "Jio: " + (t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage());
@@ -228,6 +243,15 @@ public class TvActivity extends AppCompatActivity {
             q.add(r.ch);
         }
         TvChannels.queue = q;
+        boolean isJio = false;
+        for (TvChannels.Stream x : ch.streams) if (!JioClient.idOf(x.url).isEmpty()) { isJio = true; break; }
+        if (isJio && Store.settingBool(this, "tvCatchup", false)) {
+            if (ch.cu) {
+                startActivity(new Intent(this, CatchupActivity.class).putExtra(CatchupActivity.EXTRA_INDEX, idx));
+                return;
+            }
+            Toast.makeText(this, "এই চ্যানেলে আগের অনুষ্ঠান নেই, লাইভ চলছে", Toast.LENGTH_SHORT).show();
+        }
         startActivity(new Intent(this, TvPlayerActivity.class).putExtra(TvPlayerActivity.EXTRA_INDEX, idx));
     }
 
@@ -260,35 +284,56 @@ public class TvActivity extends AppCompatActivity {
 
     private void moreMenu() {
         final boolean jio = JioClient.isLoggedIn(this);
-        String[] items = {"চ্যানেলের তালিকা নতুন করে আনুন", "নিজের চ্যানেল যোগ করুন", "তালিকার লিংক বদলান", "আসল তালিকায় ফিরুন (বাংলা)",
-                jio ? "Jio থেকে বেরিয়ে যান (লগআউট)" : "Jio টিভিতে লগইন করুন",
-                jio ? (JioClient.allLanguages(this) ? "Jio চ্যানেল: শুধু বাংলা দেখান" : "Jio চ্যানেল: সব ভাষা দেখান") : "Jio টিভি কী?"};
+        final List<String> names = new ArrayList<>();
+        final List<Runnable> acts = new ArrayList<>();
+        names.add("চ্যানেলের তালিকা নতুন করে আনুন");
+        acts.add(() -> fetch(true));
+        if (jio) {
+            final boolean free = Store.settingBool(this, "tvFree", false);
+            names.add(free ? "ফ্রি (IPTV) চ্যানেল লুকান" : "ফ্রি (IPTV) চ্যানেলও দেখান");
+            acts.add(() -> {
+                Store.putSettingBool(this, "tvFree", !free);
+                if (!free && TvChannels.cached(this).isEmpty()) fetch(true);
+                else { all = merge(); build(); }
+            });
+            names.add(JioClient.allLanguages(this) ? "Jio চ্যানেল: শুধু বাংলা দেখান" : "Jio চ্যানেল: সব ভাষা দেখান");
+            acts.add(() -> {
+                Store.putSetting(this, "jioLang", JioClient.allLanguages(this) ? "bn" : "all");
+                all = merge();
+                build();
+            });
+        }
+        final boolean low = Store.settingBool(this, "tvLowData", false);
+        names.add(low ? "কম ডাটা (ছোট ছবি): চালু আছে, বন্ধ করুন" : "কম ডাটা (ছোট ছবি) চালু করুন");
+        acts.add(() -> {
+            Store.putSettingBool(this, "tvLowData", !low);
+            Toast.makeText(this, low ? "কম ডাটা বন্ধ। পরের চ্যানেল থেকে পুরো মানে চলবে" : "কম ডাটা চালু। পরের চ্যানেল থেকে ছোট ছবিতে চলবে", Toast.LENGTH_LONG).show();
+        });
+        names.add("নিজের চ্যানেল যোগ করুন");
+        acts.add(this::addDialog);
+        names.add("তালিকার লিংক বদলান (ফ্রি তালিকা)");
+        acts.add(this::srcDialog);
+        names.add("আসল তালিকায় ফিরুন (বাংলা)");
+        acts.add(() -> {
+            Store.putSetting(this, "tvSrc", TvChannels.DEFAULT_SRC);
+            fetch(true);
+        });
+        if (jio) {
+            names.add("Jio থেকে বেরিয়ে যান (লগআউট)");
+            acts.add(() -> {
+                JioClient.logout(this);
+                all = merge();
+                build();
+                if (all.isEmpty()) fetch(true);
+                Toast.makeText(this, "Jio থেকে বেরিয়ে এসেছেন", Toast.LENGTH_SHORT).show();
+            });
+        } else {
+            names.add("Jio টিভিতে লগইন করুন");
+            acts.add(this::jioNumberDialog);
+        }
         new AlertDialog.Builder(this).setTitle("টিভি")
-                .setItems(items, (d, which) -> {
-                    if (which == 0) fetch(true);
-                    else if (which == 1) addDialog();
-                    else if (which == 2) srcDialog();
-                    else if (which == 3) {
-                        Store.putSetting(this, "tvSrc", TvChannels.DEFAULT_SRC);
-                        fetch(true);
-                    } else if (which == 4) {
-                        if (jio) {
-                            JioClient.logout(this);
-                            all = merge();
-                            build();
-                            Toast.makeText(this, "Jio থেকে বেরিয়ে এসেছেন", Toast.LENGTH_SHORT).show();
-                        } else jioNumberDialog();
-                    } else {
-                        if (jio) {
-                            Store.putSetting(this, "jioLang", JioClient.allLanguages(this) ? "bn" : "all");
-                            all = merge();
-                            build();
-                        } else new AlertDialog.Builder(this).setTitle("Jio টিভি")
-                                .setMessage("আপনার Jio নম্বরে OTP দিয়ে একবার লগইন করলে Jio-র চ্যানেলগুলো এই তালিকায় যোগ হবে। কোনো আলাদা সার্ভার লাগে না। লগইনের তথ্য শুধু এই ফোনে থাকে।")
-                                .setPositiveButton("লগইন করুন", (dd, ww) -> jioNumberDialog())
-                                .setNegativeButton("বন্ধ", null).show();
-                    }
-                }).setNegativeButton("বন্ধ", null).show();
+                .setItems(names.toArray(new String[0]), (d, which) -> acts.get(which).run())
+                .setNegativeButton("বন্ধ", null).show();
     }
 
     private void jioNumberDialog() {
@@ -302,10 +347,6 @@ public class TvActivity extends AppCompatActivity {
                 .setPositiveButton("OTP পাঠান", (d, w) -> {
                     final String num = n.getText().toString().trim();
                     showStatus("OTP পাঠানো হচ্ছে…");
-                    try {
-                        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
-                            androidx.core.app.ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.RECEIVE_SMS}, 77);
-                    } catch (Throwable ignored) { }
                     io.execute(() -> {
                         String err = null;
                         try { JioClient.sendOtp(getApplicationContext(), num); }
@@ -329,7 +370,6 @@ public class TvActivity extends AppCompatActivity {
         o.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         box.addView(o, new LinearLayout.LayoutParams(-1, -2));
         final AlertDialog dlg = new AlertDialog.Builder(this).setTitle("OTP দিন").setView(box)
-                .setMessage("OTP-র মেসেজ এলে নিজে থেকেই বসে যাবে (SMS-এর অনুমতি দিলে)")
                 .setPositiveButton("লগইন", (d, w) -> {
                     final String otp = o.getText().toString().trim();
                     showStatus("লগইন হচ্ছে…");
@@ -349,30 +389,6 @@ public class TvActivity extends AppCompatActivity {
                     });
                 })
                 .setNegativeButton("বাতিল", null).create();
-        final android.content.BroadcastReceiver sms = new android.content.BroadcastReceiver() {
-            @Override
-            public void onReceive(Context ctx, Intent in) {
-                try {
-                    android.telephony.SmsMessage[] ms = android.provider.Telephony.Sms.Intents.getMessagesFromIntent(in);
-                    StringBuilder sb = new StringBuilder();
-                    if (ms != null) for (android.telephony.SmsMessage m : ms) if (m != null && m.getMessageBody() != null) sb.append(m.getMessageBody());
-                    String t = sb.toString();
-                    if (!t.toLowerCase(Locale.ROOT).contains("jio") && !t.toLowerCase(Locale.ROOT).contains("otp")) return;
-                    java.util.regex.Matcher mm = java.util.regex.Pattern.compile("(?<!\\d)(\\d{4,6})(?!\\d)").matcher(t);
-                    if (mm.find()) {
-                        o.setText(mm.group(1));
-                        if (dlg.isShowing()) dlg.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
-                    }
-                } catch (Throwable ignored) { }
-            }
-        };
-        try {
-            android.content.IntentFilter f = new android.content.IntentFilter("android.provider.Telephony.SMS_RECEIVED");
-            f.setPriority(999);
-            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(sms, f, Context.RECEIVER_EXPORTED);
-            else registerReceiver(sms, f);
-            dlg.setOnDismissListener(x -> { try { unregisterReceiver(sms); } catch (Throwable ignored) { } });
-        } catch (Throwable ignored) { }
         dlg.show();
     }
 

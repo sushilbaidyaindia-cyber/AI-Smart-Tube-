@@ -51,6 +51,7 @@ final class TvChannels {
         final List<String> cats = new ArrayList<>();   // english category keys, lower case
         final List<Stream> streams = new ArrayList<>();
         boolean custom = false;
+        boolean cu = false;      // Jio channel with earlier programmes (catch-up)
         private String key;
 
         String key() {
