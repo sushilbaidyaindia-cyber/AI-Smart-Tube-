@@ -52,6 +52,7 @@ public class TvActivity extends AppCompatActivity {
     private TextView status;
     private EditText search;
     private boolean loading = false;
+    private boolean openedChild = false;   // true while a channel / catch-up screen was opened from here (the search stays then)
     private String catSel = "";          // "" = all, "__fav" = favourites, otherwise a category key
     private Set<String> favNow = new java.util.HashSet<>();
 
@@ -61,6 +62,7 @@ public class TvActivity extends AppCompatActivity {
         setContentView(R.layout.activity_tv);
         status = findViewById(R.id.status);
         search = findViewById(R.id.tvSearch);
+        search.setSaveEnabled(false);
         RecyclerView list = findViewById(R.id.list);
         list.setLayoutManager(new LinearLayoutManager(this));
         list.setItemViewCacheSize(8);
@@ -90,14 +92,33 @@ public class TvActivity extends AppCompatActivity {
         });
         all = merge();
         build();
-        if (all.isEmpty() || TvChannels.stale(this)) fetch(false);
+        if (all.isEmpty() || TvChannels.stale(this) || (JioClient.isLoggedIn(this) && JioClient.channelsStale(this))) fetch(false);
+        if (!JioClient.isLoggedIn(this) && Store.settingStr(this, "tvMode", "").isEmpty()) welcomeDialog();
+    }
+
+    /** first time in the TV tab: Jio login or plain free channels (like YouTube's sign in / without sign in) */
+    private void welcomeDialog() {
+        new AlertDialog.Builder(this).setTitle("টিভি কীভাবে দেখবেন?")
+                .setMessage("Jio লগইন করলে Jio-র চ্যানেল, ক্যাচআপ (আগের অনুষ্ঠান) আর প্রিমিয়াম চ্যানেল পাবেন। লগইন না করলে ফ্রি চ্যানেলের তালিকা দেখবেন। পরে 'আরও' মেনু থেকে যেকোনো সময় লগইন করা যায়।")
+                .setPositiveButton("Jio-তে লগইন করুন", (d, w) -> jioNumberDialog())
+                .setNegativeButton("এমনি চালিয়ে যান", (d, w) -> Store.putSetting(this, "tvMode", "free"))
+                .show();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        openedChild = false;
         all = merge();
         build(); // favourites may have changed in the player
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // leaving the TV tab (home, other tab): forget the search, so the tab opens fresh next time.
+        // Going to a channel keeps it, so Back from the channel shows the same results.
+        if (!openedChild && search != null && search.getText().length() > 0) search.setText("");
     }
 
     @Override
@@ -243,6 +264,7 @@ public class TvActivity extends AppCompatActivity {
             q.add(r.ch);
         }
         TvChannels.queue = q;
+        openedChild = true;
         boolean isJio = false;
         for (TvChannels.Stream x : ch.streams) if (!JioClient.idOf(x.url).isEmpty()) { isJio = true; break; }
         if (isJio && Store.settingBool(this, "tvCatchup", false)) {
@@ -319,6 +341,21 @@ public class TvActivity extends AppCompatActivity {
             fetch(true);
         });
         if (jio) {
+            names.add("আমার Jio প্ল্যান দেখুন");
+            acts.add(() -> {
+                showStatus("প্ল্যানের তথ্য আনা হচ্ছে…");
+                io.execute(() -> {
+                    String txt;
+                    try { txt = JioClient.plansText(getApplicationContext()); }
+                    catch (Throwable t) { txt = "Jio: " + (t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage()); }
+                    final String t2 = txt;
+                    ui.post(() -> {
+                        showStatus("");
+                        new AlertDialog.Builder(this).setTitle("আমার Jio প্ল্যান").setMessage(t2)
+                                .setPositiveButton("ঠিক আছে", null).show();
+                    });
+                });
+            });
             names.add("Jio থেকে বেরিয়ে যান (লগআউট)");
             acts.add(() -> {
                 JioClient.logout(this);

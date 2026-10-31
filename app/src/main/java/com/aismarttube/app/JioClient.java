@@ -626,6 +626,50 @@ final class JioClient {
         return p;
     }
 
+    /** a readable list of the plans active on this Jio account (to see why a premium channel is refused) */
+    static String plansText(Context c) throws Exception {
+        ensureFresh(c);
+        JSONObject o = cred(c);
+        Map<String, String> h = new LinkedHashMap<>();
+        h.put("User-Agent", UA_OKHTTP);
+        h.put("Accept", "application/json");
+        h.put("devicetype", "phone");
+        h.put("os", "android");
+        h.put("versionCode", VERSION_CODE);
+        h.put("Connection", "close");
+        h.put("accessToken", o.optString("auth", ""));
+        if (!o.optString("uid", "").isEmpty()) h.put("uniqueId", o.optString("uid", ""));
+        Resp r = http("GET", API + "/userservice/apis/v1/plans", h, null);
+        if (r.code != 200) throw new Exception("প্ল্যানের তথ্য আসেনি (কোড " + r.code + "). " + shortBody(r.body));
+        JSONObject j = new JSONObject(r.body);
+        JSONArray a = j.optJSONArray("PackageInfo");
+        if (a == null || a.length() == 0) {
+            return "এই নম্বরে Jio কোনো সক্রিয় প্ল্যান দেখাচ্ছে না।\n\n(Jio-র উত্তর: " + shortBody(r.body) + ")";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject x = a.optJSONObject(i);
+            if (x == null) continue;
+            JSONObject d = x.optJSONObject("packageDetail");
+            String name = d == null ? "" : d.optString("package_name", "");
+            if (name.isEmpty()) name = "প্ল্যান " + x.optString("planid", "?");
+            sb.append("• ").append(name);
+            sb.append(x.optBoolean("isactive", true) ? " (সক্রিয়)" : " (সক্রিয় নয়)").append('\n');
+            JSONArray ps = d == null ? null : d.optJSONArray("providers");
+            if (ps != null && ps.length() > 0) {
+                StringBuilder pn = new StringBuilder();
+                for (int k = 0; k < ps.length(); k++) {
+                    JSONObject pr = ps.optJSONObject(k);
+                    if (pr == null) continue;
+                    String n = pr.optString("name", pr.optString("providerName", pr.optString("provider", "")));
+                    if (!n.isEmpty()) pn.append(pn.length() > 0 ? ", " : "").append(n);
+                }
+                if (pn.length() > 0) sb.append("   সঙ্গে: ").append(pn).append('\n');
+            }
+        }
+        return sb.length() == 0 ? "প্ল্যানের তালিকা পড়া যায়নি: " + shortBody(r.body) : sb.toString().trim();
+    }
+
     /** channel id inside a "jio://123" link, or "" */
     static String idOf(String url) {
         return url != null && url.startsWith(SCHEME) ? url.substring(SCHEME.length()) : "";
