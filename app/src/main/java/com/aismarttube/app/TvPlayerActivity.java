@@ -56,8 +56,15 @@ public class TvPlayerActivity extends AppCompatActivity {
     private String cuSrno = null, cuTitle = "";   // set when an earlier programme is being watched
     private long cuStart = 0, cuEnd = 0;
     private LinearLayout skipRow;
+    private Button bSleep;
+    private final Runnable sleepRun = () -> { try { if (player != null) player.pause(); } catch (Throwable ignored) { } finish(); };
+    private TextView nowTv;                          // "now showing" line (Jio channels)
+    private String epgId = "";
+    private List<JioClient.Prog> epgList = null;
+    private final Runnable nowTick = () -> refreshNow();
     private MediaSession session;
     private int gen = 0;         // marks the newest start, so a late answer from Jio is ignored
+    private long resumeMs = 0;          // where an earlier programme stopped on an error, so the fresh link continues from there
     private boolean jioRetried = false;   // a failing Jio channel gets one fresh link before the next server
     private String lastJioError = "";
     private final Runnable stuck = () -> nextServer("সময় লাগছে");
@@ -102,6 +109,13 @@ public class TvPlayerActivity extends AppCompatActivity {
         controls = new LinearLayout(this);
         controls.setOrientation(LinearLayout.VERTICAL);
         controls.addView(title);
+        nowTv = new TextView(this);
+        nowTv.setTextSize(16);
+        nowTv.setTextColor(0xFFFFB84A);
+        nowTv.setPadding(dp(16), 0, dp(16), dp(4));
+        nowTv.setVisibility(View.GONE);
+        nowTv.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        controls.addView(nowTv);
         controls.addView(state);
 
         LinearLayout r1 = new LinearLayout(this);
@@ -120,6 +134,12 @@ public class TvPlayerActivity extends AppCompatActivity {
         bFull = btn("পূর্ণ পর্দা", v -> setFullscreen(true));
         r2.addView(bFull, w());
         controls.addView(r2);
+
+        bSleep = btn("ঘুমের টাইমার", v -> sleepMenu());
+        LinearLayout r3 = new LinearLayout(this);
+        r3.setOrientation(LinearLayout.HORIZONTAL);
+        r3.addView(bSleep, w());
+        controls.addView(r3);
 
         skipRow = new LinearLayout(this);
         skipRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -186,6 +206,7 @@ public class TvPlayerActivity extends AppCompatActivity {
                     ui.removeCallbacks(stuck);
                     failed = 0;
                     jioRetried = false;
+                    resumeMs = 0;
                     setState(serverNote("চলছে"));
                     try { TvChannels.markGood(TvPlayerActivity.this, queue.get(idx), streams.get(si).url); } catch (Throwable ignored) { }
                 }
@@ -197,6 +218,11 @@ public class TvPlayerActivity extends AppCompatActivity {
 
             @Override
             public void onPlayerError(PlaybackException e) {
+                if (cuSrno != null) {
+                    long cp = 0;
+                    try { cp = player.getCurrentPosition(); } catch (Throwable ignored) { }
+                    if (cp > 0) resumeMs = cp;
+                }
                 if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
                     player.seekToDefaultPosition();
                     player.prepare();
@@ -254,9 +280,16 @@ public class TvPlayerActivity extends AppCompatActivity {
             if (!only.isEmpty()) streams = only; else cuSrno = null;
         }
         if (skipRow != null) skipRow.setVisibility(cuSrno != null ? View.VISIBLE : View.GONE);
+        epgList = null;
+        epgId = "";
+        nowTv.setText("");
+        nowTv.setVisibility(View.GONE);
+        ui.removeCallbacks(nowTick);
+        if (cuSrno == null) refreshNow();
         si = 0;
         failed = 0;
         jioRetried = false;
+        resumeMs = 0;
         setState(serverNote("লোড হচ্ছে…"));
         updateFav();
         startStream();
@@ -287,10 +320,13 @@ public class TvPlayerActivity extends AppCompatActivity {
                     if (fp == null) { jioFailed(fe); return; }
                     http.setUserAgent(JioClient.UA_PLAYER);
                     http.setDefaultRequestProperties(fp.headers);
-                    player.setMediaItem(new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build());
+                    MediaItem mi = new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build();
+                    if (cuSrno != null && resumeMs > 0) player.setMediaItem(mi, resumeMs);   // fresh link, same place in the programme
+                    else player.setMediaItem(mi);
                     player.prepare();
                     player.play();
                     updatePlay();
+                    scheduleToken(fp, my, jioId);
                 });
             }, "jio-resolve").start();
             return;
@@ -306,6 +342,40 @@ public class TvPlayerActivity extends AppCompatActivity {
         updatePlay();
     }
 
+    // ---- keep the Jio access token fresh while playing, so the picture does not stop when it runs out
+    private void scheduleToken(JioClient.Play p, final int myGen, final String id) {
+        long delay = 4 * 60000L;
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("exp=(\\d+)").matcher(p.hdnea);
+            if (m.find()) {
+                long left = Long.parseLong(m.group(1)) * 1000L - System.currentTimeMillis() - 90000L;   // 90 s before it runs out
+                delay = Math.max(20000L, Math.min(left, 20 * 60000L));
+            }
+        } catch (Throwable ignored) { }
+        ui.postDelayed(() -> refreshToken(myGen, id), delay);
+    }
+
+    private void refreshToken(final int myGen, final String id) {
+        if (isFinishing() || player == null || myGen != gen) return;       // another channel / server was started meanwhile
+        new Thread(() -> {
+            JioClient.Play np = null;
+            try {
+                np = cuSrno != null ? JioClient.catchup(getApplicationContext(), id, cuSrno, cuStart, cuEnd)
+                        : JioClient.resolve(getApplicationContext(), id);
+            } catch (Throwable ignored) { }
+            final JioClient.Play fp = np;
+            ui.post(() -> {
+                if (isFinishing() || player == null || myGen != gen) return;
+                if (fp != null && !fp.hdnea.isEmpty()) {
+                    http.setDefaultRequestProperties(fp.headers);          // the next pieces ask with the new token; playing is not touched
+                    scheduleToken(fp, myGen, id);
+                } else {
+                    ui.postDelayed(() -> refreshToken(myGen, id), 60000L);
+                }
+            });
+        }, "jio-token").start();
+    }
+
     /** Jio did not give a link: say why, then try the next server (if the channel has one) */
     private void jioFailed(String why) {
         lastJioError = why == null ? "" : why;
@@ -317,6 +387,72 @@ public class TvPlayerActivity extends AppCompatActivity {
             return;
         }
         nextServer("Jio: " + lastJioError);
+    }
+
+    /** the Jio channel's schedule gives the name of the programme that is on right now */
+    private void refreshNow() {
+        ui.removeCallbacks(nowTick);
+        if (isFinishing() || queue == null || idx >= queue.size() || cuSrno != null) return;
+        String id = "";
+        for (TvChannels.Stream x : queue.get(idx).streams) {
+            String j = JioClient.idOf(x.url);
+            if (!j.isEmpty()) { id = j; break; }
+        }
+        if (id.isEmpty()) return;
+        if (!id.equals(epgId) || epgList == null) {
+            final String fid = id;
+            epgId = id;
+            new Thread(() -> {
+                List<JioClient.Prog> got = null;
+                try { got = JioClient.epg(getApplicationContext(), fid, 0); } catch (Throwable ignored) { }
+                final List<JioClient.Prog> g = got;
+                ui.post(() -> {
+                    if (!fid.equals(epgId)) return;      // another channel was opened meanwhile
+                    epgList = g == null ? new java.util.ArrayList<JioClient.Prog>() : g;
+                    showNow();
+                    ui.postDelayed(nowTick, 30000);
+                });
+            }, "jio-epg").start();
+            return;
+        }
+        showNow();
+        ui.postDelayed(nowTick, 30000);
+    }
+
+    private void showNow() {
+        if (epgList == null || nowTv == null) return;
+        long now = System.currentTimeMillis();
+        JioClient.Prog cur = null;
+        for (JioClient.Prog p : epgList) if (p.start <= now && now < p.end) { cur = p; break; }
+        if (cur == null) { nowTv.setVisibility(View.GONE); return; }
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("hh:mm a", java.util.Locale.US);
+        f.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+        String t = "এখন চলছে: " + cur.title + " (" + f.format(new java.util.Date(cur.start)) + " – " + f.format(new java.util.Date(cur.end)) + ")";
+        for (JioClient.Prog p : epgList) {
+            if (p.start >= cur.end) {
+                t += "\nএরপর: " + p.title + " (" + f.format(new java.util.Date(p.start)) + ")";
+                break;
+            }
+        }
+        if (!t.contentEquals(nowTv.getText())) nowTv.setText(t);
+        nowTv.setVisibility(View.VISIBLE);
+    }
+
+    private void sleepMenu() {
+        final int[] mins = {0, 15, 30, 60, 90};
+        String[] names = {"টাইমার বন্ধ করুন", "১৫ মিনিট পরে বন্ধ", "৩০ মিনিট পরে বন্ধ", "৬০ মিনিট পরে বন্ধ", "৯০ মিনিট পরে বন্ধ"};
+        new androidx.appcompat.app.AlertDialog.Builder(this).setTitle("ঘুমের টাইমার")
+                .setItems(names, (d, which) -> {
+                    ui.removeCallbacks(sleepRun);
+                    if (mins[which] == 0) {
+                        bSleep.setText("ঘুমের টাইমার");
+                        setState("টাইমার বন্ধ করা হয়েছে");
+                    } else {
+                        ui.postDelayed(sleepRun, mins[which] * 60000L);
+                        bSleep.setText("টাইমার: " + mins[which] + " মিনিট");
+                        setState(mins[which] + " মিনিট পরে টিভি বন্ধ হয়ে যাবে");
+                    }
+                }).setNegativeButton("বন্ধ", null).show();
     }
 
     private void seekBy(long ms) {

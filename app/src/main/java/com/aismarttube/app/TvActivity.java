@@ -40,6 +40,8 @@ public class TvActivity extends AppCompatActivity {
         final boolean header;
         final TvChannels.Ch ch;
         final String text;
+        String custom = null;      // a programme search result line
+        Row(TvChannels.Ch ch, String custom) { this.header = false; this.ch = ch; this.text = ch.name; this.custom = custom; }
         Row(String text) { this.header = true; this.text = text; this.ch = null; }
         Row(TvChannels.Ch ch) { this.header = false; this.ch = ch; this.text = ch.name; }
     }
@@ -51,6 +53,8 @@ public class TvActivity extends AppCompatActivity {
     private RecyclerView.Adapter<RecyclerView.ViewHolder> adapter;
     private TextView status;
     private EditText search;
+    private static final int REQ_VOICE = 91;
+    private boolean progMode = false;   // the list shows programme search results
     private boolean loading = false;
     private boolean openedChild = false;   // true while a channel / catch-up screen was opened from here (the search stays then)
     private String catSel = "";          // "" = all, "__fav" = favourites, otherwise a category key
@@ -69,9 +73,30 @@ public class TvActivity extends AppCompatActivity {
         adapter = new Ad();
         list.setAdapter(adapter);
         TabBar.setup(this, TabBar.TV);
+        search.setOnEditorActionListener((tv, actionId, ev) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                String t = search.getText().toString().trim();
+                if (t.length() >= 2) progSearch(t);
+                return true;
+            }
+            return false;
+        });
         catSel = Store.settingStr(this, "tvCat", "");
         findViewById(R.id.tvCat).setOnClickListener(v -> catMenu());
         findViewById(R.id.tvMore).setOnClickListener(v -> moreMenu());
+        findViewById(R.id.tvVoice).setOnClickListener(v -> {
+            Intent vi = new Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            vi.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            vi.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "en-IN");       // Jio channel names are English
+            vi.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "চ্যানেলের নাম ইংরেজিতে বলুন");
+            try {
+                openedChild = true;
+                startActivityForResult(vi, REQ_VOICE);
+            } catch (Throwable t) {
+                openedChild = false;
+                Toast.makeText(this, "এই ফোনে ভয়েস সার্চ পাওয়া যাচ্ছে না", Toast.LENGTH_LONG).show();
+            }
+        });
         final android.widget.CheckBox cuBox = findViewById(R.id.tvCatchup);
         cuBox.setChecked(Store.settingBool(this, "tvCatchup", false));
         cuBox.setContentDescription("ক্যাচআপ। চালু থাকলে Jio চ্যানেলে চাপলে আগের অনুষ্ঠানের তালিকা খোলে");
@@ -79,8 +104,17 @@ public class TvActivity extends AppCompatActivity {
         final android.widget.CheckBox premBox = findViewById(R.id.tvPrem);
         premBox.setChecked(Store.settingBool(this, "tvPrem", false));
         premBox.setContentDescription("প্রিমিয়াম চ্যানেল দেখান। Jio-তে প্রিমিয়াম প্ল্যান থাকলে এগুলো চলে");
+        final android.widget.CheckBox onlyBox = findViewById(R.id.tvPremOnly);
+        onlyBox.setChecked(Store.settingBool(this, "tvPremOnly", false));
+        onlyBox.setContentDescription("শুধু প্রিমিয়াম চ্যানেল দেখান। অন্য চ্যানেল লুকানো থাকবে");
+        onlyBox.setOnCheckedChangeListener((v, on) -> {
+            Store.putSettingBool(this, "tvPremOnly", on);
+            if (on && !premBox.isChecked()) premBox.setChecked(true);     // premium channels must be in the list for this
+            else { all = merge(); build(); }
+        });
         premBox.setOnCheckedChangeListener((v, on) -> {
             Store.putSettingBool(this, "tvPrem", on);
+            if (!on && onlyBox.isChecked()) onlyBox.setChecked(false);    // nothing premium left to show only
             all = merge();
             build();
             showStatus(on ? "প্রিমিয়াম চ্যানেল তালিকায় যোগ হয়েছে (নামের শেষে 'Jio প্রিমিয়াম')" : "প্রিমিয়াম চ্যানেল লুকানো হয়েছে");
@@ -88,7 +122,7 @@ public class TvActivity extends AppCompatActivity {
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void afterTextChanged(Editable e) { build(); }
+            @Override public void afterTextChanged(Editable e) { progMode = false; build(); }
         });
         all = merge();
         build();
@@ -113,6 +147,21 @@ public class TvActivity extends AppCompatActivity {
         openedChild = false;
         all = merge();
         build(); // favourites may have changed in the player
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_VOICE && resultCode == RESULT_OK && data != null) {
+            ArrayList<String> r = data.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS);
+            if (r != null && !r.isEmpty()) {
+                search.setText(r.get(0).trim());
+                search.setSelection(search.getText().length());
+                search.announceForAccessibility("খোঁজা হচ্ছে: " + r.get(0));
+                if (rows.isEmpty() && JioClient.isLoggedIn(this)) progSearch(r.get(0).trim());
+            }
+        }
     }
 
     @Override
@@ -180,6 +229,29 @@ public class TvActivity extends AppCompatActivity {
         status.setText(t);
     }
 
+    private static final String[][] ALIAS = {
+            {"স্টার জলসা", "star jalsha"}, {"জলসা মুভিজ", "jalsha movies"}, {"জলসা", "jalsha"},
+            {"জি বাংলা সিনেমা", "zee bangla cinema"}, {"জি বাংলা", "zee bangla"}, {"জী বাংলা", "zee bangla"},
+            {"কালার্স বাংলা সিনেমা", "colors bangla cinema"}, {"কালার্স বাংলা", "colors bangla"}, {"কালারস বাংলা", "colors bangla"},
+            {"সান বাংলা", "sun bangla"}, {"এবিপি আনন্দ", "abp ananda"}, {"এবিপি", "abp"},
+            {"চব্বিশ ঘণ্টা", "24 ghanta"}, {"২৪ ঘণ্টা", "24 ghanta"}, {"আকাশ আট", "akash"}, {"আকাশ ৮", "akash"},
+            {"সঙ্গীত বাংলা", "sangeet bangla"}, {"রিপাবলিক বাংলা", "republic bangla"},
+            {"টিভি নাইন", "tv9"}, {"টিভি ৯", "tv9"}, {"টিভি9", "tv9"}, {"কলকাতা টিভি", "kolkata tv"}, {"নিউজ", "news"}};
+
+    /** Bengali digits to 0-9, and common Bengali channel names to the English name used in the list */
+    private static String alias(String q) {
+        StringBuilder sb = new StringBuilder();
+        for (char ch : q.toCharArray()) sb.append(ch >= '\u09E6' && ch <= '\u09EF' ? (char) ('0' + (ch - '\u09E6')) : ch);
+        String s = sb.toString();
+        for (String[] a : ALIAS) {
+            String from = a[0];
+            StringBuilder f2 = new StringBuilder();
+            for (char ch : from.toCharArray()) f2.append(ch >= '\u09E6' && ch <= '\u09EF' ? (char) ('0' + (ch - '\u09E6')) : ch);
+            s = s.replace(f2.toString(), a[1]);
+        }
+        return s;
+    }
+
     private boolean inCategory(TvChannels.Ch c) {
         if (catSel.isEmpty()) return true;
         if ("__fav".equals(catSel)) return TvChannels.isFavIn(favNow, c);
@@ -194,27 +266,37 @@ public class TvActivity extends AppCompatActivity {
     }
 
     private void build() {
+        if (progMode) { adapter.notifyDataSetChanged(); return; }
         rows.clear();
         favNow = TvChannels.favs(this);
-        String q = search.getText().toString().trim().toLowerCase(Locale.ROOT);
+        String q = alias(search.getText().toString().trim().toLowerCase(Locale.ROOT));
         Button cb = findViewById(R.id.tvCat);
         cb.setText("ক্যাটাগরি: " + catName());
         cb.setContentDescription("ক্যাটাগরি বদলান। এখন: " + catName());
         List<TvChannels.Ch> pool = new ArrayList<>();
-        for (TvChannels.Ch c : all) if (inCategory(c)) pool.add(c);
+        boolean premOnly = Store.settingBool(this, "tvPremOnly", false);
+        for (TvChannels.Ch c : all) if (inCategory(c) && (!premOnly || c.prem)) pool.add(c);
         if (!q.isEmpty()) {
             for (TvChannels.Ch c : pool) {
                 if (c.name.toLowerCase(Locale.ROOT).contains(q) || TvChannels.catText(c).toLowerCase(Locale.ROOT).contains(q)
                         || c.cats.contains(q)) rows.add(new Row(c));
             }
         } else if (catSel.isEmpty()) {
-            List<TvChannels.Ch> f = new ArrayList<>(), rest = new ArrayList<>();
+            List<TvChannels.Ch> f = new ArrayList<>(), rest = new ArrayList<>(), rec = new ArrayList<>();
             for (TvChannels.Ch c : pool) (TvChannels.isFavIn(favNow, c) ? f : rest).add(c);
+            for (String k : TvChannels.recentKeys(this)) {
+                for (TvChannels.Ch c : rest) if (c.key().equals(k)) { rec.add(c); break; }
+                if (rec.size() >= 6) break;
+            }
             if (!f.isEmpty()) {
                 rows.add(new Row("প্রিয় চ্যানেল"));
                 for (TvChannels.Ch c : f) rows.add(new Row(c));
-                rows.add(new Row("সব চ্যানেল"));
             }
+            if (!rec.isEmpty()) {
+                rows.add(new Row("সম্প্রতি দেখা"));
+                for (TvChannels.Ch c : rec) rows.add(new Row(c));
+            }
+            if (!f.isEmpty() || !rec.isEmpty()) rows.add(new Row("সব চ্যানেল"));
             for (TvChannels.Ch c : rest) rows.add(new Row(c));
         } else {
             for (TvChannels.Ch c : pool) rows.add(new Row(c));
@@ -222,10 +304,69 @@ public class TvActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
         if (rows.isEmpty() && !loading) {
             showStatus(all.isEmpty() ? "কোনো চ্যানেল নেই। 'আরও' থেকে তালিকা আনুন বা নিজের চ্যানেল যোগ করুন"
-                    : "কিছু পাওয়া যায়নি। ক্যাটাগরি বা খোঁজা বদলে দেখুন");
+                    : (!q.isEmpty() && JioClient.isLoggedIn(this)
+                    ? "কিছু পাওয়া যায়নি। কীবোর্ডের 'খুঁজুন' বোতাম চাপলে অনুষ্ঠানের নামে খোঁজা হবে"
+                    : "কিছু পাওয়া যায়নি। ক্যাটাগরি বা খোঁজা বদলে দেখুন"));
         } else if (!loading && status.getText().toString().startsWith("কিছু পাওয়া")) {
             showStatus("");
         }
+    }
+
+    /** looks for a programme name in today's schedule of the Jio channels (current list filters apply) */
+    private void progSearch(final String query) {
+        if (!JioClient.isLoggedIn(this)) {
+            showStatus("অনুষ্ঠানের নামে খুঁজতে Jio-তে লগইন লাগবে");
+            return;
+        }
+        final String ql = query.toLowerCase(Locale.ROOT);
+        final List<TvChannels.Ch> targets = new ArrayList<>();
+        boolean premOnly = Store.settingBool(this, "tvPremOnly", false);
+        for (TvChannels.Ch c : all) {
+            if (!inCategory(c) || (premOnly && !c.prem)) continue;
+            if (!c.streams.isEmpty() && !JioClient.idOf(c.streams.get(0).url).isEmpty()) targets.add(c);
+            if (targets.size() >= 150) break;
+        }
+        if (targets.isEmpty()) { showStatus("খোঁজার মতো কোনো Jio চ্যানেল তালিকায় নেই"); return; }
+        showStatus("অনুষ্ঠানের নামে খোঁজা হচ্ছে… (" + targets.size() + "টি চ্যানেলের তালিকা দেখা হচ্ছে, কিছুক্ষণ লাগবে)");
+        final java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger(0);
+        final List<Object[]> hits = java.util.Collections.synchronizedList(new ArrayList<Object[]>());
+        final ExecutorService pool = Executors.newFixedThreadPool(6);
+        final long now = System.currentTimeMillis();
+        for (final TvChannels.Ch c : targets) {
+            pool.execute(() -> {
+                try {
+                    for (JioClient.Prog p : JioClient.epgToday(getApplicationContext(), JioClient.idOf(c.streams.get(0).url))) {
+                        if (p.end > now && p.title.toLowerCase(Locale.ROOT).contains(ql)) hits.add(new Object[]{c, p});
+                    }
+                } catch (Throwable ignored) { }
+                int d = done.incrementAndGet();
+                if (d == targets.size()) {
+                    ui.post(() -> finishProgSearch(query, hits));
+                    pool.shutdown();
+                }
+            });
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void finishProgSearch(String query, List<Object[]> hits) {
+        if (isFinishing() || !search.getText().toString().trim().equalsIgnoreCase(query.trim())) return;   // the search text changed meanwhile
+        java.util.Collections.sort(hits, (a, b) -> Long.compare(((JioClient.Prog) a[1]).start, ((JioClient.Prog) b[1]).start));
+        rows.clear();
+        long now = System.currentTimeMillis();
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("hh:mm a", Locale.US);
+        f.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+        if (!hits.isEmpty()) rows.add(new Row("'" + query + "' — আজকের অনুষ্ঠান"));
+        for (Object[] h : hits) {
+            TvChannels.Ch c = (TvChannels.Ch) h[0];
+            JioClient.Prog p = (JioClient.Prog) h[1];
+            boolean live = p.start <= now;
+            String nm = c.name.replace(" (Jio প্রিমিয়াম)", "").replace(" (Jio)", "");
+            rows.add(new Row(c, p.title + "\n" + nm + " · " + (live ? "এখন চলছে" : f.format(new java.util.Date(p.start)) + "-এ শুরু")));
+        }
+        progMode = true;
+        adapter.notifyDataSetChanged();
+        showStatus(hits.isEmpty() ? "আজকের তালিকায় '" + query + "' নামে কোনো অনুষ্ঠান পাওয়া যায়নি" : hits.size() + "টি অনুষ্ঠান পাওয়া গেছে। চাপলে সেই চ্যানেল চলবে");
     }
 
     private void catMenu() {
@@ -250,6 +391,7 @@ public class TvActivity extends AppCompatActivity {
         new AlertDialog.Builder(this).setTitle("ক্যাটাগরি বেছে নিন")
                 .setSingleChoiceItems(names.toArray(new String[0]), sel, (d, which) -> {
                     catSel = ids.get(which);
+                    progMode = false;
                     Store.putSetting(this, "tvCat", catSel);
                     build();
                     d.dismiss();
@@ -267,6 +409,7 @@ public class TvActivity extends AppCompatActivity {
         }
         TvChannels.queue = q;
         openedChild = true;
+        TvChannels.addRecent(this, ch);
         boolean isJio = false;
         for (TvChannels.Stream x : ch.streams) if (!JioClient.idOf(x.url).isEmpty()) { isJio = true; break; }
         if (isJio && Store.settingBool(this, "tvCatchup", false)) {
@@ -515,6 +658,13 @@ public class TvActivity extends AppCompatActivity {
                 return;
             }
             ViewCompat.setAccessibilityHeading(v, false);
+            if (r.custom != null) {
+                v.setText(r.custom);
+                v.setContentDescription(r.custom);
+                v.setOnClickListener(x -> play(r.ch));
+                v.setOnLongClickListener(x -> { channelMenu(r.ch); return true; });
+                return;
+            }
             boolean fav = TvChannels.isFavIn(favNow, r.ch);
             String line2 = TvChannels.catText(r.ch);
             int n = r.ch.streams.size();

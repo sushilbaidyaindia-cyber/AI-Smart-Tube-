@@ -421,6 +421,7 @@ final class JioClient {
                 ch.addCat(catKey(x.optInt("cat", 0)));
                 ch.addStream(new TvChannels.Stream(SCHEME + id, "jio", ""));
                 ch.cu = x.optBoolean("cu", false);
+                ch.prem = prem;
                 out.add(ch);
             }
         } catch (Throwable ignored) { }
@@ -536,6 +537,18 @@ final class JioClient {
         }
         java.util.Collections.sort(out, (x, y) -> Long.compare(x.start, y.start));
         return out;
+    }
+
+    private static final Map<String, Object[]> EPG_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** today's schedule of a channel, kept for 30 minutes (many channels are read when searching by programme name) */
+    @SuppressWarnings("unchecked")
+    static List<Prog> epgToday(Context c, String channelId) throws Exception {
+        Object[] e = EPG_CACHE.get(channelId);
+        if (e != null && System.currentTimeMillis() - (Long) e[0] < 30 * 60 * 1000L) return (List<Prog>) e[1];
+        List<Prog> l = epg(c, channelId, 0);
+        EPG_CACHE.put(channelId, new Object[]{System.currentTimeMillis(), l});
+        return l;
     }
 
     private static long ms(double v) {

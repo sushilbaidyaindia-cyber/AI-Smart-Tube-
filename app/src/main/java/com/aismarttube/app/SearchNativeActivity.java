@@ -9,6 +9,7 @@ import android.speech.RecognizerIntent;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.content.ActivityNotFoundException;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -61,6 +62,15 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.btnGo).setOnClickListener(v -> runSearch());
+        final View clearBtn = findViewById(R.id.btnClear);
+        clearBtn.setOnClickListener(v -> {
+            query.setText("");
+            query.requestFocus();
+            try {
+                ((android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(query, 0);
+            } catch (Throwable ignored) { }
+            query.announceForAccessibility("লেখা মুছে ফেলা হয়েছে");
+        });
         query.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 runSearch();
@@ -85,6 +95,7 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void afterTextChanged(Editable s) {
                 String t = s == null ? "" : s.toString().trim();
+                clearBtn.setVisibility(s != null && s.length() > 0 ? View.VISIBLE : View.GONE);
                 if (t.isEmpty()) { sugGen++; showHistory(); }
                 else scheduleSuggest(t);
             }

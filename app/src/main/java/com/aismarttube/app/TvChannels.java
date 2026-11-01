@@ -51,6 +51,7 @@ final class TvChannels {
         final List<String> cats = new ArrayList<>();   // english category keys, lower case
         final List<Stream> streams = new ArrayList<>();
         boolean custom = false;
+        boolean prem = false;    // Jio premium channel
         boolean cu = false;      // Jio channel with earlier programmes (catch-up)
         private String key;
 
@@ -409,6 +410,30 @@ final class TvChannels {
                 if (o != null && !ch.name.equals(o.optString("n", ""))) out.put(o);
             }
             Store.set(c, K_CUSTOM, out.toString());
+        } catch (Throwable ignored) { }
+    }
+
+    // ------------------------------------------------------------ recently watched (channel keys, newest first)
+
+    static List<String> recentKeys(Context c) {
+        List<String> out = new ArrayList<>();
+        try {
+            String s = Store.get(c, "tvrecent");
+            if (s.isEmpty()) return out;
+            JSONArray a = new JSONArray(s);
+            for (int i = 0; i < a.length(); i++) out.add(a.optString(i, ""));
+        } catch (Throwable ignored) { }
+        return out;
+    }
+
+    static void addRecent(Context c, Ch ch) {
+        try {
+            List<String> k = recentKeys(c);
+            k.remove(ch.key());
+            k.add(0, ch.key());
+            JSONArray a = new JSONArray();
+            for (int i = 0; i < k.size() && i < 8; i++) a.put(k.get(i));
+            Store.set(c, "tvrecent", a.toString());
         } catch (Throwable ignored) { }
     }
 
