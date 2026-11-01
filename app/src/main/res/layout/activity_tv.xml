@@ -38,6 +38,15 @@
             android:textColorHint="#7F9A9E" />
 
         <Button
+            android:id="@+id/tvVoice"
+            android:layout_width="wrap_content"
+            android:layout_height="56dp"
+            android:minWidth="56dp"
+            android:text="বলুন"
+            android:contentDescription="ভয়েস সার্চ। ইংরেজিতে চ্যানেলের নাম বলুন"
+            android:textAllCaps="false" />
+
+        <Button
             android:id="@+id/tvMore"
             android:layout_width="wrap_content"
             android:layout_height="56dp"
@@ -46,6 +55,15 @@
             android:textAllCaps="false" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/tvCat"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:text="ক্যাটাগরি: সব চ্যানেল"
+        android:textAllCaps="false" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -53,29 +71,30 @@
         android:paddingStart="12dp"
         android:paddingEnd="12dp">
 
-        <Button
-            android:id="@+id/tvCat"
+        <CheckBox
+            android:id="@+id/tvCatchup"
             android:layout_width="0dp"
             android:layout_height="56dp"
             android:layout_weight="1"
-            android:text="ক্যাটাগরি: সব চ্যানেল"
-            android:textAllCaps="false" />
-
-        <CheckBox
-            android:id="@+id/tvCatchup"
-            android:layout_width="wrap_content"
-            android:layout_height="56dp"
-            android:minWidth="48dp"
             android:text="ক্যাচআপ"
             android:textSize="13sp"
             android:textColor="#EAF5F3" />
 
         <CheckBox
             android:id="@+id/tvPrem"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="56dp"
-            android:minWidth="48dp"
+            android:layout_weight="1"
             android:text="প্রিমিয়াম"
+            android:textSize="13sp"
+            android:textColor="#EAF5F3" />
+
+        <CheckBox
+            android:id="@+id/tvPremOnly"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1.2"
+            android:text="শুধু প্রিমিয়াম"
             android:textSize="13sp"
             android:textColor="#EAF5F3" />
     </LinearLayout>

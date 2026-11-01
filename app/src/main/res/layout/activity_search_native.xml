@@ -38,6 +38,16 @@
             android:contentDescription="সার্চ লিখুন" />
 
         <ImageButton
+            android:id="@+id/btnClear"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="লেখা মুছুন"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:tint="#EAF5F3"
+            android:visibility="gone" />
+
+        <ImageButton
             android:id="@+id/btnVoice"
             android:layout_width="48dp"
             android:layout_height="48dp"
