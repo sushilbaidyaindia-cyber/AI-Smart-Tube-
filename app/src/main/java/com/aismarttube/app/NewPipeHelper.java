@@ -644,6 +644,38 @@ public class NewPipeHelper {
         }
     }
 
+    /**
+     * Songs "in the same mood" as a video: YouTube's own Mix (the RD playlist it builds from that video),
+     * and if that is not available, the related videos YouTube shows beside it.
+     */
+    public static String getSimilar(String videoUrl) {
+        try {
+            ensureInit();
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:youtu\\.be/|[?&]v=)([A-Za-z0-9_-]{11})")
+                    .matcher(videoUrl == null ? "" : videoUrl);
+            JSONArray items = new JSONArray();
+            if (m.find()) {
+                String id = m.group(1);
+                try {
+                    PlaylistInfo pi = PlaylistInfo.getInfo(ServiceList.YouTube,
+                            "https://www.youtube.com/watch?v=" + id + "&list=RD" + id);
+                    items = itemsJson(pi.getRelatedItems());
+                } catch (Throwable ignored) { }
+            }
+            if (items.length() == 0) {
+                StreamInfo si = cachedInfo(videoUrl.trim());
+                items = itemsJson(si.getRelatedItems());
+            }
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("items", items);
+            return o.toString();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return err("মিল রেখে গান আনা যায়নি: " + e.getMessage());
+        }
+    }
+
     // -------------------------------------------------------------- transcript
 
     /** Subtitle text of a video (so Grok / other AIs can "read" what is said). Bangla > English > Hindi > any. */

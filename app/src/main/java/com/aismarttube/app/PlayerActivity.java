@@ -65,6 +65,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
 
     static final String EXTRA_QUEUE = "queue";
     static final String EXTRA_INDEX = "index";
+    static final String EXTRA_ORDERED = "ordered";     // a real playlist: keep its own order, no "similar songs"
     private static final int REQ_STORAGE = 5501;
     private static final int REQ_NOTIFY = 5502;
 
@@ -89,6 +90,10 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         i.putExtra(EXTRA_QUEUE, a.toString());
         i.putExtra(EXTRA_INDEX, idx - from);
         return i;
+    }
+
+    static Intent intent(Context c, List<VideoItem> list, int idx, boolean ordered) {
+        return intent(c, list, idx).putExtra(EXTRA_ORDERED, ordered);
     }
 
     /** notification / headset / TalkBack two-finger tap. Returns false when the web player should handle it. */
@@ -131,6 +136,9 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     private VideoAdapter upAdapter;
 
     private final List<VideoItem> queue = new ArrayList<>();
+    private boolean ordered = false;
+    private final java.util.Set<String> played = new java.util.HashSet<>();
+    private final java.util.Set<String> playedTitles = new java.util.HashSet<>();
     private int qIndex = 0;
     private VideoItem cur;
     private int token = 0;
@@ -347,6 +355,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             int idx = Math.max(0, Math.min(list.size() - 1, in.getIntExtra(EXTRA_INDEX, 0)));
             boolean same = cur != null && cur.url.equals(list.get(idx).url)
                     && player != null && player.getMediaItemCount() > 0;
+            ordered = in.getBooleanExtra(EXTRA_ORDERED, false);
             queue.clear();
             queue.addAll(list);
             if (same) {
@@ -390,6 +399,9 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         paintLists();
         paintSub();
         refreshUpNext();
+        played.add(cur.url);
+        playedTitles.add(normTitle(cur.title));
+        if (!ordered && Store.settingBool(this, "smartNext", true)) loadSimilar(cur.url, token);
         spin.setVisibility(View.VISIBLE);
         applyPlaybackState(false);
         if (userAction && Store.settingBool(this, "focusHeading", true)) {
@@ -400,6 +412,42 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         }
         boolean fb = Store.settingBool(this, "fallback", true);
         fetch(token, fb ? "auto" : Store.settingStr(this, "primary", "newpipe"));
+    }
+
+    private static String normTitle(String t) {
+        return t == null ? "" : t.toLowerCase(java.util.Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
+    }
+
+    /** the songs after this one become the ones YouTube's Mix thinks fit its mood (not the next search result) */
+    private void loadSimilar(final String url, final int t) {
+        io.execute(() -> {
+            final List<VideoItem> got = new ArrayList<>();
+            try {
+                JSONObject d = new JSONObject(NewPipeHelper.getSimilar(url));
+                JSONArray a = d.optJSONArray("items");
+                if (a != null) for (int i = 0; i < a.length(); i++) {
+                    VideoItem v = VideoItem.fromJson(a.optJSONObject(i));
+                    if (v == null || v.url.isEmpty() || v.live || !"video".equals(v.kind) || v.duration > 1200) continue;
+                    got.add(v);
+                }
+            } catch (Throwable ignored) { }
+            if (got.isEmpty()) return;
+            ui.post(() -> {
+                if (t != token || isFinishing() || player == null) return;
+                List<VideoItem> tail = new ArrayList<>();
+                java.util.Set<String> seen = new java.util.HashSet<>();
+                for (VideoItem v : got) {
+                    String nt = normTitle(v.title);
+                    if (played.contains(v.url) || playedTitles.contains(nt) || !seen.add(nt)) continue;
+                    tail.add(v);
+                    if (tail.size() >= 25) break;
+                }
+                if (tail.isEmpty()) return;
+                while (queue.size() > qIndex + 1) queue.remove(queue.size() - 1);
+                queue.addAll(tail);
+                refreshUpNext();
+            });
+        });
     }
 
     private void fetch(final int t, final String src) {

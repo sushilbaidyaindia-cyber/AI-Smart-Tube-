@@ -167,7 +167,7 @@ public class YtPlaylistsActivity extends AppCompatActivity implements VideoAdapt
     public void onOpen(VideoItem item, int position) {
         if (item == null || item.url.isEmpty()) return;
         try { NativeFeedLoader.prefetch(item.url); } catch (Throwable ignored) { }
-        startActivity(PlayerActivity.intent(this, videos, position));
+        startActivity(PlayerActivity.intent(this, videos, position, true));
     }
 
     @Override
