@@ -373,7 +373,7 @@ public class TvPlayerActivity extends AppCompatActivity {
 
     // ---- keep the Jio access token fresh while playing, so the picture does not stop when it runs out
     private int tokFail = 0;
-    private List<String> alts = new ArrayList<>();     // other quality links of the Jio channel playing now
+    private List<String> alts = new java.util.ArrayList<>();     // other quality links of the Jio channel playing now
     private int altI = 0;
 
     private void scheduleToken(JioClient.Play p, final int myGen, final String id) {
