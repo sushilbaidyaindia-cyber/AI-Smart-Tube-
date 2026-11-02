@@ -229,6 +229,23 @@ public class TvPlayerActivity extends AppCompatActivity {
                     player.prepare();
                     return;
                 }
+                // Jio answered 404 for this quality: other qualities of the same channel often still work
+                try {
+                    Throwable c0 = e.getCause();
+                    if (e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+                            && c0 instanceof androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
+                            && ((androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) c0).responseCode == 404
+                            && altI < alts.size() && cuSrno == null) {
+                        String u = alts.get(altI++);
+                        setState(serverNote("Jio: অন্য মানের লিংক চেষ্টা হচ্ছে (" + altI + "/" + alts.size() + ")"));
+                        player.setMediaItem(new MediaItem.Builder().setUri(u).setMimeType(MimeTypes.APPLICATION_M3U8).build());
+                        player.prepare();
+                        player.play();
+                        ui.removeCallbacks(stuck);
+                        ui.postDelayed(stuck, 15000);
+                        return;
+                    }
+                } catch (Throwable ignored) { }
                 String cause = "";
                 try {
                     Throwable c = e.getCause();
@@ -328,6 +345,8 @@ public class TvPlayerActivity extends AppCompatActivity {
                     if (fp == null) { jioFailed(fe); return; }
                     http.setUserAgent(JioClient.UA_PLAYER);
                     http.setDefaultRequestProperties(fp.headers);
+                    alts = fp.alts;
+                    altI = 0;
                     MediaItem mi = new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build();
                     if (cuSrno != null && resumeMs > 0) player.setMediaItem(mi, resumeMs);   // fresh link, same place in the programme
                     else player.setMediaItem(mi);
@@ -354,6 +373,8 @@ public class TvPlayerActivity extends AppCompatActivity {
 
     // ---- keep the Jio access token fresh while playing, so the picture does not stop when it runs out
     private int tokFail = 0;
+    private List<String> alts = new ArrayList<>();     // other quality links of the Jio channel playing now
+    private int altI = 0;
 
     private void scheduleToken(JioClient.Play p, final int myGen, final String id) {
         long delay = 4 * 60000L;

@@ -64,6 +64,7 @@ final class JioClient {
         String url = "";
         String hdnea = "";
         final Map<String, String> headers = new HashMap<>();
+        final List<String> alts = new ArrayList<>();     // the other quality links: tried when the first one answers 404
     }
 
     // ------------------------------------------------------------ state
@@ -631,6 +632,13 @@ final class JioClient {
         Play p = new Play();
         p.url = absolute(url, base);
         p.hdnea = hdneaFrom(p.url);
+        java.util.List<String> more = new ArrayList<>(java.util.Arrays.asList(cand));
+        more.add(j.optString("result", ""));
+        for (String s : more) {
+            if (s == null || s.isEmpty() || !isHls(s)) continue;
+            String a = absolute(s, base);
+            if (!a.equals(p.url) && !p.alts.contains(a)) p.alts.add(a);
+        }
 
         // headers for the playlist, keys and video pieces
         for (String k : new String[]{"appkey", "crmid", "userId", "deviceId", "devicetype", "isott", "languageId", "lbcookie", "os",
