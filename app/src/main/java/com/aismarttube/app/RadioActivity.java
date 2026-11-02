@@ -53,6 +53,11 @@ public class RadioActivity extends AppCompatActivity {
         rPlay.setOnClickListener(v -> RadioHub.toggle());
         TabBar.setup(this, TabBar.RADIO);
         build();
+        // Android 13+: without this the radio notification (stop / next buttons) stays hidden
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 5503);
+        }
     }
 
     @Override
@@ -124,7 +129,7 @@ public class RadioActivity extends AppCompatActivity {
         n.setHint("স্টেশনের নাম");
         final EditText u = new EditText(this);
         u.setHint("স্ট্রিমের লিংক (https://…)");
-        u.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        u.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         box.addView(n);
         box.addView(u);
         new AlertDialog.Builder(this)
@@ -134,13 +139,13 @@ public class RadioActivity extends AppCompatActivity {
                     String name = n.getText().toString().trim();
                     String url = u.getText().toString().trim();
                     if (name.isEmpty() || !url.startsWith("http")) {
-                        nowText.announceForAccessibility("নাম আর https লিংক দুটোই লাগবে");
+                        getWindow().getDecorView().announceForAccessibility("নাম আর https লিংক দুটোই লাগবে");
                         return;
                     }
                     RadioStations.addCustom(this, name, url);
                     build();
                     refresh();
-                    nowText.announceForAccessibility(name + " যোগ হয়েছে");
+                    getWindow().getDecorView().announceForAccessibility(name + " যোগ হয়েছে");
                 })
                 .setNegativeButton("বাতিল", null)
                 .show();
@@ -220,6 +225,7 @@ public class RadioActivity extends AppCompatActivity {
                 v.setOnLongClickListener(x -> { deleteStationDialog(r.index); return true; });
             } else {
                 v.setOnLongClickListener(null);
+                ViewCompat.setAccessibilityDelegate(v, null);     // a recycled row must not keep the old "delete" action
             }
         }
     }

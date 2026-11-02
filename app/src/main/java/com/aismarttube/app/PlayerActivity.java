@@ -93,7 +93,11 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     }
 
     static Intent intent(Context c, List<VideoItem> list, int idx, boolean ordered) {
-        return intent(c, list, idx).putExtra(EXTRA_ORDERED, ordered);
+        if (!ordered) return intent(c, list, idx);
+        JSONArray a = new JSONArray();
+        for (int i = 0; i < list.size(); i++) a.put(list.get(i).toJson());      // a real playlist keeps all its videos in order
+        return new Intent(c, PlayerActivity.class).putExtra(EXTRA_QUEUE, a.toString())
+                .putExtra(EXTRA_INDEX, idx).putExtra(EXTRA_ORDERED, true);
     }
 
     /** notification / headset / TalkBack two-finger tap. Returns false when the web player should handle it. */
@@ -123,6 +127,8 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     private String subLang = "";      // "" off | bn | en | hi | orig
     final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newFixedThreadPool(2);
+    private final ExecutorService simIo = Executors.newSingleThreadExecutor();
+    private boolean keepTail = false;      // going back: do not replace the songs that come after
 
     private ExoPlayer player;
     private PlayerView pv;
@@ -254,6 +260,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             PlaybackService.sessionToken = null;
         }
         io.shutdownNow();
+        simIo.shutdownNow();
         super.onDestroy();
     }
 
@@ -401,7 +408,8 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         refreshUpNext();
         played.add(cur.url);
         playedTitles.add(normTitle(cur.title));
-        if (!ordered && Store.settingBool(this, "smartNext", true)) loadSimilar(cur.url, token);
+        if (!ordered && !keepTail && Store.settingBool(this, "smartNext", true)) loadSimilar(cur.url, token);
+        keepTail = false;
         spin.setVisibility(View.VISIBLE);
         applyPlaybackState(false);
         if (userAction && Store.settingBool(this, "focusHeading", true)) {
@@ -420,7 +428,8 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
 
     /** the songs after this one become the ones YouTube's Mix thinks fit its mood (not the next search result) */
     private void loadSimilar(final String url, final int t) {
-        io.execute(() -> {
+        simIo.execute(() -> {
+            if (t != token) return;            // the user already moved on
             final List<VideoItem> got = new ArrayList<>();
             try {
                 JSONObject d = new JSONObject(NewPipeHelper.getSimilar(url));
@@ -469,7 +478,8 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     private void onStreams(int t, JSONObject d, String src) {
         if (t != token || isFinishing() || player == null) return;
         if (!d.optBoolean("ok", false)) {
-            if (!"auto".equals(src) && !tried.contains(src)) tried.add(src);
+            if ("auto".equals(src)) { for (String x : SRC_ORDER) if (!tried.contains(x)) tried.add(x); }   // "auto" already tried them all
+            else if (!tried.contains(src)) tried.add(src);
             tryNextSource(d.optString("error", "স্ট্রিম পাওয়া যায়নি"));
             return;
         }
@@ -482,8 +492,14 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         long views = d.optLong("views", 0);
         long dur = d.optLong("duration", 0);
         String uu = d.optString("uploaderUrl", "");
-        if ((cur.uploaderUrl.isEmpty() && !uu.isEmpty()) || (views > 0 && cur.views == 0) || (dur > 0 && cur.duration == 0)) {
-            VideoItem n = new VideoItem(cur.title, cur.url, cur.uploader.isEmpty() ? d.optString("uploader", "") : cur.uploader,
+        String tt = d.optString("title", "");
+        boolean noTitle = cur.title.isEmpty() && !tt.isEmpty();
+        if (noTitle) {
+            title.setText(tt);
+            playedTitles.add(normTitle(tt));
+        }
+        if (noTitle || (cur.uploaderUrl.isEmpty() && !uu.isEmpty()) || (views > 0 && cur.views == 0) || (dur > 0 && cur.duration == 0)) {
+            VideoItem n = new VideoItem(noTitle ? tt : cur.title, cur.url, cur.uploader.isEmpty() ? d.optString("uploader", "") : cur.uploader,
                     cur.uploaderUrl.isEmpty() ? uu : cur.uploaderUrl,
                     cur.duration == 0 ? dur : cur.duration, cur.views == 0 ? views : cur.views, cur.thumb);
             cur = n;
@@ -1106,7 +1122,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     }
 
     private void prev() {
-        if (qIndex > 0) playIndex(qIndex - 1, true);
+        if (qIndex > 0) { keepTail = true; playIndex(qIndex - 1, true); }
         else say("আর আগের ভিডিও নেই");
     }
 

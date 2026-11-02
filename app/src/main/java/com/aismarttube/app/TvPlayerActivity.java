@@ -67,7 +67,8 @@ public class TvPlayerActivity extends AppCompatActivity {
     private long resumeMs = 0;          // where an earlier programme stopped on an error, so the fresh link continues from there
     private boolean jioRetried = false;   // a failing Jio channel gets one fresh link before the next server
     private String lastJioError = "";
-    private final Runnable stuck = () -> nextServer("সময় লাগছে");
+    private String lastPlayErr = "";   // why the player gave up: shown at the end so a failing channel can be understood
+    private final Runnable stuck = () -> { lastPlayErr = "১৫ সেকেন্ডে ছবি আসেনি"; nextServer("সময় লাগছে"); };
 
     @Override
     @SuppressWarnings("UnsafeOptInUsageError")
@@ -154,7 +155,7 @@ public class TvPlayerActivity extends AppCompatActivity {
         pv.setOnClickListener(v -> { if (fullscreen) controls.setVisibility(controls.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE); });
 
         PlayerActivity.yieldToOthers();
-        RadioHub.stopForVideo();
+        RadioHub.stopForOther();
         build();
         load();
     }
@@ -228,6 +229,13 @@ public class TvPlayerActivity extends AppCompatActivity {
                     player.prepare();
                     return;
                 }
+                String cause = "";
+                try {
+                    Throwable c = e.getCause();
+                    if (c != null) cause = " — " + c.getClass().getSimpleName() + (c.getMessage() == null ? "" : ": " + c.getMessage());
+                    if (cause.length() > 140) cause = cause.substring(0, 140);
+                } catch (Throwable ignored) { }
+                lastPlayErr = e.getErrorCodeName() + cause;
                 nextServer("চলেনি");
             }
         });
@@ -250,7 +258,8 @@ public class TvPlayerActivity extends AppCompatActivity {
         failed++;
         if (failed >= Math.max(2, streams.size())) {
             try { player.stop(); } catch (Throwable ignored) { }
-            setState("এই চ্যানেল এখন চলছে না (" + streams.size() + "টি সার্ভার চেষ্টা হয়েছে)। 'পরের চ্যানেল' চাপুন, অথবা একটু পরে আবার চেষ্টা করুন।");
+            setState("এই চ্যানেল এখন চলছে না (" + streams.size() + "টি সার্ভার চেষ্টা হয়েছে)। 'পরের চ্যানেল' চাপুন, অথবা একটু পরে আবার চেষ্টা করুন।"
+                    + (lastPlayErr.isEmpty() ? "" : " কারণ: " + lastPlayErr));
             return;
         }
         si = (si + 1) % streams.size();
@@ -299,7 +308,6 @@ public class TvPlayerActivity extends AppCompatActivity {
         final TvChannels.Stream s = streams.get(si);
         final String jioId = JioClient.idOf(s.url);
         ui.removeCallbacks(stuck);
-        ui.postDelayed(stuck, 15000);   // no picture after 15 s: next server
         if (!jioId.isEmpty()) {
             // Jio channel: ask Jio for a fresh playing link first (takes a moment, so not on the main thread)
             final int my = ++gen;
@@ -326,6 +334,7 @@ public class TvPlayerActivity extends AppCompatActivity {
                     player.prepare();
                     player.play();
                     updatePlay();
+                    ui.postDelayed(stuck, 15000);   // the 15 s count starts now, not while Jio was still answering
                     scheduleToken(fp, my, jioId);
                 });
             }, "jio-resolve").start();
@@ -340,9 +349,12 @@ public class TvPlayerActivity extends AppCompatActivity {
         player.prepare();
         player.play();
         updatePlay();
+        ui.postDelayed(stuck, 15000);   // no picture after 15 s: next server
     }
 
     // ---- keep the Jio access token fresh while playing, so the picture does not stop when it runs out
+    private int tokFail = 0;
+
     private void scheduleToken(JioClient.Play p, final int myGen, final String id) {
         long delay = 4 * 60000L;
         try {
@@ -368,8 +380,9 @@ public class TvPlayerActivity extends AppCompatActivity {
                 if (isFinishing() || player == null || myGen != gen) return;
                 if (fp != null && !fp.hdnea.isEmpty()) {
                     http.setDefaultRequestProperties(fp.headers);          // the next pieces ask with the new token; playing is not touched
+                    tokFail = 0;
                     scheduleToken(fp, myGen, id);
-                } else {
+                } else if (++tokFail <= 5) {
                     ui.postDelayed(() -> refreshToken(myGen, id), 60000L);
                 }
             });
@@ -469,9 +482,16 @@ public class TvPlayerActivity extends AppCompatActivity {
         load();
     }
 
+    /** play pressed after a failure: ask for a fresh link and start again from the first server */
+    private void retryNow() {
+        failed = 0;
+        jioRetried = false;
+        startStream();
+    }
+
     private void togglePlay() {
         if (player == null) return;
-        if (player.getPlaybackState() == Player.STATE_IDLE) { player.prepare(); player.play(); }
+        if (player.getPlaybackState() == Player.STATE_IDLE) retryNow();
         else if (player.isPlaying() || player.getPlayWhenReady()) player.pause();
         else player.play();
         updatePlay();
@@ -489,7 +509,7 @@ public class TvPlayerActivity extends AppCompatActivity {
             session = new MediaSession(this, "AISmartTubeTv");
             session.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
             session.setCallback(new MediaSession.Callback() {
-                @Override public void onPlay() { ui.post(() -> { if (player != null) { if (player.getPlaybackState() == Player.STATE_IDLE) player.prepare(); player.play(); updatePlay(); } }); }
+                @Override public void onPlay() { ui.post(() -> { if (player != null) { if (player.getPlaybackState() == Player.STATE_IDLE) retryNow(); else player.play(); updatePlay(); } }); }
                 @Override public void onPause() { ui.post(() -> { if (player != null) { player.pause(); updatePlay(); } }); }
                 @Override public void onStop() { ui.post(() -> { if (player != null) { player.pause(); updatePlay(); } }); }
                 @Override public void onSkipToNext() { ui.post(() -> step(1)); }

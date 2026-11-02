@@ -78,9 +78,11 @@ final class JioClient {
     }
 
     static void logout(Context c) {
-        Store.set(c, K_CRED, "");
-        Store.set(c, K_CH, "");
-        Store.set(c, K_CH_T, "");
+        synchronized (LOCK) {          // a token refresh running at the same time must not log the user back in
+            Store.set(c, K_CRED, "");
+            Store.set(c, K_CH, "");
+            Store.set(c, K_CH_T, "");
+        }
     }
 
     private static JSONObject cred(Context c) {
@@ -347,6 +349,8 @@ final class JioClient {
             if (seen.add(x.optString("channel_id", ""))) out.put(x);
         }
         if (out.length() == 0) throw new Exception("Jio চ্যানেলের তালিকা আসেনি" + (err == null ? "" : " (" + err + ")"));
+        // the account list failed and only the reduced default list came: keep the good saved list
+        if (err != null && main.length() == 0 && !Store.get(c, K_CH).isEmpty()) return;
         // keep only the fields we use, so the saved list stays small
         JSONArray slim = new JSONArray();
         for (int i = 0; i < out.length(); i++) {

@@ -32,9 +32,12 @@ class RadioPlayer {
     private int idx;
     private int gen;
     private boolean focus;
+    private boolean ready;
+    private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
 
     private final AudioManager.OnAudioFocusChangeListener focusListener = change -> {
         if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+            focus = false;          // the system took it: ask again when the user presses play
             pause();
         }
     };
@@ -98,6 +101,7 @@ class RadioPlayer {
             p.setDataSource(ctx, Uri.parse(urls[idx]), headers);
             p.setOnPreparedListener(m -> {
                 if (my != gen) return;
+                ready = true;
                 m.start();
                 listener.onState("playing");
             });
@@ -106,7 +110,9 @@ class RadioPlayer {
                 return true;
             });
             p.setOnCompletionListener(m -> failed(my));   // a live stream should never end -> reconnect / next link
+            ready = false;
             p.prepareAsync();
+            main.postDelayed(() -> { if (my == gen && !ready) failed(my); }, 20000);   // a dead link must not stay "loading" forever
         } catch (Throwable t) {
             t.printStackTrace();
             failed(my);

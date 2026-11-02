@@ -398,7 +398,7 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
             vids.add(v);
         }
         NativeFeedLoader.prefetch(item.url);
-        startActivity(PlayerActivity.intent(this, vids, idx));
+        startActivity(PlayerActivity.intent(this, vids, idx, playlistView));
     }
 
     @Override

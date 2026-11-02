@@ -495,6 +495,7 @@ public class TvActivity extends AppCompatActivity {
                     catch (Throwable t) { txt = "Jio: " + (t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage()); }
                     final String t2 = txt;
                     ui.post(() -> {
+                        if (isFinishing() || isDestroyed()) return;
                         showStatus("");
                         new AlertDialog.Builder(this).setTitle("আমার Jio প্ল্যান").setMessage(t2)
                                 .setPositiveButton("ঠিক আছে", null).show();
@@ -536,6 +537,7 @@ public class TvActivity extends AppCompatActivity {
                         catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
                         final String e = err;
                         ui.post(() -> {
+                            if (isFinishing() || isDestroyed()) return;
                             if (e != null) { showStatus("Jio: " + e); return; }
                             showStatus("OTP পাঠানো হয়েছে, মেসেজ দেখুন");
                             jioOtpDialog(num);
@@ -564,6 +566,7 @@ public class TvActivity extends AppCompatActivity {
                         } catch (Throwable t) { err = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage(); }
                         final String e = err;
                         ui.post(() -> {
+                            if (isFinishing() || isDestroyed()) return;
                             all = merge();
                             build();
                             if (e != null) showStatus("Jio: " + e);

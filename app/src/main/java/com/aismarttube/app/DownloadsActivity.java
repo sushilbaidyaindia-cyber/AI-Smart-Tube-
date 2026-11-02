@@ -184,7 +184,7 @@ public class DownloadsActivity extends AppCompatActivity {
     private void play(int pos) {
         Row r = rows.get(pos);
         try { PlayerActivity.yieldToOthers(); } catch (Throwable ignored) { }
-        try { RadioHub.stopForVideo(); } catch (Throwable ignored) { }
+        try { RadioHub.stopForOther(); } catch (Throwable ignored) { }
         ensurePlayer();
         int old = playing;
         playing = pos;

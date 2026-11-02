@@ -125,6 +125,11 @@ final class RadioHub {
         if (active()) stop(true);
     }
 
+    /** the TV player or downloads starts: nobody else will use the radio notification, so remove it too */
+    static void stopForOther() {
+        if (active()) stop(false);
+    }
+
     /** notification / headset / lock screen. false = the radio is not the active player */
     static boolean handleRemote(String cmd) {
         if (!active() || PlayerActivity.owner || cmd == null) return false;
