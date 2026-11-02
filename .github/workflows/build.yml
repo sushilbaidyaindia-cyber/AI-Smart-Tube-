@@ -5,6 +5,9 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,3 +40,14 @@ jobs:
           name: AI-Smart-Tube-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Publish APK as the "latest" release (fixed download link)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/*.apk AI-Smart-Tube.apk
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest AI-Smart-Tube.apk \
+            --title "AI Smart Tube - latest build" \
+            --notes "Built automatically from commit ${{ github.sha }}" \
+            --target ${{ github.sha }}
