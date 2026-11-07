@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Native AI page for one video: summary, clickbait check, translation, scene description, questions. */
+/** Native AI page for one video: summary, clickbait, translation, transcription, scene, questions. */
 public class AiActivity extends AppCompatActivity {
 
     static final String EXTRA_URL = "ai_url", EXTRA_TITLE = "ai_title", EXTRA_UPLOADER = "ai_uploader",
@@ -87,6 +87,8 @@ public class AiActivity extends AppCompatActivity {
         box.addView(btn("সারাংশ", () -> run("sum", null)));
         box.addView(btn("ক্লিকবেইট পরীক্ষা", () -> run("fact", null)));
         box.addView(btn("অনুবাদ", () -> run("tr", null)));
+        box.addView(btn("ট্রান্সক্রাইব (কথা লিখে দাও)", () -> run("tx", null)));
+        box.addView(btn("ট্রান্সক্রাইব + অনুবাদ", () -> run("txtr", null)));
         box.addView(btn("দৃশ্যের বর্ণনা (এখন যেখানে আছেন সেখান থেকে)", () -> run("scene", null)));
 
         askBox = new EditText(this);
@@ -163,6 +165,8 @@ public class AiActivity extends AppCompatActivity {
             case "sum": return "সারাংশ";
             case "fact": return "ক্লিকবেইট পরীক্ষা";
             case "tr": return "অনুবাদ";
+            case "tx": return "ট্রান্সক্রাইব";
+            case "txtr": return "ট্রান্সক্রাইব + অনুবাদ";
             case "scene": return "দৃশ্যের বর্ণনা";
             default: return "উত্তর";
         }
@@ -235,6 +239,18 @@ public class AiActivity extends AppCompatActivity {
             case "tr":
                 return "নিচের শিরোনাম ও বিবরণ" + (hasTr ? " এবং সাবটাইটেলের মূল অংশ" : "") + " " + lang + " ভাষায় অনুবাদ করো। প্রথমে \"শিরোনাম:\", তারপর \"বিবরণ:\""
                         + (hasTr ? ", তারপর \"সাবটাইটেল:\"" : "") + " শিরোনাম দিয়ে আলাদা করো। শুধু অনুবাদ দাও।\n\n" + ctx;
+            case "tx":
+                return note + "ভিডিওতে যা বলা হয়েছে তার সম্পূর্ণ বা মূল অংশের ট্রান্সক্রিপ্ট লেখো (speech-to-text)। "
+                        + "যে ভাষায় বলা হয়েছে সেই ভাষাতেই লেখো; অনুবাদ করো না। "
+                        + "স্পিকার আলাদা হলে '- নাম/স্পিকার:' দিয়ে আলাদা করো। সময় জানা গেলে [মি:সে] লেখো। "
+                        + "গানের লিরিক্স থাকলে সেগুলোও লেখো। অস্পষ্ট জায়গায় (অস্পষ্ট) লেখো, অনুমান করে পূরণ করো না। "
+                        + "শুধু ট্রান্সক্রিপ্ট দাও, ভূমিকা বা সারাংশ নয়।\n\n" + ctx;
+            case "txtr":
+                return note + "ভিডিওতে যা বলা হয়েছে তার ট্রান্সক্রিপ্ট লেখো, তারপর পুরো টেক্সট " + lang
+                        + " ভাষায় অনুবাদ করো। ফরম্যাট:\n"
+                        + "মূল:\n(মূল ভাষার টেক্সট)\n\nঅনুবাদ:\n(" + lang + " অনুবাদ)\n"
+                        + "স্পিকার আলাদা হলে আলাদা করো। সময় জানা গেলে [মি:সে] লেখো। "
+                        + "অস্পষ্ট জায়গায় (অস্পষ্ট) লেখো। অতিরিক্ত ব্যাখ্যা দিও না।\n\n" + ctx;
             case "scene":
                 return "তুমি ভিডিওর একটি ছোট অংশ দেখতে ও শুনতে পাচ্ছ। এই অংশটি মূল ভিডিওর " + fmt(ws) + " থেকে " + fmt(we)
                         + " পর্যন্ত। শুধু এই অংশের দৃশ্যগুলো সময় অনুসারে বর্ণনা করো, এমনভাবে যেন যিনি দেখতে পান না তিনি বুঝতে পারেন। "
@@ -258,7 +274,7 @@ public class AiActivity extends AppCompatActivity {
             q = askBox.getText().toString().trim();
             if (q.isEmpty()) { toast("প্রশ্ন লিখুন"); askBox.requestFocus(); return; }
         }
-        final String pname = "scene".equals(kind) ? "gemini"
+        final String pname = ("scene".equals(kind) || "tx".equals(kind) || "txtr".equals(kind)) ? "gemini"
                 : Store.settingStr(this, "prov" + ("sum".equals(kind) ? "Sum" : "fact".equals(kind) ? "Fact" : "tr".equals(kind) ? "Tr" : "Ask"), "gemini");
         final String[] cfg = provCfg(this, pname);
         if (cfg[3].trim().isEmpty()) {
@@ -269,9 +285,14 @@ public class AiActivity extends AppCompatActivity {
             return;
         }
         final boolean watch = "gemini".equals(pname) && isYoutube()
-                && ("scene".equals(kind) || (Store.settingBool(this, "aiWatch", true)
+                && ("scene".equals(kind) || "tx".equals(kind) || "txtr".equals(kind)
+                || (Store.settingBool(this, "aiWatch", true)
                 && ("sum".equals(kind) || "fact".equals(kind) || "ask".equals(kind))));
         if ("scene".equals(kind) && !isYoutube()) { toast("দৃশ্যের বর্ণনা শুধু ইউটিউব ভিডিওতে চলে"); return; }
+        if (("tx".equals(kind) || "txtr".equals(kind)) && !isYoutube()) {
+            toast("ট্রান্সক্রাইব এখন শুধু ইউটিউব ভিডিওতে চলে (Gemini ভিডিও দেখে)");
+            return;
+        }
         int ws = -1, we = -1;
         if ("scene".equals(kind)) {
             int s0 = startOverride != null ? startOverride : vPos;
@@ -288,7 +309,7 @@ public class AiActivity extends AppCompatActivity {
         showStart(kind, ws, we);
         if (cache.containsKey(ck)) { showDone(kind, cache.get(ck), ws, we); return; }
         if (busy) { toast("আগের অনুরোধ চলছে, একটু অপেক্ষা করুন"); return; }
-        if (watch && !"scene".equals(kind) && vDur > 1800) {
+        if (watch && !"scene".equals(kind) && vDur > 1800) { // tx/txtr too
             new AlertDialog.Builder(this).setTitle("ভিডিওটি বড়")
                     .setMessage("ভিডিও ৩০ মিনিটের বেশি লম্বা। Gemini-র দেখতে সময় ও আপনার ফ্রি সীমা বেশি লাগতে পারে। চালাবেন?")
                     .setPositiveButton("চালান", (d, w) -> go(kind, pname, cfg, watch, fq, fws, fwe, ck))
@@ -307,7 +328,11 @@ public class AiActivity extends AppCompatActivity {
                     final int ws, final int we, final String ck) {
         busy = true;
         final int myToken = ++token;
-        setText(provLabel(pname) + (watch ? ("scene".equals(kind) ? " ভিডিওর " + fmt(ws) + " থেকে " + fmt(we) + " অংশ দেখছে…" : " ভিডিও দেখছে…") : " ভাবছে…"));
+        setText(provLabel(pname) + (watch
+                ? ("scene".equals(kind) ? " ভিডিওর " + fmt(ws) + " থেকে " + fmt(we) + " অংশ দেখছে…"
+                : ("tx".equals(kind) || "txtr".equals(kind)) ? " অডিও শুনে লিখছে…"
+                : " ভিডিও দেখছে…")
+                : " ভাবছে…"));
         io.execute(() -> {
             try {
                 ensureInfo();
