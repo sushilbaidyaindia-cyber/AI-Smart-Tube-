@@ -45,7 +45,7 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
     private RecyclerView feedList, chanList;
     private TextView status;
     private Button btnFeed, btnChans;
-    private boolean feedMode = true;
+    private boolean feedMode = false; // default: চ্যানেল ট্যাব
     private int feedGen = 0;
     private boolean loadingFeed = false;
 
@@ -75,6 +75,7 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
         });
         TabBar.setup(this, TabBar.SUBS);
         paintMode();
+        showChannelsStatus();
     }
 
     @Override
@@ -128,7 +129,12 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
         try {
             String s = Store.get(this, "subs");
             JSONArray a = s.isEmpty() ? new JSONArray() : new JSONArray(s);
-            for (int i = 0; i < a.length(); i++) names.add(a.optString(i));
+            for (int i = 0; i < a.length(); i++) {
+                String n = a.optString(i);
+                if (n != null && !n.trim().isEmpty()) names.add(n.trim());
+            }
+            // A–Z / অ–য় : চ্যানেল নাম অ্যালফাবেটিক
+            java.util.Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
             String m = Store.get(this, "suburl");
             urls = m.isEmpty() ? new JSONObject() : new JSONObject(m);
         } catch (Throwable ignored) {}
