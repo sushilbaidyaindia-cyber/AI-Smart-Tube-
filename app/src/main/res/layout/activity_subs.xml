@@ -26,15 +26,6 @@
         android:paddingEnd="8dp">
 
         <Button
-            android:id="@+id/btnFeed"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:minHeight="48dp"
-            android:textAllCaps="false"
-            android:text="নতুন ভিডিও" />
-
-        <Button
             android:id="@+id/btnChans"
             android:layout_width="0dp"
             android:layout_height="48dp"
@@ -42,6 +33,15 @@
             android:minHeight="48dp"
             android:textAllCaps="false"
             android:text="চ্যানেল" />
+
+        <Button
+            android:id="@+id/btnFeed"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:minHeight="48dp"
+            android:textAllCaps="false"
+            android:text="নতুন ভিডিও" />
 
         <Button
             android:id="@+id/btnRefresh"
@@ -68,15 +68,15 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"
+        android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/chanList"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:clipToPadding="false"
-        android:visibility="gone" />
+        android:clipToPadding="false" />
 
     <include layout="@layout/bottom_tabs" />
 </LinearLayout>
