@@ -271,8 +271,9 @@ public class NewPipeHelper {
         root.put("views", streamInfo.getViewCount());
         root.put("duration", streamInfo.getDuration());
         try {
+            // v0.27.0: Description is a record → content() instead of getContent()
             root.put("description", streamInfo.getDescription() != null
-                    ? streamInfo.getDescription().getContent() : "");
+                    ? streamInfo.getDescription().content() : "");
         } catch (Throwable t) {
             root.put("description", "");
         }
