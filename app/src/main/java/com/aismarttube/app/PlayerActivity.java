@@ -537,8 +537,10 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
     private void startPlayback(JSONObject d) {
         String url = "";
         boolean am = audioMode;
+        // chosen by the user, or automatic: Bangla (original or dubbed) if the video has it, else the original language
+        final String pref = audioPref.isEmpty() ? autoAudioKey(d) : audioPref;
         if (am) {
-            JSONObject a = audioPref.isEmpty() ? null : pickAudioTrack(d, audioPref);
+            JSONObject a = pref.isEmpty() ? null : pickAudioTrack(d, pref);
             if (a == null) a = pickAudioForListening(d);
             if (a != null) url = a.optString("url", ""); else am = false;
         }
@@ -558,12 +560,12 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         pSubs.setVisibility(hasSubs ? View.VISIBLE : View.GONE);
         MediaSource merged = null;
         MediaItem.SubtitleConfiguration subCfg = am || !hasSubs ? null : subtitleFor(d);
-        JSONObject trackAudio = (am || audioPref.isEmpty() || tracks < 2) ? null : pickAudioTrack(d, audioPref);
+        JSONObject trackAudio = (am || pref.isEmpty() || tracks < 2) ? null : pickAudioTrack(d, pref);
         if (!audioPref.isEmpty() && !am && tracks >= 2 && trackAudio == null) note("এই ভিডিওতে এই ভাষার অডিও নেই, মূল অডিও চলছে");
         if (!am && (forceHeight > 0 || trackAudio != null)) {
             if (trackAudio != null) {
                 // a chosen audio language: picture and sound come as separate streams and are joined
-                JSONObject vs = pickVideoOnly(d, forceHeight > 0 ? forceHeight : 360);
+                JSONObject vs = pickVideoOnly(d, forceHeight > 0 ? forceHeight : qualityTarget());
                 if (vs != null) merged = buildMerged(vs.optString("url", ""), trackAudio.optString("url", ""), subCfg);
             } else {
                 JSONObject vs = pickByHeight(d, forceHeight);
@@ -660,6 +662,39 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         return best;
     }
 
+    /** automatic audio language when the video has several: Bangla (original or dubbed) first, else the original track */
+    private String autoAudioKey(JSONObject d) {
+        JSONArray a = d.optJSONArray("audioStreams");
+        if (a == null || audioTrackCount(d) < 2) return "";
+        String orig = "";
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null || o.optString("url", "").isEmpty()) continue;
+            String loc = langBase(o.optString("locale", ""));
+            String id = o.optString("trackId", "");
+            if ("bn".equals(loc) || "bn".equals(langBase(id))) return "bn";
+            String key = !loc.isEmpty() ? loc : id;
+            if (orig.isEmpty() && !key.isEmpty() && o.optString("trackType", "").toUpperCase().contains("ORIGINAL")) orig = key;
+        }
+        return orig;
+    }
+
+    private static boolean wantedTrack(JSONObject o, String pref) {
+        if (pref == null || pref.isEmpty()) return true;
+        String loc = langBase(o.optString("locale", ""));
+        String id = o.optString("trackId", "");
+        return pref.equals(loc) || pref.equals(id) || (!id.isEmpty() && langBase(id).equals(pref));
+    }
+
+    /** the picture height the quality setting asks for (used when audio and picture are joined) */
+    private int qualityTarget() {
+        String q = Store.settingStr(this, "quality", "auto");
+        if ("max".equals(q)) return 4320;
+        if ("low".equals(q)) return 144;
+        if ("auto".equals(q)) return 720;
+        try { return Integer.parseInt(q.replaceAll("\\D", "")); } catch (Throwable ignored) { return 720; }
+    }
+
     /** picture-only stream near the wanted height (not above it when possible) */
     private JSONObject pickVideoOnly(JSONObject d, int target) {
         JSONArray a = d.optJSONArray("videoStreams");
@@ -715,7 +750,7 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         }
         if (keys.size() < 2) { say("এই ভিডিওতে একটাই অডিও ভাষা আছে"); return; }
         String[] labels = new String[names.size() + 1];
-        labels[0] = "অটো (মূল)";
+        labels[0] = "অটো (বাংলা থাকলে বাংলা, নইলে মূল)";
         for (int i = 0; i < names.size(); i++) labels[i + 1] = names.get(i);
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("অডিও ভাষা")
@@ -882,10 +917,17 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         if (Store.settingBool(this, "lowData", false)) {
             JSONArray a = d.optJSONArray("audioStreams");
             JSONObject low = null;
+            String want = audioPref.isEmpty() ? autoAudioKey(d) : audioPref;
+            boolean anyWanted = false;
+            for (int i = 0; a != null && i < a.length() && !want.isEmpty(); i++) {
+                JSONObject o = a.optJSONObject(i);
+                if (o != null && !o.optString("url", "").isEmpty() && wantedTrack(o, want)) { anyWanted = true; break; }
+            }
             if (a != null) {
                 for (int i = 0; i < a.length(); i++) {
                     JSONObject o = a.optJSONObject(i);
                     if (o == null || o.optString("url", "").isEmpty()) continue;
+                    if (anyWanted && !wantedTrack(o, want)) continue;
                     long br = o.optLong("bitrate", 0);
                     if (br <= 0) continue;
                     boolean m4a = o.optString("format", "").toLowerCase().matches(".*(m4a|mp4|aac).*");
@@ -903,9 +945,16 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         if (a == null) return null;
         List<JSONObject> all = new ArrayList<>();
         List<JSONObject> m4a = new ArrayList<>();
+        String want = audioPref.isEmpty() ? autoAudioKey(d) : audioPref;
+        boolean anyWanted = false;
+        for (int i = 0; i < a.length() && !want.isEmpty(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o != null && !o.optString("url", "").isEmpty() && wantedTrack(o, want)) { anyWanted = true; break; }
+        }
         for (int i = 0; i < a.length(); i++) {
             JSONObject o = a.optJSONObject(i);
             if (o == null || o.optString("url", "").isEmpty()) continue;
+            if (anyWanted && !wantedTrack(o, want)) continue;
             all.add(o);
             if (o.optString("format", "").toLowerCase().matches(".*(m4a|mp4|aac).*")) m4a.add(o);
         }
