@@ -240,7 +240,8 @@ public class CommentsActivity extends AppCompatActivity {
         for (CommentsInfoItem c : items) {
             String name = c.getUploaderName() == null ? "" : c.getUploaderName();
             Object t = c.getCommentText();
-            String text = t instanceof Description ? ((Description) t).getContent() : String.valueOf(t);
+            // v0.27.0: Description is a record → content() instead of getContent()
+            String text = t instanceof Description ? ((Description) t).content() : String.valueOf(t);
             text = text == null ? "" : text.replaceAll("<[^>]+>", " ").replaceAll("&nbsp;", " ")
                     .replaceAll("&amp;", "&").replaceAll("&quot;", "\"").replaceAll("&#39;", "'")
                     .replaceAll("[ \\t]+", " ").trim();
