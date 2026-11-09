@@ -516,13 +516,61 @@ final class JioClient {
         long start, end;   // milliseconds
     }
 
-    /** the schedule of a channel. offset 0 = today, -1 = yesterday ... */
-    static List<Prog> epg(Context c, String channelId, int offset) throws Exception {
+    private static final long IST_MS = 5 * 3600000L + 30 * 60000L;
+    private static final long DAY_MS = 24 * 3600000L;
+
+    /**
+     * Jio's schedule service sometimes answers with an older day than the one asked for (its "today" lags).
+     * Its reply carries the day it really returned (serverDate); when that is older than the day asked for,
+     * the same request is repeated for the right day, as JioTV Go does.
+     */
+    private static int dayLag(String body, int offset) {
+        try {
+            JSONArray a = new JSONObject(body).optJSONArray("epg");
+            if (a == null || a.length() == 0) return 0;
+            String sd = a.getJSONObject(0).optString("serverDate", "");
+            if (sd.isEmpty()) return 0;
+            long server = parseIso(sd);
+            if (server <= 0) return 0;
+            long serverDay = (server + IST_MS) / DAY_MS;
+            long today = (System.currentTimeMillis() + IST_MS) / DAY_MS;
+            long lag = (today + offset) - serverDay;
+            return lag > 0 && lag < 5 ? (int) lag : 0;
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
+    private static long parseIso(String s) {
+        String[] fmts = {"yyyy-MM-dd'T'HH:mm:ss.SSSXXX", "yyyy-MM-dd'T'HH:mm:ssXXX", "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd'T'HH:mm:ss'Z'"};
+        for (String f : fmts) {
+            try {
+                SimpleDateFormat sf = new SimpleDateFormat(f, Locale.US);
+                sf.setTimeZone(TimeZone.getTimeZone("UTC"));
+                return sf.parse(s).getTime();
+            } catch (Throwable ignored) { }
+        }
+        return 0;
+    }
+
+    private static Resp epgRequest(String channelId, int offset) throws Exception {
         Map<String, String> h = new LinkedHashMap<>();
         h.put("User-Agent", "okhttp/4.12.13");
-        Resp r = http("GET", "https://jiotvapi.cdn.jio.com/apis/v1.3/getepg/get?offset=" + offset
+        return http("GET", "https://jiotvapi.cdn.jio.com/apis/v1.3/getepg/get?offset=" + offset
                 + "&channel_id=" + URLEncoder.encode(channelId, "UTF-8") + "&langId=6", h, null);
+    }
+
+    /** the schedule of a channel. offset 0 = today, -1 = yesterday ... */
+    static List<Prog> epg(Context c, String channelId, int offset) throws Exception {
+        Resp r = epgRequest(channelId, offset);
         if (r.code != 200) throw new Exception("অনুষ্ঠানের তালিকা আসেনি (কোড " + r.code + ")");
+        int lag = dayLag(r.body, offset);
+        if (lag > 0) {                       // got an older day: ask again for the right one
+            try {
+                Resp r2 = epgRequest(channelId, offset + lag);
+                if (r2.code == 200) r = r2;
+            } catch (Throwable ignored) { }
+        }
         JSONArray a = new JSONObject(r.body).optJSONArray("epg");
         if (a == null) throw new Exception("এই দিনের অনুষ্ঠানের তালিকা নেই");
         List<Prog> out = new ArrayList<>();
