@@ -134,11 +134,10 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
                 String n = a.optString(i);
                 if (n != null && !n.trim().isEmpty()) names.add(n.trim());
             }
-            // A–Z / অ–য় : চ্যানেল নাম অ্যালফাবেটিক; যেগুলোতে নতুন ভিডিও আছে সেগুলো আগে
+            // always A–Z, then অ–য়: the "new videos" marks never change the order
             java.util.Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
             newCounts.clear();
             for (String n : names) newCounts.put(n, Store.newCount(this, n));
-            java.util.Collections.sort(names, (x, y) -> Boolean.compare(newCounts.get(y) > 0, newCounts.get(x) > 0));
             String m = Store.get(this, "suburl");
             urls = m.isEmpty() ? new JSONObject() : new JSONObject(m);
         } catch (Throwable ignored) {}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Button xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/btnMore"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="12dp"
+    android:minHeight="48dp"
+    android:textAllCaps="false"
+    android:background="@drawable/pill_bg"
+    android:textColor="#EAF5F3"
+    android:text="আরও দেখুন"
+    android:visibility="gone" />

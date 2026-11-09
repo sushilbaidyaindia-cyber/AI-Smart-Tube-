@@ -53,6 +53,9 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
     private boolean listMode = false;      // the current results are playlists
     private String lastQ = "";
     private int autoChain = 0;
+    private boolean inPlaylist = false;                 // showing the videos of one playlist
+    private String savedNext = "";
+    private final List<VideoItem> savedItems = new ArrayList<>();
     private java.util.Set<String> watched = new java.util.HashSet<>();
     private RecyclerView list;
     private HistAd histAdapter;
@@ -167,6 +170,7 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
                 sugRows.clear();
                 sugRows.addAll(r);
                 nextTok = "";
+                inPlaylist = false;
                 btnMore.setVisibility(View.GONE);
                 chipScroll.setVisibility(View.GONE);
                 if (list.getAdapter() != sugAdapter) list.setAdapter(sugAdapter);
@@ -187,6 +191,7 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
     private void showHistory() {
         loadGen++;   // a search that is still running must not paint over the history
         nextTok = "";
+        inPlaylist = false;
         if (btnMore != null) btnMore.setVisibility(View.GONE);
         if (chipScroll != null) chipScroll.setVisibility(View.GONE);
         histRows.clear();
@@ -378,6 +383,7 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
     private void startSearch(boolean playlists) {
         if (list.getAdapter() != adapter) list.setAdapter(adapter);
         listMode = playlists;
+        inPlaylist = false;
         final int gen = ++loadGen;
         status.setText("সার্চ হচ্ছে…");
         nextTok = "";
@@ -512,9 +518,9 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
         }));
     }
 
-    /** a playlist from the results: its videos are fetched and played one after another */
+    /** a playlist from the results: its videos are listed (to pick one); back returns to the playlists */
     private void openPlaylist(final VideoItem pl) {
-        Toast.makeText(this, "প্লেলিস্ট খোলা হচ্ছে…", Toast.LENGTH_SHORT).show();
+        status.setText("প্লেলিস্ট লোড হচ্ছে…");
         new Thread(() -> {
             List<VideoItem> vids = new ArrayList<>();
             String msg = "প্লেলিস্ট আনা যায়নি";
@@ -533,10 +539,38 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
             final String fmsg = msg;
             main.post(() -> {
                 if (isFinishing()) return;
-                if (vids.isEmpty()) { Toast.makeText(this, fmsg, Toast.LENGTH_SHORT).show(); return; }
-                startActivity(PlayerActivity.intent(this, vids, 0, true));
+                if (vids.isEmpty()) {
+                    status.setText(fmsg);
+                    return;
+                }
+                if (!inPlaylist) {
+                    savedItems.clear();
+                    savedItems.addAll(allItems);
+                    savedNext = nextTok;
+                }
+                inPlaylist = true;
+                loadGen++;
+                nextTok = "";
+                btnMore.setVisibility(View.GONE);
+                chipScroll.setVisibility(View.GONE);
+                adapter.submit(vids);
+                status.setText(pl.title + ", " + vids.size() + "টি ভিডিও। পিছনে গেলে প্লেলিস্টের তালিকায় ফিরবেন।");
             });
         }).start();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (inPlaylist) {
+            inPlaylist = false;
+            allItems.clear();
+            allItems.addAll(savedItems);
+            nextTok = savedNext;
+            chipScroll.setVisibility(View.VISIBLE);
+            applyFilter();
+            return;
+        }
+        super.onBackPressed();
     }
 
     @Override
@@ -550,6 +584,6 @@ public class SearchNativeActivity extends AppCompatActivity implements VideoAdap
         java.util.List<VideoItem> all = adapter.items();
         int idx = 0;
         for (int k = 0; k < all.size(); k++) if (all.get(k).url.equals(item.url)) { idx = k; break; }
-        startActivity(PlayerActivity.intent(this, all, idx));
+        startActivity(PlayerActivity.intent(this, all, idx, inPlaylist));
     }
 }

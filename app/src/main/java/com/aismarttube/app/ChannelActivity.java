@@ -13,6 +13,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
+import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -47,7 +48,7 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
     private VideoAdapter adapter;
     private TextView status, chName, chMeta, chDesc, barTitle;
     private Button chSub, btnMore, btnBackList;
-    private android.widget.ScrollView chScroll;
+    private RecyclerView listView;
     private LinearLayout tabRow, sortRow;
 
     private String chUrl = "";
@@ -71,27 +72,38 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
         if (chUrl == null) chUrl = "";
         if (chNameStr == null) chNameStr = "";
 
-        status = findViewById(R.id.status);
-        chName = findViewById(R.id.chName);
-        chMeta = findViewById(R.id.chMeta);
-        chDesc = findViewById(R.id.chDesc);
+        // One list does all the scrolling: channel header on top, then the videos, then the "more" button.
+        // (A list inside a scroll view made TalkBack stop after the first few videos.)
+        View header = getLayoutInflater().inflate(R.layout.channel_header, null, false);
+        header.setLayoutParams(new RecyclerView.LayoutParams(-1, -2));
+        View footer = getLayoutInflater().inflate(R.layout.channel_more, null, false);
+        RecyclerView.LayoutParams flp = new RecyclerView.LayoutParams(-1, -2);
+        int m12 = Math.round(12 * getResources().getDisplayMetrics().density);
+        flp.setMargins(m12, m12, m12, m12);
+        footer.setLayoutParams(flp);
+
+        status = header.findViewById(R.id.status);
+        chName = header.findViewById(R.id.chName);
+        chMeta = header.findViewById(R.id.chMeta);
+        chDesc = header.findViewById(R.id.chDesc);
         barTitle = findViewById(R.id.barTitle);
-        chSub = findViewById(R.id.chSub);
-        btnMore = findViewById(R.id.btnMore);
-        btnBackList = findViewById(R.id.btnBackList);
-        tabRow = findViewById(R.id.tabRow);
-        sortRow = findViewById(R.id.sortRow);
+        chSub = header.findViewById(R.id.chSub);
+        btnMore = (Button) footer;
+        btnBackList = header.findViewById(R.id.btnBackList);
+        tabRow = header.findViewById(R.id.tabRow);
+        sortRow = header.findViewById(R.id.sortRow);
         ViewCompat.setAccessibilityHeading(chName, true);
 
-        RecyclerView list = findViewById(R.id.list);
-        list.setLayoutManager(new LinearLayoutManager(this));
-        list.setItemViewCacheSize(8);
+        listView = findViewById(R.id.list);
+        listView.setLayoutManager(new LinearLayoutManager(this));
+        listView.setItemViewCacheSize(8);
         adapter = new VideoAdapter(this);
-        list.setAdapter(adapter);
-
-        chScroll = findViewById(R.id.chScroll);
+        listView.setAdapter(new ConcatAdapter(new Single(header), adapter, new Single(footer)));
         // the next batch loads by itself when the reader gets near the end of the list (the button stays as a fallback)
-        chScroll.setOnScrollChangeListener((v, x, y, ox, oy) -> loadMoreIfNearEnd());
+        listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView rv, int dx, int dy) { loadMoreIfNearEnd(); }
+        });
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         btnMore.setOnClickListener(v -> loadMore());
@@ -265,6 +277,7 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
         items = new ArrayList<>();
         nextTok = "";
         adapter.submit(new ArrayList<>());
+        listView.scrollToPosition(0);
         status.setVisibility(View.VISIBLE);
         status.setText("লোড হচ্ছে…");
         final int my = ++seq;
@@ -291,12 +304,24 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
 
     /** starts the next batch when fewer than about two screens of items are left below */
     private void loadMoreIfNearEnd() {
-        if (nextTok.isEmpty() || info == null || chScroll == null) return;
+        if (nextTok.isEmpty() || info == null || listView == null) return;
         if (btnMore.getVisibility() != View.VISIBLE || !btnMore.isEnabled()) return;
-        View c = chScroll.getChildAt(0);
-        if (c == null) return;
-        int left = c.getBottom() - (chScroll.getHeight() + chScroll.getScrollY());
-        if (left <= chScroll.getHeight()) loadMore();
+        LinearLayoutManager lm = (LinearLayoutManager) listView.getLayoutManager();
+        RecyclerView.Adapter<?> ad = listView.getAdapter();
+        if (lm == null || ad == null) return;
+        if (lm.findLastVisibleItemPosition() >= ad.getItemCount() - 6) loadMore();
+    }
+
+    /** a one-row adapter that shows a ready-made view (the channel header, the "more" button) */
+    private static class Single extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private final View v;
+        Single(View v) { this.v = v; }
+        @Override public int getItemCount() { return 1; }
+        @Override public RecyclerView.ViewHolder onCreateViewHolder(android.view.ViewGroup p, int t) {
+            if (v.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) v.getParent()).removeView(v);
+            return new RecyclerView.ViewHolder(v) {};
+        }
+        @Override public void onBindViewHolder(RecyclerView.ViewHolder h, int pos) {}
     }
 
     private void loadMore() {
@@ -337,6 +362,7 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
         items = new ArrayList<>();
         nextTok = "";
         adapter.submit(new ArrayList<>());
+        listView.scrollToPosition(0);
         btnMore.setVisibility(View.GONE);
         status.setVisibility(View.VISIBLE);
         status.setText("প্লেলিস্ট লোড হচ্ছে…");
@@ -402,7 +428,7 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
             Store.markSeen(this, chNameStr, seenNow);
         }
         // a short first batch may not fill the screen: then no scrolling can happen, so check once now
-        if (chScroll != null) chScroll.post(this::loadMoreIfNearEnd);
+        if (listView != null) listView.post(this::loadMoreIfNearEnd);
     }
 
     @Override
