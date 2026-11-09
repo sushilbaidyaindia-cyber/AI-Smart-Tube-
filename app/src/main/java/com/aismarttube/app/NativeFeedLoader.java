@@ -24,7 +24,53 @@ public final class NativeFeedLoader {
         void onResult(List<VideoItem> items, String error);
     }
 
+    /** a page of search results plus the token for the next page ("" when there is no more) */
+    public interface PagedCallback {
+        void onResult(List<VideoItem> items, String next, String error);
+    }
+
     private static final ExecutorService POOL = Executors.newFixedThreadPool(2);
+
+    /** first page of a video search, with the token for the next page */
+    public static void searchPaged(String query, PagedCallback cb) { searchPaged(query, "videos", cb); }
+
+    /** first page of a search for "videos" or "playlists", with the token for the next page */
+    public static void searchPaged(String query, String kind, PagedCallback cb) {
+        final String q = query == null ? "" : query.trim();
+        if (q.isEmpty()) {
+            cb.onResult(new ArrayList<>(), "", "খালি সার্চ");
+            return;
+        }
+        POOL.execute(() -> {
+            try {
+                NewPipeHelper.ensureInit();
+                JSONObject root = new JSONObject(NewPipeHelper.searchKind(q, kind));
+                if (!root.optBoolean("ok", false)) {
+                    cb.onResult(new ArrayList<>(), "", root.optString("error", "সার্চ ব্যর্থ"));
+                    return;
+                }
+                cb.onResult(parseItems(root.optJSONArray("items")), root.optString("next", ""), null);
+            } catch (Throwable t) {
+                cb.onResult(new ArrayList<>(), "", t.getMessage() != null ? t.getMessage() : "ত্রুটি");
+            }
+        });
+    }
+
+    /** the next page of a search */
+    public static void searchMore(String token, PagedCallback cb) {
+        POOL.execute(() -> {
+            try {
+                JSONObject root = new JSONObject(NewPipeHelper.searchMore(token));
+                if (!root.optBoolean("ok", false)) {
+                    cb.onResult(new ArrayList<>(), token, root.optString("error", "আনা যায়নি"));
+                    return;
+                }
+                cb.onResult(parseItems(root.optJSONArray("items")), root.optString("next", ""), null);
+            } catch (Throwable t) {
+                cb.onResult(new ArrayList<>(), token, t.getMessage() != null ? t.getMessage() : "ত্রুটি");
+            }
+        });
+    }
 
     private NativeFeedLoader() {}
 

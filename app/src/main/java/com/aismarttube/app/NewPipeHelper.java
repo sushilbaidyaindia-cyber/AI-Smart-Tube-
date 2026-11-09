@@ -8,6 +8,7 @@ import org.schabi.newpipe.extractor.Page;
 import org.schabi.newpipe.extractor.channel.ChannelInfo;
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo;
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler;
+import org.schabi.newpipe.extractor.linkhandler.SearchQueryHandler;
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo;
 import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem;
 import org.schabi.newpipe.extractor.Image;
@@ -192,38 +193,84 @@ public class NewPipeHelper {
 
     private static JSONObject searchNewPipe(String q) throws Exception {
         ensureInit();
-        SearchInfo info = SearchInfo.getInfo(
-                ServiceList.YouTube,
-                ServiceList.YouTube.getSearchQHFactory().fromQuery(
-                        q, Collections.singletonList("videos"), "")
-        );
+        SearchQueryHandler qh = ServiceList.YouTube.getSearchQHFactory().fromQuery(
+                q, Collections.singletonList("videos"), "");
+        SearchInfo info = SearchInfo.getInfo(ServiceList.YouTube, qh);
         JSONArray items = new JSONArray();
-        int n = 0;
-        for (InfoItem item : info.getRelatedItems()) {
-            if (!(item instanceof StreamInfoItem)) continue;
-            StreamInfoItem s = (StreamInfoItem) item;
-            JSONObject o = new JSONObject();
-            o.put("title", s.getName() != null ? s.getName() : "");
-            o.put("url", s.getUrl() != null ? s.getUrl() : "");
-            o.put("uploader", s.getUploaderName() != null ? s.getUploaderName() : "");
-            o.put("uploaderUrl", s.getUploaderUrl() != null ? s.getUploaderUrl() : "");
-            putStreamMeta(o, s);
-            String thumb = "";
-            try {
-                if (s.getThumbnails() != null && !s.getThumbnails().isEmpty()) {
-                    thumb = s.getThumbnails().get(s.getThumbnails().size() - 1).getUrl();
-                }
-            } catch (Throwable ignored) {}
-            o.put("thumb", thumb);
-            items.put(o);
-            if (++n >= 30) break;
-        }
+        addSearchItems(items, info.getRelatedItems());
         JSONObject root = new JSONObject();
         root.put("ok", true);
         root.put("query", q);
         root.put("items", items);
         root.put("source", "newpipe");
+        // the next page of results, fetched later by searchMore()
+        root.put("next", info.getNextPage() != null ? rememberSearch(qh, info.getNextPage()) : "");
         return root;
+    }
+
+    /** videos and playlists of a search page (channels and the rest are left out) */
+    private static void addSearchItems(JSONArray items, List<? extends InfoItem> list) throws Exception {
+        if (list == null) return;
+        for (InfoItem item : list) {
+            JSONObject j = itemJson(item);
+            if (!"other".equals(j.getString("kind"))) items.put(j);
+        }
+    }
+
+    /** First page of a search for one kind of result: "videos" (with the usual fallbacks) or "playlists". */
+    public static String searchKind(String query, String kind) {
+        if (!"playlists".equals(kind)) return search(query);
+        if (query == null || query.trim().isEmpty()) return err("খালি সার্চ");
+        try {
+            ensureInit();
+            SearchQueryHandler qh = ServiceList.YouTube.getSearchQHFactory().fromQuery(
+                    query.trim(), Collections.singletonList("playlists"), "");
+            SearchInfo info = SearchInfo.getInfo(ServiceList.YouTube, qh);
+            JSONArray items = new JSONArray();
+            addSearchItems(items, info.getRelatedItems());
+            JSONObject root = new JSONObject();
+            root.put("ok", true);
+            root.put("items", items);
+            root.put("next", info.getNextPage() != null ? rememberSearch(qh, info.getNextPage()) : "");
+            return root.toString();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return err("প্লেলিস্ট সার্চ ব্যর্থ: " + e.getMessage());
+        }
+    }
+
+    private static final Map<String, SearchQueryHandler> SEARCH_HANDLERS = new HashMap<>();
+
+    private static String rememberSearch(SearchQueryHandler qh, Page next) {
+        String tok = remember(next);
+        synchronized (SEARCH_HANDLERS) {
+            if (SEARCH_HANDLERS.size() > 40) SEARCH_HANDLERS.clear();
+            SEARCH_HANDLERS.put(tok, qh);
+        }
+        return tok;
+    }
+
+    /** The next page of a NewPipe search; token comes from the "next" field of the previous result. */
+    public static String searchMore(String token) {
+        try {
+            SearchQueryHandler qh;
+            Page pg;
+            synchronized (SEARCH_HANDLERS) { qh = SEARCH_HANDLERS.get(token); }
+            synchronized (NEXT_PAGES) { pg = NEXT_PAGES.get(token); }
+            if (qh == null || pg == null) return err("আর পাওয়া যায়নি");
+            ensureInit();
+            ListExtractor.InfoItemsPage<InfoItem> page = SearchInfo.getMoreItems(ServiceList.YouTube, qh, pg);
+            JSONArray items = new JSONArray();
+            addSearchItems(items, page.getItems());
+            JSONObject o = new JSONObject();
+            o.put("ok", true);
+            o.put("items", items);
+            o.put("next", page.hasNextPage() ? rememberSearch(qh, page.getNextPage()) : "");
+            return o.toString();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return err("আরও আনা যায়নি: " + e.getMessage());
+        }
     }
 
     // ----------------------------------------------------------------- streams
@@ -455,6 +502,11 @@ public class NewPipeHelper {
         } catch (Throwable ignored) {}
         // Some list items mis-report duration for long lives; UI shows লাইভ instead.
         o.put("isLive", live);
+        try {   // newer extractors tell whether it is a Short (looked up by name: older ones do not have it)
+            java.lang.reflect.Method m = s.getClass().getMethod("isShortFormContent");
+            Object r = m.invoke(s);
+            o.put("short", r instanceof Boolean && (Boolean) r);
+        } catch (Throwable ignored) {}
         o.put("duration", live ? 0L : Math.max(0L, dur));
         try {
             o.put("views", Math.max(0L, s.getViewCount()));

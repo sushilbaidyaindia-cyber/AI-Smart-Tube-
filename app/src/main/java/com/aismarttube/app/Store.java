@@ -87,6 +87,83 @@ final class Store {
         return new JSONArray();
     }
 
+    /** urls of everything already watched (the history list) */
+    static java.util.Set<String> historyUrls(Context c) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        JSONArray a = arr(c, "history");
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o != null) out.add(o.optString("url"));
+        }
+        return out;
+    }
+
+    // ---------------------------------------------- "new videos" marks on subscribed channels
+    // chlatest: channel name -> its newest video urls (from the last check)
+    // chseen:   channel name -> video urls already noticed (channel opened, or video watched)
+
+    private static JSONObject obj(Context c, String key) {
+        try {
+            String s = get(c, key);
+            if (!s.isEmpty()) return new JSONObject(s);
+        } catch (Throwable ignored) {}
+        return new JSONObject();
+    }
+
+    private static java.util.List<String> strings(JSONObject o, String name) {
+        java.util.List<String> l = new java.util.ArrayList<>();
+        JSONArray a = o.optJSONArray(name);
+        for (int i = 0; a != null && i < a.length(); i++) l.add(a.optString(i));
+        return l;
+    }
+
+    /** remembers the newest videos of each channel; a channel seen for the first time starts with nothing "new" */
+    static void saveLatest(Context c, java.util.Map<String, java.util.List<String>> latest) {
+        try {
+            JSONObject lat = obj(c, "chlatest");
+            JSONObject seen = obj(c, "chseen");
+            for (java.util.Map.Entry<String, java.util.List<String>> e : latest.entrySet()) {
+                if (e.getValue() == null || e.getValue().isEmpty()) continue;
+                lat.put(e.getKey(), new JSONArray(e.getValue()));
+                if (!seen.has(e.getKey())) seen.put(e.getKey(), new JSONArray(e.getValue()));
+            }
+            set(c, "chlatest", lat.toString());
+            set(c, "chseen", seen.toString());
+        } catch (Throwable ignored) {}
+    }
+
+    static boolean hasLatest(Context c) { return !get(c, "chlatest").isEmpty(); }
+
+    /** these videos of the channel have been noticed */
+    static void markSeen(Context c, String name, java.util.Collection<String> urls) {
+        if (name == null || name.isEmpty() || urls == null || urls.isEmpty()) return;
+        try {
+            JSONObject seen = obj(c, "chseen");
+            java.util.LinkedHashSet<String> all = new java.util.LinkedHashSet<>(strings(seen, name));
+            all.addAll(urls);
+            java.util.List<String> keep = new java.util.ArrayList<>(all);
+            if (keep.size() > 40) keep = keep.subList(keep.size() - 40, keep.size());
+            seen.put(name, new JSONArray(keep));
+            set(c, "chseen", seen.toString());
+        } catch (Throwable ignored) {}
+    }
+
+    /** everything the last check found for this channel counts as noticed */
+    static void markLatestSeen(Context c, String name) {
+        markSeen(c, name, strings(obj(c, "chlatest"), name));
+    }
+
+    /** how many of the channel's newest videos are neither noticed nor watched */
+    static int newCount(Context c, String name) {
+        java.util.List<String> lat = strings(obj(c, "chlatest"), name);
+        if (lat.isEmpty()) return 0;
+        java.util.Set<String> seen = new java.util.HashSet<>(strings(obj(c, "chseen"), name));
+        java.util.Set<String> hist = historyUrls(c);
+        int n = 0;
+        for (String u : lat) if (!seen.contains(u) && !hist.contains(u)) n++;
+        return n;
+    }
+
     static boolean listHas(Context c, String key, String url) {
         JSONArray a = arr(c, key);
         for (int i = 0; i < a.length(); i++) {

@@ -47,6 +47,7 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
     private VideoAdapter adapter;
     private TextView status, chName, chMeta, chDesc, barTitle;
     private Button chSub, btnMore, btnBackList;
+    private android.widget.ScrollView chScroll;
     private LinearLayout tabRow, sortRow;
 
     private String chUrl = "";
@@ -87,6 +88,10 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
         list.setItemViewCacheSize(8);
         adapter = new VideoAdapter(this);
         list.setAdapter(adapter);
+
+        chScroll = findViewById(R.id.chScroll);
+        // the next batch loads by itself when the reader gets near the end of the list (the button stays as a fallback)
+        chScroll.setOnScrollChangeListener((v, x, y, ox, oy) -> loadMoreIfNearEnd());
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         btnMore.setOnClickListener(v -> loadMore());
@@ -284,6 +289,16 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
         });
     }
 
+    /** starts the next batch when fewer than about two screens of items are left below */
+    private void loadMoreIfNearEnd() {
+        if (nextTok.isEmpty() || info == null || chScroll == null) return;
+        if (btnMore.getVisibility() != View.VISIBLE || !btnMore.isEnabled()) return;
+        View c = chScroll.getChildAt(0);
+        if (c == null) return;
+        int left = c.getBottom() - (chScroll.getHeight() + chScroll.getScrollY());
+        if (left <= chScroll.getHeight()) loadMore();
+    }
+
     private void loadMore() {
         if (nextTok.isEmpty() || info == null) return;
         btnMore.setEnabled(false);
@@ -381,6 +396,13 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
             status.setVisibility(View.GONE);
         }
         btnMore.setVisibility(nextTok.isEmpty() ? View.GONE : View.VISIBLE);
+        if (!playlistView && !chNameStr.isEmpty()) {
+            List<String> seenNow = new ArrayList<>();
+            for (int i = 0; i < l.size() && i < 12; i++) if (!"playlist".equals(l.get(i).kind)) seenNow.add(l.get(i).url);
+            Store.markSeen(this, chNameStr, seenNow);
+        }
+        // a short first batch may not fill the screen: then no scrolling can happen, so check once now
+        if (chScroll != null) chScroll.post(this::loadMoreIfNearEnd);
     }
 
     @Override

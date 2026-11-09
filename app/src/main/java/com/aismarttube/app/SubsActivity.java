@@ -33,12 +33,13 @@ import java.util.concurrent.TimeUnit;
 public class SubsActivity extends AppCompatActivity implements VideoAdapter.Listener {
 
     private static final long FEED_FRESH_MS = 30 * 60 * 1000L;
-    private static final int MAX_CHANNELS = 14;
+    private static final int MAX_CHANNELS = 24;
     private static final int PER_CHANNEL = 4;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService pool = Executors.newFixedThreadPool(3);
     private final List<String> names = new ArrayList<>();
+    private final java.util.Map<String, Integer> newCounts = new java.util.HashMap<>();
     private JSONObject urls = new JSONObject();
     private VideoAdapter feedAdapter;
     private RecyclerView.Adapter<RecyclerView.ViewHolder> chanAdapter;
@@ -71,7 +72,7 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
         btnFeed.setOnClickListener(v -> setMode(true));
         btnChans.setOnClickListener(v -> setMode(false));
         findViewById(R.id.btnRefresh).setOnClickListener(v -> {
-            if (feedMode) loadFeed(true); else { loadNames(); }
+            if (feedMode) loadFeed(true); else { loadNames(); loadFeed(true); }
         });
         TabBar.setup(this, TabBar.SUBS);
         paintMode();
@@ -82,7 +83,7 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
     protected void onResume() {
         super.onResume();
         loadNames();
-        if (feedMode) loadFeed(false);
+        loadFeed(false);     // also checks the channels for new videos, quietly when the channel list is shown
         YtSync.auto(this, () -> { loadNames(); if (feedMode) loadFeed(true); });
     }
 
@@ -133,8 +134,11 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
                 String n = a.optString(i);
                 if (n != null && !n.trim().isEmpty()) names.add(n.trim());
             }
-            // A–Z / অ–য় : চ্যানেল নাম অ্যালফাবেটিক
+            // A–Z / অ–য় : চ্যানেল নাম অ্যালফাবেটিক; যেগুলোতে নতুন ভিডিও আছে সেগুলো আগে
             java.util.Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
+            newCounts.clear();
+            for (String n : names) newCounts.put(n, Store.newCount(this, n));
+            java.util.Collections.sort(names, (x, y) -> Boolean.compare(newCounts.get(y) > 0, newCounts.get(x) > 0));
             String m = Store.get(this, "suburl");
             urls = m.isEmpty() ? new JSONObject() : new JSONObject(m);
         } catch (Throwable ignored) {}
@@ -144,8 +148,15 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
 
     private void showChannelsStatus() {
         if (names.isEmpty()) say("কোনো চ্যানেল সাবস্ক্রাইব করা নেই। ভিডিও দেখার সময় \"সাবস্ক্রাইব\" চাপুন। এগুলো শুধু এই ফোনে থাকে।");
-        else say("");
+        else {
+            int withNew = 0;
+            for (String n : names) if (newCounts.containsKey(n) && newCounts.get(n) > 0) withNew++;
+            say(withNew > 0 ? VideoItem.formatCountBn(withNew) + "টি চ্যানেলে নতুন ভিডিও আছে" : "");
+        }
     }
+
+    /** feed messages are shown only while the feed itself is on screen */
+    private void sayFeed(String s) { if (feedMode) say(s); }
 
     private void say(String s) {
         status.setText(s);
@@ -158,6 +169,7 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
             Toast.makeText(this, "এই চ্যানেলের লিংক সেভ নেই। ওর কোনো ভিডিও খুলে চ্যানেল বোতামে চাপুন।", Toast.LENGTH_LONG).show();
             return;
         }
+        Store.markLatestSeen(this, name);     // opening the channel counts as having noticed its new videos
         ChannelActivity.start(this, url, name);
     }
 
@@ -196,8 +208,20 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
         public void onBindViewHolder(RecyclerView.ViewHolder h, int pos) {
             final String n = names.get(pos);
             TextView v = (TextView) h.itemView;
-            v.setText(n);
-            v.setContentDescription(n + " চ্যানেল খুলুন");
+            Integer cnt = newCounts.get(n);
+            int fresh = cnt == null ? 0 : cnt;
+            if (fresh > 0) {
+                String badge = "   ● " + VideoItem.formatCountBn(fresh) + "টি নতুন ভিডিও";
+                android.text.SpannableString sp = new android.text.SpannableString(n + badge);
+                sp.setSpan(new android.text.style.ForegroundColorSpan(0xFFFFB84A), n.length(), sp.length(),
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                sp.setSpan(new android.text.style.RelativeSizeSpan(0.8f), n.length(), sp.length(),
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                v.setText(sp);
+            } else {
+                v.setText(n);
+            }
+            v.setContentDescription(n + (fresh > 0 ? ", " + VideoItem.formatCountBn(fresh) + "টি নতুন ভিডিও" : "") + ", চ্যানেল খুলুন");
             v.setOnClickListener(x -> openChannel(n));
             ViewCompat.addAccessibilityAction(v, "সাবস্ক্রিপশন বাতিল", (view, args) -> {
                 confirmRemove(n);
@@ -221,7 +245,7 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
             }
             if (!list.isEmpty()) {
                 feedAdapter.submit(list);
-                say("");
+                sayFeed("");
             }
         } catch (Throwable ignored) {}
     }
@@ -237,16 +261,16 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
     private void loadFeed(final boolean force) {
         if (names.isEmpty()) {
             feedAdapter.submit(new ArrayList<>());
-            say("কোনো চ্যানেল সাবস্ক্রাইব করা নেই। ভিডিও দেখার সময় \"সাবস্ক্রাইব\" চাপুন।");
+            sayFeed("কোনো চ্যানেল সাবস্ক্রাইব করা নেই। ভিডিও দেখার সময় \"সাবস্ক্রাইব\" চাপুন।");
             return;
         }
         if (feedAdapter.getItemCount() == 0) showCached();
-        if (!force && feedAdapter.getItemCount() > 0 && cacheAge() < FEED_FRESH_MS) return;
+        if (!force && feedAdapter.getItemCount() > 0 && cacheAge() < FEED_FRESH_MS && Store.hasLatest(this)) return;
         if (loadingFeed) return;
         loadingFeed = true;
         final int gen = ++feedGen;
-        if (feedAdapter.getItemCount() == 0) say("সাবস্ক্রাইব করা চ্যানেলের নতুন ভিডিও আনা হচ্ছে…");
-        else if (force) say("নতুন করে আনা হচ্ছে…");
+        if (feedAdapter.getItemCount() == 0) sayFeed("সাবস্ক্রাইব করা চ্যানেলের নতুন ভিডিও আনা হচ্ছে…");
+        else if (force) sayFeed("নতুন করে আনা হচ্ছে…");
 
         final List<String> chNames = new ArrayList<>();
         final List<String> chUrls = new ArrayList<>();
@@ -259,7 +283,7 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
         }
         if (chNames.isEmpty()) {
             loadingFeed = false;
-            say("চ্যানেলের লিংক সেভ নেই। কোনো ভিডিও খুলে চ্যানেল বোতামে একবার চাপুন।");
+            sayFeed("চ্যানেলের লিংক সেভ নেই। কোনো ভিডিও খুলে চ্যানেল বোতামে একবার চাপুন।");
             return;
         }
         final List<List<VideoItem>> per = new ArrayList<>();
@@ -289,18 +313,29 @@ public class SubsActivity extends AppCompatActivity implements VideoAdapter.List
                     if (round < l.size() && seen.add(l.get(round).url)) out.add(l.get(round));
                 }
             }
+            // remember each channel's newest videos, for the "new videos" marks of the channel list
+            final java.util.Map<String, List<String>> latest = new java.util.LinkedHashMap<>();
+            for (int k = 0; k < per.size(); k++) {
+                List<String> us = new ArrayList<>();
+                List<VideoItem> l;
+                synchronized (per.get(k)) { l = new ArrayList<>(per.get(k)); }
+                for (VideoItem v : l) us.add(v.url);
+                latest.put(chNames.get(k), us);
+            }
+            Store.saveLatest(SubsActivity.this, latest);
             ui.post(() -> {
                 loadingFeed = false;
                 if (gen != feedGen || isFinishing()) return;
+                loadNames();      // new marks and order of the channel list
                 if (out.isEmpty()) {
-                    if (feedAdapter.getItemCount() == 0) say("নতুন ভিডিও আনা যায়নি। ইন্টারনেট দেখে রিফ্রেশ চাপুন।");
-                    else say("");
+                    if (feedAdapter.getItemCount() == 0) sayFeed("নতুন ভিডিও আনা যায়নি। ইন্টারনেট দেখে রিফ্রেশ চাপুন।");
+                    else sayFeed("");
                     return;
                 }
                 feedAdapter.submit(out);
-                say("");
+                sayFeed("");
                 saveCache(out);
-                status.announceForAccessibility("নতুন ভিডিও এসেছে");
+                if (feedMode) status.announceForAccessibility("নতুন ভিডিও এসেছে");
             });
         }).start();
     }

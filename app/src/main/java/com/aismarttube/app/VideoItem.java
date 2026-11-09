@@ -18,6 +18,8 @@ public class VideoItem {
     public long when = 0;
     /** true while it is a live broadcast (views then means "watching now") */
     public boolean live = false;
+    /** true for a Short (reported by the extractor; older ones are recognised by length) */
+    public boolean shortForm = false;
     /** ready-made Bangla text from the extractor, e.g. "২ দিন আগে" (used when {@link #when} is unknown) */
     public String uploaded = "";
 
@@ -44,6 +46,7 @@ public class VideoItem {
             o.put("thumb", thumb);
             if (when > 0) o.put("when", when);
             if (live) { o.put("live", true); o.put("isLive", true); }
+            if (shortForm) o.put("short", true);
             if (!uploaded.isEmpty()) o.put("uploaded", uploaded);
         } catch (Exception ignored) {}
         return o;
@@ -56,6 +59,7 @@ public class VideoItem {
         v.count = o.optLong("count", 0);
         v.when = o.optLong("when", 0);
         v.live = o.optBoolean("live", false) || o.optBoolean("isLive", false);
+        v.shortForm = o.optBoolean("short", false);
         v.uploaded = o.optString("uploaded", "");
         return v;
     }

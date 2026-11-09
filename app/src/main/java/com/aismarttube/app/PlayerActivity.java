@@ -297,11 +297,14 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
             @Override
             public void onPlaybackStateChanged(int st) {
                 spin.setVisibility(st == Player.STATE_BUFFERING ? View.VISIBLE : View.GONE);
+                keepAwake((st == Player.STATE_BUFFERING || st == Player.STATE_READY) && player != null && player.getPlayWhenReady()
+                        && pv.getVisibility() == View.VISIBLE);
                 if (st == Player.STATE_ENDED) onEnded();
             }
 
             @Override
             public void onIsPlayingChanged(boolean playing) {
+                keepAwake(playing && pv.getVisibility() == View.VISIBLE);   // the screen stays on while a picture plays
                 paintPlay(playing);
                 if (replaced) return;
                 if (playing) { owner = true; RadioHub.stopForVideo(); askNotify(); }
@@ -314,6 +317,14 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
                 tryNextSource("প্লে করা যায়নি (" + e.getErrorCodeName() + ")");
             }
         });
+    }
+
+    /** keeps the screen from turning off while the video plays (audio-only listening may let it turn off) */
+    private void keepAwake(boolean on) {
+        try {
+            if (on) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } catch (Throwable ignored) {}
     }
 
     private double parseSpeed() {
