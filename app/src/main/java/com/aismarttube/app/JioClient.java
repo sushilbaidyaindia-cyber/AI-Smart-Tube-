@@ -65,6 +65,9 @@ final class JioClient {
         String hdnea = "";
         final Map<String, String> headers = new HashMap<>();
         final List<String> alts = new ArrayList<>();     // the other quality links: tried when the first one answers 404
+        boolean drm = false;                              // DASH + Widevine channel
+        String license = "";                              // Widevine licence server
+        final Map<String, String> licenseHeaders = new HashMap<>();
     }
 
     // ------------------------------------------------------------ state
@@ -564,32 +567,65 @@ final class JioClient {
     static List<Prog> epg(Context c, String channelId, int offset) throws Exception {
         Resp r = epgRequest(channelId, offset);
         if (r.code != 200) throw new Exception("অনুষ্ঠানের তালিকা আসেনি (কোড " + r.code + ")");
+        List<Prog> out = parseEpg(r.body);
+        int used = offset;
         int lag = dayLag(r.body, offset);
         if (lag > 0) {                       // got an older day: ask again for the right one
             try {
                 Resp r2 = epgRequest(channelId, offset + lag);
-                if (r2.code == 200) r = r2;
+                if (r2.code == 200) {
+                    List<Prog> o2 = parseEpg(r2.body);
+                    if (!o2.isEmpty()) { out = o2; used = offset + lag; }
+                }
             } catch (Throwable ignored) { }
         }
-        JSONArray a = new JSONObject(r.body).optJSONArray("epg");
-        if (a == null) throw new Exception("এই দিনের অনুষ্ঠানের তালিকা নেই");
-        List<Prog> out = new ArrayList<>();
-        for (int i = 0; i < a.length(); i++) {
-            JSONObject x = a.optJSONObject(i);
-            if (x == null) continue;
-            Prog p = new Prog();
-            p.title = x.optString("showname", "").trim();
-            p.desc = x.optString("description", "").trim();
-            p.start = ms(x.optDouble("startEpoch", 0));
-            p.end = ms(x.optDouble("endEpoch", 0));
-            Object sr = x.opt("srno");
-            if (sr instanceof Number) p.srno = String.valueOf(((Number) sr).longValue());
-            else p.srno = sr == null ? "" : String.valueOf(sr);
-            if (p.title.isEmpty() || p.start <= 0) continue;
-            out.add(p);
+        // second check by the real programme times (does not depend on serverDate):
+        // if most programmes fall on another day than the one wanted, ask again shifted by that many days
+        int shift = dayShift(out, offset);
+        if (shift != 0 && Math.abs(shift) <= 3) {
+            try {
+                Resp r3 = epgRequest(channelId, used + shift);
+                if (r3.code == 200) {
+                    List<Prog> o3 = parseEpg(r3.body);
+                    if (!o3.isEmpty() && dayShift(o3, offset) == 0) out = o3;
+                }
+            } catch (Throwable ignored) { }
         }
+        if (out.isEmpty()) throw new Exception("এই দিনের অনুষ্ঠানের তালিকা নেই");
+        return out;
+    }
+
+    private static List<Prog> parseEpg(String body) {
+        List<Prog> out = new ArrayList<>();
+        try {
+            JSONArray a = new JSONObject(body).optJSONArray("epg");
+            if (a == null) return out;
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject x = a.optJSONObject(i);
+                if (x == null) continue;
+                Prog p = new Prog();
+                p.title = x.optString("showname", "").trim();
+                p.desc = x.optString("description", "").trim();
+                p.start = ms(x.optDouble("startEpoch", 0));
+                p.end = ms(x.optDouble("endEpoch", 0));
+                Object sr = x.opt("srno");
+                if (sr instanceof Number) p.srno = String.valueOf(((Number) sr).longValue());
+                else p.srno = sr == null ? "" : String.valueOf(sr);
+                if (p.title.isEmpty() || p.start <= 0) continue;
+                out.add(p);
+            }
+        } catch (Throwable ignored) { }
         java.util.Collections.sort(out, (x, y) -> Long.compare(x.start, y.start));
         return out;
+    }
+
+    /** days to add to the request so the middle programme falls on the wanted (IST) day; 0 = already right */
+    private static int dayShift(List<Prog> l, int offset) {
+        if (l.isEmpty()) return 0;
+        long mid = l.get(l.size() / 2).start;
+        long gotDay = (mid + IST_MS) / DAY_MS;
+        long wantDay = (System.currentTimeMillis() + IST_MS) / DAY_MS + offset;
+        return (int) (wantDay - gotDay);
     }
 
     private static final Map<String, Object[]> EPG_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
@@ -660,10 +696,24 @@ final class JioClient {
         if (url.isEmpty() && isHls(j.optString("result", ""))) url = j.optString("result", "");
         if (url.isEmpty() && mpd != null && isHls(mpd.optString("result", ""))) url = mpd.optString("result", "");
 
+        if (j.optBoolean("isDRM", false) && drmEnabled(c)) {   // Jio says this one is DRM: use DASH even if an HLS link came along
+            String mu = drmMpdUrl(j, mpd);
+            String lc = j.optString("keyUrl", "").trim();
+            if (lc.isEmpty() && mpd != null) lc = mpd.optString("key", "").trim();
+            if (!mu.isEmpty() && !lc.isEmpty()) return drmPlay(o, dev, channelId, mu, lc, h);
+        }
         if (url.isEmpty()) {
             String msg = j.optString("message", "");
-            if (mpd != null && !mpd.optString("result", "").isEmpty() || j.optBoolean("isDRM", false))
-                throw new Exception("এই চ্যানেল কপিরাইট-সুরক্ষিত (DRM) পদ্ধতিতে আসে, এখনও চালানো যায় না");
+            String mpdUrl = drmMpdUrl(j, mpd);
+            String lic = j.optString("keyUrl", "").trim();
+            if (lic.isEmpty() && mpd != null) lic = mpd.optString("key", "").trim();
+            if (!mpdUrl.isEmpty() && !lic.isEmpty() && drmEnabled(c)) {
+                return drmPlay(o, dev, channelId, mpdUrl, lic, h);
+            }
+            if (mpd != null && !mpd.optString("result", "").isEmpty() || !mpdUrl.isEmpty() || j.optBoolean("isDRM", false))
+                throw new Exception(drmEnabled(c)
+                        ? "এই চ্যানেল কপিরাইট-সুরক্ষিত (DRM)। Jio লাইসেন্সের লিংক দেয়নি, তাই চালানো গেল না"
+                        : "এই চ্যানেল কপিরাইট-সুরক্ষিত (DRM)। সেটিংসে 'Jio DRM চ্যানেল' চালু করে দেখুন");
             throw new Exception("Jio এই চ্যানেলের লিংক দেয়নি" + (msg.isEmpty() ? "" : ": " + msg));
         }
 
@@ -697,6 +747,71 @@ final class JioClient {
         p.headers.put("srno", "230203144000");
         p.headers.put("channelId", channelId);
         if (!p.hdnea.isEmpty()) p.headers.put("Cookie", "__hdnea__=" + p.hdnea);
+        return p;
+    }
+
+    private static boolean drmEnabled(Context c) {
+        try { return Store.settingBool(c, "jioDrm", true); } catch (Throwable t) { return true; }
+    }
+
+    /** the DASH (MPD) link of a DRM channel: live channels nest it under mpd.bitrates, premium content under mpd.auto */
+    private static String drmMpdUrl(JSONObject j, JSONObject mpd) {
+        if (mpd == null) return "";
+        JSONObject b = mpd.optJSONObject("bitrates");
+        String[] k = {"auto", "high", "medium", "low"};
+        for (String n : k) {
+            String s = b == null ? "" : b.optString(n, "");
+            if (!s.isEmpty()) return s;
+        }
+        for (String n : k) {
+            String s = mpd.optString(n, "");
+            if (!s.isEmpty()) return s;
+        }
+        return mpd.optString("result", "");
+    }
+
+    private static String srnoNow() {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        return String.format(Locale.US, "%02d%02d%02d%02d%02d%03d", c.get(java.util.Calendar.YEAR) % 100,
+                c.get(java.util.Calendar.MONTH) + 1, c.get(java.util.Calendar.DAY_OF_MONTH),
+                c.get(java.util.Calendar.HOUR_OF_DAY), c.get(java.util.Calendar.MINUTE), c.get(java.util.Calendar.MILLISECOND));
+    }
+
+    /** a DRM channel: the DASH link plus what the Widevine licence server wants (same as JioTV Go's key handler) */
+    private static Play drmPlay(JSONObject o, String dev, String channelId, String mpdUrl, String license,
+                                Map<String, String> h) {
+        Play p = new Play();
+        p.drm = true;
+        p.url = mpdUrl;
+        p.license = license;
+        p.hdnea = hdneaFrom(mpdUrl);
+        for (String k : new String[]{"appkey", "crmid", "userId", "deviceId", "devicetype", "isott", "languageId", "lbcookie", "os",
+                "osVersion", "subscriberId", "uniqueId", "usergroup", "versionCode"}) {
+            if (h.get(k) != null) p.headers.put(k, h.get(k));
+        }
+        p.headers.put("ssotoken", o.optString("sso", ""));
+        p.headers.put("srno", "230203144000");
+        p.headers.put("channelId", channelId);
+        if (!p.hdnea.isEmpty()) p.headers.put("Cookie", "__hdnea__=" + p.hdnea);   // video pieces carry this cookie
+        Map<String, String> l = p.licenseHeaders;
+        l.put("accesstoken", o.optString("auth", ""));
+        l.put("Connection", "keep-alive");
+        l.put("os", "android");
+        l.put("appName", "RJIL_JioTV");
+        l.put("subscriberId", o.optString("crm", ""));
+        l.put("User-Agent", UA_PLAYER);
+        l.put("ssotoken", o.optString("sso", ""));
+        l.put("x-platform", "android");
+        l.put("srno", srnoNow());
+        l.put("crmid", o.optString("crm", ""));
+        l.put("channelid", channelId);
+        l.put("uniqueId", o.optString("uid", ""));
+        l.put("versionCode", VERSION_CODE);
+        l.put("usergroup", USERGROUP);
+        l.put("devicetype", "phone");
+        l.put("osVersion", "13");
+        l.put("deviceId", dev);
+        l.put("Content-Type", "application/octet-stream");
         return p;
     }
 

@@ -53,6 +53,9 @@ public class SettingsActivity extends AppCompatActivity {
         sel("primary", "প্রথমে কোনটা চেষ্টা হবে", "", "newpipe", "newpipe", "NewPipe", "piped", "Piped", "invidious", "Invidious");
         sw("fallback", "ব্যর্থ হলে অন্যটা চেষ্টা করুক", "বন্ধ করলে শুধু প্রথম সোর্সই ব্যবহার হবে", true);
 
+        head("টিভি");
+        sw("jioDrm", "Jio DRM চ্যানেল (পরীক্ষামূলক)", "স্টার জলসা ইত্যাদি। কাজ না করলে বা ঝামেলা হলে বন্ধ করে দিন, বাকি টিভি আগের মতোই চলবে", true);
+
         head("প্লেব্যাক");
         sel("quality", "ভিডিওর মান", "অটো মানে ৭২০p পর্যন্ত", "auto", "auto", "অটো", "max", "সর্বোচ্চ", "720", "৭২০p", "360", "৩৬০p", "low", "সর্বনিম্ন");
         sw("bgPlay", "ব্যাকগ্রাউন্ডে চালান", "স্ক্রিন বন্ধ করলেও চলবে", true);

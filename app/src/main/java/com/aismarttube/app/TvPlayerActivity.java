@@ -347,7 +347,19 @@ public class TvPlayerActivity extends AppCompatActivity {
                     http.setDefaultRequestProperties(fp.headers);
                     alts = fp.alts;
                     altI = 0;
-                    MediaItem mi = new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build();
+                    MediaItem mi;
+                    if (fp.drm) {
+                        // DASH + Widevine (Star etc.)
+                        mi = new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_MPD)
+                                .setDrmConfiguration(new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                                        .setLicenseUri(fp.license)
+                                        .setLicenseRequestHeaders(fp.licenseHeaders)
+                                        .setMultiSession(true)
+                                        .build())
+                                .build();
+                    } else {
+                        mi = new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build();
+                    }
                     if (cuSrno != null && resumeMs > 0) player.setMediaItem(mi, resumeMs);   // fresh link, same place in the programme
                     else player.setMediaItem(mi);
                     player.prepare();

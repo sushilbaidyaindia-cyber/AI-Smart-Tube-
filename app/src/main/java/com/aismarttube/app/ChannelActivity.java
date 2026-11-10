@@ -250,7 +250,10 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
             b.setOnClickListener(v -> {
                 sort = id;
                 paintSort();
+                popGen++;                       // stops a running "load everything" if any
+                btnMore.setEnabled(true);
                 paintList(false);
+                if ("pop".equals(id) && !nextTok.isEmpty() && !playlistView) loadAllForPopular();
             });
             sortBtns.add(b);
             sortRow.addView(b);
@@ -322,6 +325,57 @@ public class ChannelActivity extends AppCompatActivity implements VideoAdapter.L
             return new RecyclerView.ViewHolder(v) {};
         }
         @Override public void onBindViewHolder(RecyclerView.ViewHolder h, int pos) {}
+    }
+
+    private int popGen = 0;
+
+    /**
+     * "জনপ্রিয়" can only sort what is already loaded, so first all the remaining pages of this tab
+     * are fetched (up to 40 pages), then the list is sorted by views, as YouTube's own sort would show.
+     */
+    private void loadAllForPopular() {
+        if (nextTok.isEmpty() || info == null) return;
+        final int my = seq;
+        final int pg = ++popGen;
+        final String tabId = info.optJSONArray("tabs").optJSONObject(tabIdx).optString("id", "");
+        final String startTok = nextTok;
+        btnMore.setEnabled(false);
+        status.setVisibility(View.VISIBLE);
+        status.setText("জনপ্রিয় বাছতে সব ভিডিও আনা হচ্ছে… " + VideoItem.formatCountBn(items.size()) + "টি");
+        io.execute(() -> {
+            String tok = startTok;
+            int pages = 0;
+            while (!tok.isEmpty() && pages < 40) {
+                if (my != seq || pg != popGen || isFinishing()) return;
+                List<VideoItem> more;
+                String next;
+                try {
+                    JSONObject d = new JSONObject(NewPipeHelper.getChannelMore(tabId, tok));
+                    if (!d.optBoolean("ok", false)) break;
+                    more = parse(d.optJSONArray("items"));
+                    next = d.optString("next", "");
+                } catch (Throwable t) {
+                    break;
+                }
+                final List<VideoItem> m = more;
+                final String nx = next;
+                ui.post(() -> {
+                    if (my != seq || pg != popGen) return;
+                    items.addAll(m);
+                    nextTok = nx;
+                    status.setText("জনপ্রিয় বাছতে সব ভিডিও আনা হচ্ছে… " + VideoItem.formatCountBn(items.size()) + "টি");
+                });
+                tok = next;
+                pages++;
+            }
+            ui.post(() -> {
+                if (my != seq || pg != popGen || isFinishing()) return;
+                btnMore.setEnabled(true);
+                paintList(true);
+                status.setVisibility(View.VISIBLE);
+                status.setText(VideoItem.formatCountBn(items.size()) + "টি ভিডিও থেকে সবচেয়ে বেশি দেখাগুলো আগে");
+            });
+        });
     }
 
     private void loadMore() {
