@@ -66,6 +66,8 @@ final class JioClient {
         final Map<String, String> headers = new HashMap<>();
         final List<String> alts = new ArrayList<>();     // the other quality links: tried when the first one answers 404
         boolean drm = false;                              // DASH + Widevine channel
+        Play drmFallback = null;                          // HLS came with a DRM version too: used when the HLS links answer 404
+        String info = "";                                 // short note on what Jio sent (shown with errors)
         String license = "";                              // Widevine licence server
         final Map<String, String> licenseHeaders = new HashMap<>();
     }
@@ -738,6 +740,14 @@ final class JioClient {
             if (!a.equals(p.url) && !p.alts.contains(a)) p.alts.add(a);
         }
 
+        try {
+            String mu = drmMpdUrl(j, mpd);
+            String lc = j.optString("keyUrl", "").trim();
+            if (lc.isEmpty() && mpd != null) lc = mpd.optString("key", "").trim();
+            if (!mu.isEmpty() && !lc.isEmpty() && drmEnabled(c)) p.drmFallback = drmPlay(o, dev, channelId, mu, lc, h);
+            p.info = "isDRM=" + j.optBoolean("isDRM", false) + " mpd=" + (!mu.isEmpty()) + " key=" + (!lc.isEmpty()) + " hls=" + (!url.isEmpty());
+        } catch (Throwable ignored) { }
+
         // headers for the playlist, keys and video pieces
         for (String k : new String[]{"appkey", "crmid", "userId", "deviceId", "devicetype", "isott", "languageId", "lbcookie", "os",
                 "osVersion", "subscriberId", "uniqueId", "usergroup", "versionCode"}) {
@@ -782,6 +792,7 @@ final class JioClient {
                                 Map<String, String> h) {
         Play p = new Play();
         p.drm = true;
+        p.info = "DRM";
         p.url = mpdUrl;
         p.license = license;
         p.hdnea = hdneaFrom(mpdUrl);

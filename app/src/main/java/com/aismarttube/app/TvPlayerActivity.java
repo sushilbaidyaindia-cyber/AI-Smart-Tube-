@@ -246,11 +246,33 @@ public class TvPlayerActivity extends AppCompatActivity {
                         return;
                     }
                 } catch (Throwable ignored) { }
+                try {
+                    Throwable c1 = e.getCause();
+                    if (e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+                            && c1 instanceof androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
+                            && drmFb != null && !drmFbUsed && cuSrno == null) {
+                        drmFbUsed = true;
+                        playKind = "DRM (HLS 404 হওয়ায়)";
+                        setState(serverNote("Jio: DRM পদ্ধতিতে চেষ্টা হচ্ছে…"));
+                        http.setDefaultRequestProperties(drmFb.headers);
+                        player.setMediaItem(drmItem(drmFb));
+                        player.prepare();
+                        player.play();
+                        ui.removeCallbacks(stuck);
+                        ui.postDelayed(stuck, 15000);
+                        return;
+                    }
+                } catch (Throwable ignored) { }
                 String cause = "";
                 try {
                     Throwable c = e.getCause();
-                    if (c != null) cause = " — " + c.getClass().getSimpleName() + (c.getMessage() == null ? "" : ": " + c.getMessage());
-                    if (cause.length() > 140) cause = cause.substring(0, 140);
+                    if (c instanceof androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
+                        android.net.Uri bu = ((androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) c).dataSpec.uri;
+                        cause = " — " + (playKind.isEmpty() ? "" : playKind + " ") + "কোড "
+                                + ((androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) c).responseCode
+                                + " " + bu.getHost() + bu.getPath();
+                    } else if (c != null) cause = " — " + (playKind.isEmpty() ? "" : playKind + " ") + c.getClass().getSimpleName() + (c.getMessage() == null ? "" : ": " + c.getMessage());
+                    if (cause.length() > 260) cause = cause.substring(0, 260);
                 } catch (Throwable ignored) { }
                 lastPlayErr = e.getErrorCodeName() + cause;
                 nextServer("চলেনি");
@@ -321,6 +343,20 @@ public class TvPlayerActivity extends AppCompatActivity {
         startStream();
     }
 
+    private JioClient.Play drmFb;
+    private boolean drmFbUsed;
+    private String playKind = "";
+
+    private MediaItem drmItem(JioClient.Play fp) {
+        return new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_MPD)
+                .setDrmConfiguration(new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                        .setLicenseUri(fp.license)
+                        .setLicenseRequestHeaders(fp.licenseHeaders)
+                        .setMultiSession(true)
+                        .build())
+                .build();
+    }
+
     private void startStream() {
         final TvChannels.Stream s = streams.get(si);
         final String jioId = JioClient.idOf(s.url);
@@ -347,19 +383,11 @@ public class TvPlayerActivity extends AppCompatActivity {
                     http.setDefaultRequestProperties(fp.headers);
                     alts = fp.alts;
                     altI = 0;
-                    MediaItem mi;
-                    if (fp.drm) {
-                        // DASH + Widevine (Star etc.)
-                        mi = new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_MPD)
-                                .setDrmConfiguration(new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
-                                        .setLicenseUri(fp.license)
-                                        .setLicenseRequestHeaders(fp.licenseHeaders)
-                                        .setMultiSession(true)
-                                        .build())
-                                .build();
-                    } else {
-                        mi = new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build();
-                    }
+                    drmFb = fp.drmFallback;
+                    drmFbUsed = false;
+                    playKind = (fp.drm ? "DRM" : "HLS") + (fp.info.isEmpty() ? "" : " [" + fp.info + "]");
+                    MediaItem mi = fp.drm ? drmItem(fp)
+                            : new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build();
                     if (cuSrno != null && resumeMs > 0) player.setMediaItem(mi, resumeMs);   // fresh link, same place in the programme
                     else player.setMediaItem(mi);
                     player.prepare();
