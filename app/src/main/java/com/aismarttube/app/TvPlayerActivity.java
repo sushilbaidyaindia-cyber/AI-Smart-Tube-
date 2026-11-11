@@ -252,6 +252,8 @@ public class TvPlayerActivity extends AppCompatActivity {
                             && c1 instanceof androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
                             && drmFb != null && !drmFbUsed && cuSrno == null) {
                         drmFbUsed = true;
+                        inDrm = true;
+                        try { DRM_PREF.add(JioClient.idOf(streams.get(si).url)); } catch (Throwable ignored) { }
                         playKind = "DRM (HLS 404 হওয়ায়)";
                         setState(serverNote("Jio: DRM পদ্ধতিতে চেষ্টা হচ্ছে…"));
                         http.setDefaultRequestProperties(drmFb.headers);
@@ -260,6 +262,7 @@ public class TvPlayerActivity extends AppCompatActivity {
                         player.play();
                         ui.removeCallbacks(stuck);
                         ui.postDelayed(stuck, 15000);
+                        scheduleToken(drmFb, gen, JioClient.idOf(streams.get(si).url));
                         return;
                     }
                 } catch (Throwable ignored) { }
@@ -343,6 +346,8 @@ public class TvPlayerActivity extends AppCompatActivity {
         startStream();
     }
 
+    private static final java.util.Set<String> DRM_PREF = new java.util.HashSet<>();   // Jio channels whose HLS link is dead: DRM first
+    private boolean inDrm = false;
     private JioClient.Play drmFb;
     private boolean drmFbUsed;
     private String playKind = "";
@@ -379,22 +384,25 @@ public class TvPlayerActivity extends AppCompatActivity {
                 ui.post(() -> {
                     if (my != gen || player == null) return;
                     if (fp == null) { jioFailed(fe); return; }
+                    // this channel needed DRM before (its HLS link answers 404): go straight to DRM
+                    final JioClient.Play use = (!fp.drm && fp.drmFallback != null && DRM_PREF.contains(jioId)) ? fp.drmFallback : fp;
+                    inDrm = use.drm;
                     http.setUserAgent(JioClient.UA_PLAYER);
-                    http.setDefaultRequestProperties(fp.headers);
-                    alts = fp.alts;
+                    http.setDefaultRequestProperties(use.headers);
+                    alts = use.alts;
                     altI = 0;
-                    drmFb = fp.drmFallback;
+                    drmFb = (use == fp) ? fp.drmFallback : null;
                     drmFbUsed = false;
-                    playKind = (fp.drm ? "DRM" : "HLS") + (fp.info.isEmpty() ? "" : " [" + fp.info + "]");
-                    MediaItem mi = fp.drm ? drmItem(fp)
-                            : new MediaItem.Builder().setUri(fp.url).setMimeType(MimeTypes.APPLICATION_M3U8).build();
+                    playKind = (use.drm ? "DRM" : "HLS") + (use.info.isEmpty() ? "" : " [" + use.info + "]");
+                    MediaItem mi = use.drm ? drmItem(use)
+                            : new MediaItem.Builder().setUri(use.url).setMimeType(MimeTypes.APPLICATION_M3U8).build();
                     if (cuSrno != null && resumeMs > 0) player.setMediaItem(mi, resumeMs);   // fresh link, same place in the programme
                     else player.setMediaItem(mi);
                     player.prepare();
                     player.play();
                     updatePlay();
                     ui.postDelayed(stuck, 15000);   // the 15 s count starts now, not while Jio was still answering
-                    scheduleToken(fp, my, jioId);
+                    scheduleToken(use, my, jioId);
                 });
             }, "jio-resolve").start();
             return;
@@ -439,10 +447,11 @@ public class TvPlayerActivity extends AppCompatActivity {
             final JioClient.Play fp = np;
             ui.post(() -> {
                 if (isFinishing() || player == null || myGen != gen) return;
-                if (fp != null && !fp.hdnea.isEmpty()) {
-                    http.setDefaultRequestProperties(fp.headers);          // the next pieces ask with the new token; playing is not touched
+                JioClient.Play use = fp == null ? null : (inDrm && !fp.drm ? fp.drmFallback : fp);
+                if (use != null && !use.hdnea.isEmpty()) {
+                    http.setDefaultRequestProperties(use.headers);         // the next pieces ask with the new token; playing is not touched
                     tokFail = 0;
-                    scheduleToken(fp, myGen, id);
+                    scheduleToken(use, myGen, id);
                 } else if (++tokFail <= 5) {
                     ui.postDelayed(() -> refreshToken(myGen, id), 60000L);
                 }
