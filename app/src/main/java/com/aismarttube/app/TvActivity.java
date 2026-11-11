@@ -470,6 +470,22 @@ public class TvActivity extends AppCompatActivity {
                 build();
             });
         }
+        if (jio) {
+            names.add("Jio তালিকায় চ্যানেল খুঁজুন (কেন লুকানো দেখুন)");
+            acts.add(() -> {
+                final EditText qe = new EditText(this);
+                qe.setHint("চ্যানেলের নাম, যেমন zee বা জলসা");
+                new AlertDialog.Builder(this).setTitle("Jio তালিকায় খুঁজুন").setView(qe)
+                        .setPositiveButton("খুঁজুন", (d, w) -> {
+                            String q = qe.getText().toString().trim();
+                            if (q.isEmpty()) return;
+                            new AlertDialog.Builder(this).setTitle("'" + q + "'")
+                                    .setMessage(JioClient.findText(this, q))
+                                    .setPositiveButton("ঠিক আছে", null).show();
+                        })
+                        .setNegativeButton("বন্ধ", null).show();
+            });
+        }
         final boolean low = Store.settingBool(this, "tvLowData", false);
         names.add(low ? "কম ডাটা (ছোট ছবি): চালু আছে, বন্ধ করুন" : "কম ডাটা (ছোট ছবি) চালু করুন");
         acts.add(() -> {

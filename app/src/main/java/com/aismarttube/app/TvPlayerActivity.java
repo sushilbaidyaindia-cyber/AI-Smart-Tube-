@@ -290,7 +290,7 @@ public class TvPlayerActivity extends AppCompatActivity {
         // a Jio link expires after a while: ask for a fresh one once before giving up on it
         if (!jioRetried && si < streams.size() && !JioClient.idOf(streams.get(si).url).isEmpty() && !why.startsWith("Jio:")) {
             jioRetried = true;
-            setState("Jio-র লিংক নতুন করে আনা হচ্ছে…");
+            setState("Jio-র লিংক নতুন করে আনা হচ্ছে…" + (lastPlayErr.isEmpty() ? "" : " (আগের ভুল: " + lastPlayErr + ")"));
             startStream();
             return;
         }
@@ -365,7 +365,7 @@ public class TvPlayerActivity extends AppCompatActivity {
             // Jio channel: ask Jio for a fresh playing link first (takes a moment, so not on the main thread)
             final int my = ++gen;
             try { player.stop(); } catch (Throwable ignored) { }
-            setState(serverNote("Jio থেকে লিংক আনা হচ্ছে…"));
+            setState(serverNote("Jio থেকে লিংক আনা হচ্ছে…" + (lastPlayErr.isEmpty() ? "" : " (আগের ভুল: " + lastPlayErr + ")")));
             new Thread(() -> {
                 JioClient.Play p = null;
                 String err = null;

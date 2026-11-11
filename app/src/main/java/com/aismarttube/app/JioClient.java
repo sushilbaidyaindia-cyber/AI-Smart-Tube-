@@ -407,6 +407,49 @@ final class JioClient {
         }
     }
 
+    private static String langName(int id) {
+        switch (id) {
+            case 1: return "হিন্দি"; case 2: return "মারাঠি"; case 3: return "পাঞ্জাবি"; case 4: return "উর্দু";
+            case 5: return "বাংলা"; case 6: return "ইংরেজি"; case 7: return "মালয়ালম"; case 8: return "তামিল";
+            case 9: return "গুজরাটি"; case 10: return "ওড়িয়া"; case 11: return "তেলুগু"; case 12: return "ভোজপুরি";
+            case 13: return "কন্নড়"; case 14: return "অসমিয়া"; case 15: return "নেপালি"; default: return "অন্য (" + id + ")";
+        }
+    }
+
+    /** looks a name up in the whole saved Jio list, ignoring the language and premium filters, and says why it is hidden */
+    static String findText(Context c, String q) {
+        String s = Store.get(c, K_CH);
+        if (s.isEmpty()) return "Jio-র তালিকা এখনও আনা হয়নি। আগে 'চ্যানেলের তালিকা নতুন করে আনুন' চাপুন।";
+        try {
+            JSONArray a = new JSONArray(s);
+            String want = q.trim().toLowerCase(Locale.ROOT);
+            boolean all = allLanguages(c);
+            boolean premOn = Store.settingBool(c, "tvPrem", false);
+            StringBuilder sb = new StringBuilder();
+            int n = 0;
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject x = a.optJSONObject(i);
+                if (x == null) continue;
+                String name = x.optString("n", "");
+                if (!name.toLowerCase(Locale.ROOT).contains(want)) continue;
+                n++;
+                boolean prem = x.optBoolean("prem", false);
+                int lang = x.optInt("lang", 0);
+                sb.append("• ").append(name).append("\n   ভাষা: ").append(langName(lang))
+                        .append(prem ? ", প্রিমিয়াম" : ", ফ্রি")
+                        .append(x.optBoolean("cu", false) ? ", ক্যাচআপ আছে" : ", ক্যাচআপ নেই");
+                if (prem && !premOn) sb.append("\n   → লুকানো: 'প্রিমিয়াম' টিক দেওয়া নেই");
+                else if (!all && lang != 5) sb.append("\n   → লুকানো: ভাষা বাংলা নয়। 'Jio চ্যানেল: সব ভাষা দেখান' চালু করুন");
+                else sb.append("\n   → তালিকায় দেখানো উচিত");
+                sb.append("\n");
+            }
+            if (n == 0) return "'" + q + "' নামে কিছু Jio-র তালিকায় নেই (মোট " + a.length() + "টি চ্যানেলের মধ্যে)।\nঅর্থাৎ Jio নিজেই এই চ্যানেল আপনার অ্যাকাউন্টের তালিকায় পাঠাচ্ছে না।";
+            return sb.toString();
+        } catch (Throwable t) {
+            return "তালিকা পড়া গেল না";
+        }
+    }
+
     /** the saved Jio channels as list entries (no network, safe on the main thread) */
     static List<TvChannels.Ch> cachedChannels(Context c) {
         List<TvChannels.Ch> out = new ArrayList<>();
