@@ -53,9 +53,6 @@ public class SettingsActivity extends AppCompatActivity {
         sel("primary", "প্রথমে কোনটা চেষ্টা হবে", "", "newpipe", "newpipe", "NewPipe", "piped", "Piped", "invidious", "Invidious");
         sw("fallback", "ব্যর্থ হলে অন্যটা চেষ্টা করুক", "বন্ধ করলে শুধু প্রথম সোর্সই ব্যবহার হবে", true);
 
-        head("টিভি");
-        sw("jioDrm", "Jio DRM চ্যানেল (পরীক্ষামূলক)", "স্টার জলসা ইত্যাদি। কাজ না করলে বা ঝামেলা হলে বন্ধ করে দিন, বাকি টিভি আগের মতোই চলবে", true);
-
         head("প্লেব্যাক");
         sel("quality", "ভিডিওর মান", "অটো মানে ৭২০p পর্যন্ত", "auto", "auto", "অটো", "max", "সর্বোচ্চ", "720", "৭২০p", "360", "৩৬০p", "low", "সর্বনিম্ন");
         sw("bgPlay", "ব্যাকগ্রাউন্ডে চালান", "স্ক্রিন বন্ধ করলেও চলবে", true);
@@ -93,7 +90,7 @@ public class SettingsActivity extends AppCompatActivity {
         rows.add(new Item(MKEY, "gemKey", "Gemini API key (একাধিক দেওয়া যায়)", "একটার লিমিট শেষ হলে অ্যাপ নিজে পরেরটা ব্যবহার করবে। আলাদা Google অ্যাকাউন্ট বা প্রজেক্টের key হলে সবচেয়ে ভালো", null, null, false, ""));
         rows.add(new Item(GEM, "gemModel", "Gemini মডেল", "চাপলে Google থেকে সব মডেলের তালিকা আসবে, বেছে নিন। ব্যর্থ হলে অ্যাপ নিজেই অন্য মডেল চেষ্টা করবে", null, null, false, "gemini-3.8-flash"));
         txt("grokKey", "Groq API key", "console.groq.com থেকে নেওয়া (gsk_ দিয়ে শুরু)", "", true);
-        txt("grokModel", "Groq মডেল", "যেমন llama-3.3-70b-versatile বা openai/gpt-oss-120b", AiActivity.GROQ_MODEL, false);
+        txt("grokModel", "Groq মডেল", "যেমন openai/gpt-oss-120b বা qwen/qwen3.6-27b (llama-3.3-70b-versatile Groq বন্ধ করেছে)", AiActivity.GROQ_MODEL, false);
         txt("cusBase", "অন্য AI-এর Base URL", "https:// দিয়ে শুরু, যেমন https://openrouter.ai/api/v1", "", false);
         txt("cusModel", "অন্য AI-এর মডেল", "", "", false);
         txt("cusKey", "অন্য AI-এর API key", "", "", true);
@@ -119,6 +116,9 @@ public class SettingsActivity extends AppCompatActivity {
         setTitle("সেটিংস");
         spec();
         // old settings may still hold the xAI model name or key
+        if (Store.settingStr(this, "grokModel", "").equals("llama-3.3-70b-versatile")) {
+            Store.putSetting(this, "grokModel", AiActivity.GROQ_MODEL);
+        }
         if (Store.settingStr(this, "grokModel", "").toLowerCase(java.util.Locale.US).startsWith("grok")) {
             Store.putSetting(this, "grokModel", AiActivity.GROQ_MODEL);
         }

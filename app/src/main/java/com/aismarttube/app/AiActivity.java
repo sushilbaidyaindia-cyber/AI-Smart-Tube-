@@ -157,7 +157,7 @@ public class AiActivity extends AppCompatActivity {
 
     // ------------------------------------------------------------------ provider settings
 
-    static final String GROQ_MODEL = "llama-3.3-70b-versatile";
+    static final String GROQ_MODEL = "openai/gpt-oss-120b";   // Groq stopped serving llama-3.3-70b-versatile on 16 Aug 2026
     private static final String[] LABEL = {"sum", "fact", "tr", "scene", "ask"};
 
     private static String kindLabel(String k) {
@@ -184,6 +184,7 @@ public class AiActivity extends AppCompatActivity {
         if ("grok".equals(name)) {
             String gm = Store.settingStr(c, "grokModel", GROQ_MODEL).trim();
             if (gm.isEmpty() || gm.toLowerCase(java.util.Locale.US).startsWith("grok")) gm = GROQ_MODEL; // old xAI name
+            if (gm.equals("llama-3.3-70b-versatile")) gm = GROQ_MODEL;   // retired by Groq: use the replacement
             return new String[]{"openai", "https://api.groq.com/openai/v1", gm, Store.settingStr(c, "grokKey", "")};
         }
         return new String[]{"openai", Store.settingStr(c, "cusBase", ""), Store.settingStr(c, "cusModel", ""), Store.settingStr(c, "cusKey", "")};
