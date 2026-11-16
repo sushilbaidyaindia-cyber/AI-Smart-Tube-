@@ -282,10 +282,19 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(15000)
                 .setReadTimeoutMs(20000);
+        // Faster after a jump: start playing after ~1 s of data (default 2.5 s / 5 s), and keep 2 minutes of already
+        // played data so short rewinds are instant
+        androidx.media3.exoplayer.DefaultLoadControl load = new androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                .setBufferDurationsMs(30000, 60000, 1000, 2000)
+                .setBackBuffer(120000, true)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build();
         player = new ExoPlayer.Builder(this)
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(new DefaultDataSource.Factory(this, http)))
+                .setLoadControl(load)
                 .setHandleAudioBecomingNoisy(true)
                 .build();
+        player.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC);   // jump to the nearest key frame: much faster
         player.setAudioAttributes(new AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
