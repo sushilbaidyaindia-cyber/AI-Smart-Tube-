@@ -360,7 +360,18 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         String q = in.getStringExtra(EXTRA_QUEUE);
         if (q == null || q.isEmpty()) {
             String vid = externalVideoId(in);
-            if (vid == null) return;
+            if (vid == null) {
+                // a shared Suno song link goes to the Suno downloader
+                String sraw = in.getData() != null ? in.getData().toString()
+                        : Intent.ACTION_SEND.equals(in.getAction()) ? in.getStringExtra(Intent.EXTRA_TEXT) : null;
+                if (sraw != null && SunoActivity.isSuno(sraw)) {
+                    in.setData(null);
+                    in.removeExtra(Intent.EXTRA_TEXT);
+                    startActivity(new Intent(this, SunoActivity.class).putExtra(Intent.EXTRA_TEXT, sraw));
+                    finish();
+                }
+                return;
+            }
             in.setData(null);
             in.removeExtra(Intent.EXTRA_TEXT);
             VideoItem v = new VideoItem("", "https://www.youtube.com/watch?v=" + vid, "", "", 0, 0,
