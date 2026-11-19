@@ -229,20 +229,32 @@ public class SunoActivity extends AppCompatActivity {
         title = title.replaceAll("\\s*[|\\-–]\\s*Suno.*$", "").trim();
         if (title.isEmpty() || title.equalsIgnoreCase("Suno")) title = "Suno " + id.substring(0, 8);
 
-        String audio = unescape(meta(html, "og:audio"));
-        if (!audio.startsWith("http")) audio = "https://cdn1.suno.ai/" + id + ".mp3";
-
-        // is the file really there?
-        try {
-            HttpURLConnection c = (HttpURLConnection) new URL(audio).openConnection();
-            c.setConnectTimeout(15000);
-            c.setReadTimeout(15000);
-            c.setRequestProperty("User-Agent", UA);
-            c.setRequestProperty("Range", "bytes=0-0");
-            int code = c.getResponseCode();
-            c.disconnect();
-            if (code == 403 || code == 404) throw new Exception("গানটির ফাইল পাওয়া গেল না (কোড " + code + ")। গানটি ব্যক্তিগত বা সরানো হতে পারে।");
-        } catch (java.io.IOException ignored) { /* network hiccup: let the download manager try */ }
+        java.util.List<String> cand = new java.util.ArrayList<>();
+        String og = unescape(meta(html, "og:audio"));
+        if (og.startsWith("http")) cand.add(og);
+        cand.add("https://cdn1.suno.ai/" + id + ".mp3");
+        cand.add("https://cdn2.suno.ai/" + id + ".mp3");
+        String audio = null;
+        String codes = "";
+        for (String u : cand) {
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+                c.setConnectTimeout(15000);
+                c.setReadTimeout(15000);
+                c.setRequestProperty("User-Agent", UA);
+                c.setRequestProperty("Referer", "https://suno.com/");
+                c.setRequestProperty("Origin", "https://suno.com");
+                int code = c.getResponseCode();
+                c.disconnect();
+                codes += " " + code;
+                if (code >= 200 && code < 400) { audio = u; break; }
+            } catch (java.io.IOException e) {
+                codes += " ?";
+            }
+        }
+        if (audio == null) audio = cand.get(cand.size() > 1 ? 1 : 0);   // let the download manager try anyway
+        final String tried = codes;
+        ui.post(() -> status.setText("ফাইল পরীক্ষা (কোড:" + tried + ") — ডাউনলোড শুরু হচ্ছে…"));
 
         enqueue(audio, title);
     }
@@ -260,6 +272,7 @@ public class SunoActivity extends AppCompatActivity {
         r.setDescription("AI Smart Tube — Suno MP3");
         r.setMimeType("audio/mpeg");
         r.addRequestHeader("User-Agent", UA);
+        r.addRequestHeader("Referer", "https://suno.com/");
         r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN);
         r.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "AISmartTube/" + fname);
         DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
