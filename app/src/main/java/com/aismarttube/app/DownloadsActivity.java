@@ -220,7 +220,11 @@ public class DownloadsActivity extends AppCompatActivity {
                 .show();
     }
 
+    private static final int REQ_DEL = 91;
+    private Row delRow;
+
     private void deleteRow(Row r) {
+        boolean gone = true;
         try {
             if (playing >= 0 && playing < rows.size() && rows.get(playing) == r && player != null) {
                 player.stop();
@@ -231,13 +235,47 @@ public class DownloadsActivity extends AppCompatActivity {
                 if (dm != null) dm.remove(r.dm);
             } else if (!r.uri.isEmpty()) {
                 Uri u = Uri.parse(r.uri);
-                if (ContentResolver.SCHEME_CONTENT.equals(u.getScheme())) getContentResolver().delete(u, null, null);
-                else if (u.getPath() != null) new File(u.getPath()).delete();
+                if (ContentResolver.SCHEME_CONTENT.equals(u.getScheme())) {
+                    try {
+                        getContentResolver().delete(u, null, null);
+                    } catch (SecurityException se) {
+                        // the file is not owned by this install: ask the user to allow the delete
+                        gone = false;
+                        if (android.os.Build.VERSION.SDK_INT >= 30) {
+                            delRow = r;
+                            android.app.PendingIntent pi = android.provider.MediaStore.createDeleteRequest(
+                                    getContentResolver(), java.util.Collections.singletonList(u));
+                            startIntentSenderForResult(pi.getIntentSender(), REQ_DEL, null, 0, 0, 0);
+                            return;
+                        }
+                    }
+                } else if (u.getPath() != null) {
+                    File f = new File(u.getPath());
+                    if (f.exists()) gone = f.delete();
+                }
             }
-        } catch (Throwable ignored) { }
+        } catch (Throwable e) {
+            gone = false;
+        }
+        if (!gone) { toast("ফাইলটি মোছা যায়নি"); return; }
         DownloadLog.removeAt(this, r.index);
         refresh();
         status.announceForAccessibility("মুছে ফেলা হয়েছে");
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, android.content.Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == REQ_DEL && delRow != null) {
+            if (res == RESULT_OK) {
+                DownloadLog.removeAt(this, delRow.index);
+                refresh();
+                status.announceForAccessibility("মুছে ফেলা হয়েছে");
+            } else {
+                toast("মোছা হয়নি");
+            }
+            delRow = null;
+        }
     }
 
     private void toast(String m) {

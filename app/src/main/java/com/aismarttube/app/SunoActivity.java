@@ -234,29 +234,104 @@ public class SunoActivity extends AppCompatActivity {
         if (og.startsWith("http")) cand.add(og);
         cand.add("https://cdn1.suno.ai/" + id + ".mp3");
         cand.add("https://cdn2.suno.ai/" + id + ".mp3");
-        String audio = null;
+        fetchAndSave(cand, title);
+    }
+
+    /** Downloads inside the app (full control of the request headers) and saves into Music/AISmartTube. */
+    private void fetchAndSave(java.util.List<String> cand, String title) throws Exception {
+        final String base = safeName(title);
+        HttpURLConnection c = null;
         String codes = "";
+        String[] refs = {"https://suno.com/", "https://app.suno.ai/", null};
+        outer:
         for (String u : cand) {
-            try {
-                HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
-                c.setConnectTimeout(15000);
-                c.setReadTimeout(15000);
-                c.setRequestProperty("User-Agent", UA);
-                c.setRequestProperty("Referer", "https://suno.com/");
-                c.setRequestProperty("Origin", "https://suno.com");
-                int code = c.getResponseCode();
-                c.disconnect();
-                codes += " " + code;
-                if (code >= 200 && code < 400) { audio = u; break; }
-            } catch (java.io.IOException e) {
-                codes += " ?";
+            for (String ref : refs) {
+                HttpURLConnection t = null;
+                try {
+                    t = (HttpURLConnection) new URL(u).openConnection();
+                    t.setConnectTimeout(15000);
+                    t.setReadTimeout(30000);
+                    t.setRequestProperty("User-Agent", UA);
+                    t.setRequestProperty("Accept", "audio/mpeg,audio/*;q=0.9,*/*;q=0.8");
+                    if (ref != null) {
+                        t.setRequestProperty("Referer", ref);
+                        t.setRequestProperty("Origin", ref.substring(0, ref.length() - 1));
+                    }
+                    int code = t.getResponseCode();
+                    codes += " " + code;
+                    if (code == 200) { c = t; break outer; }
+                    t.disconnect();
+                } catch (java.io.IOException e) {
+                    codes += " ?";
+                    if (t != null) t.disconnect();
+                }
             }
         }
-        if (audio == null) audio = cand.get(cand.size() > 1 ? 1 : 0);   // let the download manager try anyway
-        final String tried = codes;
-        ui.post(() -> status.setText("ফাইল পরীক্ষা (কোড:" + tried + ") — ডাউনলোড শুরু হচ্ছে…"));
+        if (c == null) throw new Exception("Suno-র সার্ভার ফাইল দিচ্ছে না (কোড:" + codes + ")");
 
-        enqueue(audio, title);
+        final long total = c.getContentLengthLong();
+        final Context ctx = getApplicationContext();
+        final android.content.ContentResolver cr = ctx.getContentResolver();
+        java.io.OutputStream os;
+        Uri muri = null;
+        File mfile = null;
+        String where;
+        if (Build.VERSION.SDK_INT >= 29) {
+            android.content.ContentValues v = new android.content.ContentValues();
+            v.put(android.provider.MediaStore.Audio.Media.DISPLAY_NAME, base + ".mp3");
+            v.put(android.provider.MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg");
+            v.put(android.provider.MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/AISmartTube");
+            v.put(android.provider.MediaStore.Audio.Media.IS_PENDING, 1);
+            muri = cr.insert(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, v);
+            if (muri == null) throw new Exception("ফাইল তৈরি করা যায়নি");
+            os = cr.openOutputStream(muri);
+            if (os == null) throw new Exception("ফাইল খোলা যায়নি");
+            where = muri.toString();
+        } else {
+            File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "AISmartTube");
+            if (!dir.exists() && !dir.mkdirs()) throw new Exception("ফোল্ডার তৈরি করা যায়নি");
+            String nm = base + ".mp3";
+            int k = 1;
+            while (new File(dir, nm).exists() && k < 100) nm = base + " (" + (k++) + ").mp3";
+            mfile = new File(dir, nm);
+            os = new java.io.BufferedOutputStream(new java.io.FileOutputStream(mfile), 64 * 1024);
+            where = Uri.fromFile(mfile).toString();
+        }
+        boolean ok = false;
+        try {
+            InputStream in = c.getInputStream();
+            byte[] buf = new byte[32 * 1024];
+            long got = 0;
+            int last = -1, n;
+            while ((n = in.read(buf)) > 0) {
+                os.write(buf, 0, n);
+                got += n;
+                int pct = total > 0 ? (int) (got * 100 / total) : -1;
+                if (pct >= 0 && pct / 10 != last) { last = pct / 10; say("নামছে: " + base + " — " + pct + "% (অ্যাপ খোলা রাখুন)"); }
+            }
+            in.close();
+            os.flush();
+            os.close();
+            if (got < 1024) throw new Exception("ফাইল খুব ছোট (" + got + " বাইট)");
+            ok = true;
+        } finally {
+            c.disconnect();
+            if (!ok) {
+                try { os.close(); } catch (Throwable ignored) { }
+                if (muri != null) { try { cr.delete(muri, null, null); } catch (Throwable ignored) { } }
+                if (mfile != null) mfile.delete();
+            }
+        }
+        if (muri != null) {
+            android.content.ContentValues u = new android.content.ContentValues();
+            u.put(android.provider.MediaStore.Audio.Media.IS_PENDING, 0);
+            cr.update(muri, u, null, null);
+        } else if (mfile != null) {
+            android.media.MediaScannerConnection.scanFile(ctx, new String[]{mfile.getAbsolutePath()}, new String[]{"audio/mpeg"}, null);
+        }
+        DownloadLog.add(ctx, base, "mp3", where, 0);
+        ui.post(() -> btnList.setVisibility(View.VISIBLE));
+        say("ডাউনলোড হয়েছে: " + base + "\nফোল্ডার: Music/AISmartTube। ডাউনলোডের তালিকায় চালানো ও মোছা যাবে।");
     }
 
     @SuppressWarnings("deprecation")
