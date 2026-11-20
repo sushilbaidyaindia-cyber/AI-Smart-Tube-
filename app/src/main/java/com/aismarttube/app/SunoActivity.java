@@ -46,6 +46,8 @@ public class SunoActivity extends AppCompatActivity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private String pendingLink = null;
     private volatile boolean working = false;
+    private String pageInfo = "";
+    private String bodyNote = "";
 
     /** true if the text holds a Suno link */
     static boolean isSuno(String raw) {
@@ -232,6 +234,22 @@ public class SunoActivity extends AppCompatActivity {
         java.util.List<String> cand = new java.util.ArrayList<>();
         String og = unescape(meta(html, "og:audio"));
         if (og.startsWith("http")) cand.add(og);
+        // real audio links written inside the page itself
+        Matcher am = Pattern.compile("https:(?:\\\\?/){2}cdn\\d*\\.suno\\.ai(?:\\\\?/)[^\"'\\s<>\\\\]+?\\.(?:mp3|m4a)[^\"'\\s<>\\\\]*").matcher(html);
+        while (am.find()) {
+            String u = am.group().replace("\\/", "/").replace("\\u0026", "&");
+            if (!cand.contains(u)) cand.add(u);
+        }
+        // Suno's own clip info (public songs)
+        try {
+            String js = get("https://studio-api.suno.ai/api/clip/" + id, null, 300000);
+            Matcher jm = Pattern.compile("\"audio_url\"\\s*:\\s*\"([^\"]+)\"").matcher(js);
+            while (jm.find()) {
+                String u = jm.group(1).replace("\\/", "/").replace("\\u0026", "&");
+                if (u.startsWith("http") && !cand.contains(u)) cand.add(0, u);
+            }
+        } catch (Throwable ignored) { }
+        pageInfo = "পাতা " + html.length() + " অক্ষর, ঠিকানা " + cand.size() + "টি";
         cand.add("https://cdn1.suno.ai/" + id + ".mp3");
         cand.add("https://cdn2.suno.ai/" + id + ".mp3");
         fetchAndSave(cand, title);
@@ -260,6 +278,18 @@ public class SunoActivity extends AppCompatActivity {
                     int code = t.getResponseCode();
                     codes += " " + code;
                     if (code == 200) { c = t; break outer; }
+                    if (bodyNote.isEmpty()) {
+                        try {
+                            InputStream es = t.getErrorStream();
+                            if (es != null) {
+                                byte[] eb = new byte[200];
+                                int en = es.read(eb);
+                                if (en > 0) bodyNote = new String(eb, 0, en, "UTF-8").replaceAll("\\s+", " ");
+                                String sv = t.getHeaderField("Server");
+                                if (sv != null) bodyNote = "[" + sv + "] " + bodyNote;
+                            }
+                        } catch (Throwable ignored2) { }
+                    }
                     t.disconnect();
                 } catch (java.io.IOException e) {
                     codes += " ?";
@@ -267,7 +297,7 @@ public class SunoActivity extends AppCompatActivity {
                 }
             }
         }
-        if (c == null) throw new Exception("Suno-র সার্ভার ফাইল দিচ্ছে না (কোড:" + codes + ")");
+        if (c == null) throw new Exception("Suno-র সার্ভার ফাইল দিচ্ছে না (কোড:" + codes + ") " + pageInfo + " | " + bodyNote);
 
         final long total = c.getContentLengthLong();
         final Context ctx = getApplicationContext();
