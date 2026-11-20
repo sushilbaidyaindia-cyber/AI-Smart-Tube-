@@ -57,24 +57,39 @@ public class DownloadsActivity extends AppCompatActivity {
 
             @Override
             public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup p, int t) {
-                TextView v = new TextView(p.getContext());
-                v.setLayoutParams(new RecyclerView.LayoutParams(
+                android.widget.LinearLayout row = new android.widget.LinearLayout(p.getContext());
+                row.setLayoutParams(new RecyclerView.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                TextView v = new TextView(p.getContext());
+                v.setId(android.R.id.text1);
+                v.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
                 v.setMinHeight(dp(64));
                 v.setGravity(Gravity.CENTER_VERTICAL);
-                v.setPadding(dp(20), dp(12), dp(20), dp(12));
+                v.setPadding(dp(20), dp(12), dp(8), dp(12));
                 v.setTextColor(0xFFEAF5F3);
                 v.setTextSize(17);
                 v.setClickable(true);
                 v.setFocusable(true);
                 v.setBackgroundResource(android.R.drawable.list_selector_background);
-                return new RecyclerView.ViewHolder(v) { };
+                row.addView(v);
+                android.widget.Button del = new android.widget.Button(p.getContext());
+                del.setId(android.R.id.button1);
+                del.setText("মুছুন");
+                del.setAllCaps(false);
+                del.setMinWidth(dp(72));
+                del.setLayoutParams(new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(48)));
+                ((android.widget.LinearLayout.LayoutParams) del.getLayoutParams()).setMargins(0, 0, dp(12), 0);
+                row.addView(del);
+                return new RecyclerView.ViewHolder(row) { };
             }
 
             @Override
             public void onBindViewHolder(RecyclerView.ViewHolder h, int pos) {
                 final Row r = rows.get(pos);
-                TextView v = (TextView) h.itemView;
+                TextView v = h.itemView.findViewById(android.R.id.text1);
+                android.widget.Button del = h.itemView.findViewById(android.R.id.button1);
                 String st = "ready".equals(r.state)
                         ? (pos == playing && player != null && player.isPlaying() ? "চলছে" : "প্রস্তুত")
                         : "running".equals(r.state) ? "নামছে " + VideoItem.formatCountBn(r.percent) + "%" : "ব্যর্থ";
@@ -83,9 +98,10 @@ public class DownloadsActivity extends AppCompatActivity {
                 v.setContentDescription(r.title + ", " + line);
                 v.setOnClickListener(x -> tap(pos));
                 v.setOnLongClickListener(x -> { confirmDelete(r); return true; });
-                ViewCompat.replaceAccessibilityAction(v, androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK, "মুছুন", (view, args) -> { confirmDelete(r); return true; });
                 ViewCompat.addAccessibilityAction(v, "১০ সেকেন্ড সামনে", (view, args) -> { skip(pos, 10000); return true; });
                 ViewCompat.addAccessibilityAction(v, "১০ সেকেন্ড পিছনে", (view, args) -> { skip(pos, -10000); return true; });
+                del.setContentDescription("মুছুন: " + r.title);
+                del.setOnClickListener(x -> confirmDelete(r));
             }
         };
         list.setAdapter(adapter);
@@ -146,7 +162,7 @@ public class DownloadsActivity extends AppCompatActivity {
         status.setVisibility(View.VISIBLE);
         status.setText(rows.isEmpty()
                 ? "এখনো কিছু ডাউনলোড করা হয়নি। প্লেয়ারে M4A বা MP3 ডাউনলোড বোতাম আছে।"
-                : rows.size() + "টি ডাউনলোড। চাপলে চলবে। মুছতে দীর্ঘক্ষণ চাপুন বা TalkBack-এর অ্যাকশন মেনু ব্যবহার করুন।");
+                : rows.size() + "টি ডাউনলোড। চাপলে চলবে। প্রতিটির পাশে "মুছুন" বোতাম আছে।");
     }
 
     private void tap(int pos) {

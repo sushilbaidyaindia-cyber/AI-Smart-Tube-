@@ -61,23 +61,6 @@
             android:theme="@style/Theme.AppCompat.NoActionBar"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- Suno গানের লিংক শেয়ার করলে MP3 ডাউনলোড -->
-        <activity
-            android:name=".SunoActivity"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.NoActionBar">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="suno.com" />
-                <data android:host="www.suno.com" />
-                <data android:pathPrefix="/song" />
-                <data android:pathPrefix="/s/" />
-            </intent-filter>
-        </activity>
-
         <!-- নেটিভ প্লেয়ার (ExoPlayer) -->
         <activity
             android:name=".PlayerActivity"
