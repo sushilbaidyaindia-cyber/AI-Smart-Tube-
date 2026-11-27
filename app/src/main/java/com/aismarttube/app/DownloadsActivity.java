@@ -162,7 +162,7 @@ public class DownloadsActivity extends AppCompatActivity {
         status.setVisibility(View.VISIBLE);
         status.setText(rows.isEmpty()
                 ? "এখনো কিছু ডাউনলোড করা হয়নি। প্লেয়ারে M4A বা MP3 ডাউনলোড বোতাম আছে।"
-                : rows.size() + "টি ডাউনলোড। চাপলে চলবে। প্রতিটির পাশে "মুছুন" বোতাম আছে।");
+                : rows.size() + "টি ডাউনলোড। চাপলে চলবে। প্রতিটির পাশে মুছুন বোতাম আছে।");
     }
 
     private void tap(int pos) {
