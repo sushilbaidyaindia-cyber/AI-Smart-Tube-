@@ -10,8 +10,10 @@ android {
         applicationId "com.aismarttube.app"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        // every GitHub build gets the next number automatically (GITHUB_RUN_NUMBER), so versions differ build to build
+        def runNo = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+        versionCode runNo
+        versionName "1.${runNo}"
     }
 
     // fixed signing key so the Google sign-in SHA-1 never changes between GitHub builds.
@@ -51,10 +53,10 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'com.github.bumptech.glide:glide:4.16.0'
-    implementation 'androidx.media3:media3-exoplayer:1.3.1'
-    implementation 'androidx.media3:media3-exoplayer-hls:1.3.1'
-    implementation 'androidx.media3:media3-exoplayer-dash:1.3.1'   // Jio DRM channels (DASH + Widevine)
-    implementation 'androidx.media3:media3-ui:1.3.1'
+    implementation 'androidx.media3:media3-exoplayer:1.4.1'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'
+    implementation 'androidx.media3:media3-exoplayer-dash:1.4.1'   // Jio DRM channels (DASH + Widevine)
+    implementation 'androidx.media3:media3-ui:1.4.1'
 
     implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.27.1'
     // required by NewPipeExtractor v0.27.0 for minSdk < 33
