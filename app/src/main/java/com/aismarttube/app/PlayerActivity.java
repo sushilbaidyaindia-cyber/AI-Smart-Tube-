@@ -121,6 +121,8 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
 
     private boolean replaced = false;
     private int forceHeight = 0;       // 0 = automatic
+    private int errRetries = 0;
+    private long lastErrPos = -100000;
     private long resumeMs = -1;        // set when the quality is changed mid-video
     private Button pQual, pLang, pSubs;
     private String audioPref = "";    // preferred audio language ("bn") or track id; empty = automatic
@@ -323,6 +325,35 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
 
             @Override
             public void onPlayerError(PlaybackException e) {
+                // an error after the video has already been playing is usually a dropped connection or an expired
+                // link: stay on the same video and the same second instead of jumping to another source
+                long pos = 0;
+                try { pos = player.getCurrentPosition(); } catch (Throwable ignored) { }
+                if (pos > 3000 && cur != null) {
+                    if (pos - lastErrPos > 30000) errRetries = 0;
+                    if (errRetries < 4) {
+                        errRetries++;
+                        lastErrPos = pos;
+                        final long at = pos;
+                        final int tk = token;
+                        spin.setVisibility(View.VISIBLE);
+                        boolean badLink = e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS
+                                || e.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
+                        if (badLink || errRetries >= 3) {
+                            note("লিংকের মেয়াদ শেষ হতে পারে, নতুন লিংক আনা হচ্ছে");
+                            resumeMs = at;
+                            tried.clear();
+                            fetch(tk, "auto");
+                        } else {
+                            note("সংযোগে সমস্যা, আবার চেষ্টা হচ্ছে");
+                            ui.postDelayed(() -> {
+                                if (tk != token || isFinishing() || player == null) return;
+                                try { player.seekTo(at); player.prepare(); player.play(); } catch (Throwable ignored) { }
+                            }, 1500L * errRetries);
+                        }
+                        return;
+                    }
+                }
                 tryNextSource("প্লে করা যায়নি (" + e.getErrorCodeName() + ")");
             }
         });
@@ -416,6 +447,8 @@ public class PlayerActivity extends AppCompatActivity implements VideoAdapter.Li
         cur = queue.get(idx);
         token++;
         tried.clear();
+        errRetries = 0;
+        lastErrPos = -100000;
         streams = null;
         try { player.stop(); player.clearMediaItems(); } catch (Throwable ignored) {}
         title.setText(cur.title.isEmpty() ? "ভিডিও" : cur.title);
