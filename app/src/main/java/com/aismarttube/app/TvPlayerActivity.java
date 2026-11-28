@@ -183,10 +183,14 @@ public class TvPlayerActivity extends AppCompatActivity {
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(15000)
                 .setReadTimeoutMs(20000);
-        player = new ExoPlayer.Builder(this)
+        player = new ExoPlayer.Builder(this, new androidx.media3.exoplayer.DefaultRenderersFactory(this)
+                        .setEnableDecoderFallback(true))      // if the first sound decoder fails, try another one
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(new DefaultDataSource.Factory(this, http)))
                 .setHandleAudioBecomingNoisy(true)
                 .build();
+        // 5.1 sound is mixed down to the phone's speakers instead of being dropped
+        player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
+                .setConstrainAudioChannelCountToDeviceCapabilities(false).build());
         player.setAudioAttributes(new AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
@@ -216,6 +220,24 @@ public class TvPlayerActivity extends AppCompatActivity {
 
             @Override
             public void onIsPlayingChanged(boolean p) { updatePlay(); }
+
+            @Override
+            public void onTracksChanged(androidx.media3.common.Tracks tracks) {
+                // says why there is no sound: the channel's sound format may be one this phone cannot play
+                try {
+                    boolean any = false, ok = false;
+                    String bad = "";
+                    for (androidx.media3.common.Tracks.Group g : tracks.getGroups()) {
+                        if (g.getType() != C.TRACK_TYPE_AUDIO) continue;
+                        any = true;
+                        if (g.isSupported()) ok = true;
+                        else if (g.length > 0) bad = String.valueOf(g.getTrackFormat(0).sampleMimeType);
+                    }
+                    if (any && !ok) setState("এই চ্যানেলের সাউন্ড ফরম্যাট (" + bad + ") আপনার ফোন চালাতে পারছে না");
+                    else if (!any && player != null && player.getPlaybackState() == Player.STATE_READY && tracks.getGroups().size() > 0)
+                        setState("এই চ্যানেলে আলাদা সাউন্ড ট্র্যাক পাওয়া যায়নি");
+                } catch (Throwable ignored) { }
+            }
 
             @Override
             public void onPlayerError(PlaybackException e) {
